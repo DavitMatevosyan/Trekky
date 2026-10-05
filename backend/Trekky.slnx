@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Trekky.Api/Trekky.Api.csproj" />
+    <Project Path="src/Trekky.SharedKernel/Trekky.SharedKernel.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Trekky.Api.Tests/Trekky.Api.Tests.csproj" />
+  </Folder>
+</Solution>
