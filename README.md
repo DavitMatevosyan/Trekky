@@ -35,7 +35,7 @@ dotnet run --project src/Trekky.Api
 
 # 3. Frontend (http://localhost:5173, proxies /api to the backend)
 cd frontend
-npm install
+npm ci        # first time without a lockfile: npm install
 npm run dev
 ```
 
