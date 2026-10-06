@@ -32,7 +32,7 @@ dotnet test
 dotnet run --project src/Trekky.Api        # http://localhost:5080, /api/v1/health
 
 cd frontend
-npm install
+npm ci                                     # installs exactly what package-lock.json pins
 npm run lint && npm test && npm run build
 npm run dev                                # http://localhost:5173, proxies /api → 5080
 ```
