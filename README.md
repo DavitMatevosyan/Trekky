@@ -11,7 +11,8 @@ backend/    .NET 10 modular monolith (ASP.NET Core API, EF Core, Postgres)
 frontend/   React + TypeScript (Vite)
 docs/adr/   Architecture decision records
 .github/    CI workflows
-docker-compose.yml   Local infrastructure: Postgres, MinIO, Mailpit
+docker-compose.yml   Local infrastructure: Postgres, Mailpit
+docker/postgres/init/   Database roles created on first start
 ```
 
 ## Prerequisites
@@ -30,7 +31,7 @@ docker compose up -d
 # 2. Backend  (http://localhost:5080, health: /api/v1/health, OpenAPI: /openapi/v1.json)
 cd backend
 dotnet build
-dotnet test
+dotnet test        # needs Docker running: tests start Postgres with Testcontainers
 dotnet run --project src/Trekky.Api
 
 # 3. Frontend (http://localhost:5173, proxies /api to the backend)
@@ -40,6 +41,8 @@ npm run dev
 ```
 
 Local services: Postgres `localhost:5432`, Mailpit inbox `http://localhost:8025`. There is no object storage yet; see ADR-0006.
+
+Database roles: on first start Postgres creates `trekky_owner` (runs migrations, owns tables) and `trekky_app` (used by the API; row-level security always applies) from `docker/postgres/init/01-roles.sql`. In Development the API applies pending migrations on startup. If your Postgres volume was created before these roles existed, recreate it once: `docker compose down -v && docker compose up -d` (this deletes local data).
 
 ## Conventions
 

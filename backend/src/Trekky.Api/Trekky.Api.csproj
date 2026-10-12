@@ -5,6 +5,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Trekky.Persistence\Trekky.Persistence.csproj" />
     <ProjectReference Include="..\Trekky.SharedKernel\Trekky.SharedKernel.csproj" />
   </ItemGroup>
 
