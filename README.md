@@ -39,7 +39,7 @@ npm ci        # first time without a lockfile: npm install
 npm run dev
 ```
 
-Local services: Postgres `localhost:5432`, MinIO console `http://localhost:9001`, Mailpit inbox `http://localhost:8025`.
+Local services: Postgres `localhost:5432`, Mailpit inbox `http://localhost:8025`. There is no object storage yet; see ADR-0006.
 
 ## Conventions
 
@@ -52,4 +52,4 @@ Local services: Postgres `localhost:5432`, MinIO console `http://localhost:9001`
 
 ## License
 
-Not chosen yet (ADR-006). Keep the repository private until it is.
+Not chosen yet (ADR-0007). Keep the repository private until it is.
