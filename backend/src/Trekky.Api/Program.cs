@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Authorization;
+using Trekky.Modules.Identity;
 using Trekky.Persistence.Registration;
 using Trekky.Persistence.Tenancy;
 using Trekky.SharedKernel;
@@ -8,30 +10,37 @@ builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
 builder.Services.AddTrekkyPersistence();
 
-// Modules (Identity, Projects, WorkItems, ...) are registered here as they are built.
-builder.Services.AddModules(builder.Configuration);
+// Every endpoint needs an authenticated user unless it opts out with AllowAnonymous.
+builder.Services.AddAuthorizationBuilder()
+    .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
+
+// Modules (Projects, WorkItems, ...) are added here as they are built.
+builder.Services.AddModules(builder.Configuration, new IdentityModule());
 
 var app = builder.Build();
 
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 
-// Authentication arrives in TRK-7; the tenant must be set after it.
-app.UseTenantContext();
+app.UseAuthentication();
+app.UseTenantContext(); // after authentication: reads the org_id claim
+app.UseAuthorization();
 
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.MapOpenApi().AllowAnonymous();
     await app.MigrateModuleDatabasesAsync();
 }
 
 var api = app.MapGroup("/api/v1");
 
 api.MapGet("/health", () => TypedResults.Ok(new HealthResponse("ok")))
+    .AllowAnonymous()
     .WithName("GetHealth")
     .WithSummary("Liveness check");
 
 api.MapModules();
+app.MapModuleRootEndpoints();
 
 await app.RunAsync();
 

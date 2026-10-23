@@ -1,11 +1,13 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/Modules/Trekky.Modules.Identity/Trekky.Modules.Identity.csproj" />
     <Project Path="src/Trekky.Api/Trekky.Api.csproj" />
     <Project Path="src/Trekky.Persistence/Trekky.Persistence.csproj" />
     <Project Path="src/Trekky.SharedKernel/Trekky.SharedKernel.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Trekky.Api.Tests/Trekky.Api.Tests.csproj" />
+    <Project Path="tests/Trekky.Modules.Identity.Tests/Trekky.Modules.Identity.Tests.csproj" />
     <Project Path="tests/Trekky.Persistence.Tests/Trekky.Persistence.Tests.csproj" />
   </Folder>
 </Solution>
