@@ -22,12 +22,16 @@ public sealed class TrekkyApiFactory : WebApplicationFactory<Program>, IAsyncLif
     /// <summary>Connects as trekky_app, the runtime role RLS applies to.</summary>
     public string AppConnectionString { get; private set; } = string.Empty;
 
+    /// <summary>Connects as the Postgres superuser, which bypasses RLS: for asserting what is really stored.</summary>
+    public string SuperuserConnectionString { get; private set; } = string.Empty;
+
     private string OwnerConnectionString { get; set; } = string.Empty;
 
     public async Task InitializeAsync()
     {
         await _postgres.StartAsync();
         var superuser = _postgres.GetConnectionString();
+        SuperuserConnectionString = superuser;
 
         await using (var connection = new NpgsqlConnection(superuser))
         {

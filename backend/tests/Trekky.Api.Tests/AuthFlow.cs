@@ -87,7 +87,14 @@ internal static class AuthFlow
         var email = NewEmail();
         var signUp = await SignUpAsync(client, email, organizationName);
         Assert.Equal(HttpStatusCode.Created, signUp.StatusCode);
-        return new SignedUpUser(client, email, await GetTokensAsync(client));
+        return new SignedUpUser(client, email, SessionCookie(signUp), await GetTokensAsync(client));
+    }
+
+    /// <summary>The <c>trekky.session=...</c> pair from a response's Set-Cookie header.</summary>
+    public static string SessionCookie(HttpResponseMessage response)
+    {
+        var header = response.Headers.GetValues("Set-Cookie").Single(c => c.StartsWith("trekky.session=", StringComparison.Ordinal));
+        return header.Split(';')[0];
     }
 
     /// <summary>Decodes a JWT part (header or payload) without validating it.</summary>
@@ -102,7 +109,7 @@ internal static class AuthFlow
         => Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 }
 
-internal sealed record SignedUpUser(HttpClient Client, string Email, TokenResponse Tokens) : IDisposable
+internal sealed record SignedUpUser(HttpClient Client, string Email, string SessionCookie, TokenResponse Tokens) : IDisposable
 {
     public void Dispose() => Client.Dispose();
 }

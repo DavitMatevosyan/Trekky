@@ -3,6 +3,7 @@ using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Routing;
 using OpenIddict.Abstractions;
@@ -35,9 +36,9 @@ internal static class ConnectEndpoints
     }
 
     /// <summary>Issues an authorization code for the user logged in with the session cookie.</summary>
-    private static async Task<IResult> AuthorizeAsync(
+    private static async Task<Results<SignInHttpResult, ForbidHttpResult>> AuthorizeAsync(
         HttpContext http,
-        UserManager<User> users,
+        SignInManager<User> signIn,
         MembershipReader memberships,
         IOpenIddictApplicationManager applications,
         IOpenIddictAuthorizationManager authorizations,
@@ -47,10 +48,11 @@ internal static class ConnectEndpoints
             ?? throw new InvalidOperationException("The OpenID Connect request cannot be retrieved.");
 
         // The web app logs in through POST /api/v1/auth/login first; there is no server-rendered login page.
-        // Without a session the client gets login_required (also the answer to prompt=none).
+        // Without a valid session the client gets login_required (also the answer to prompt=none).
+        // The security stamp is checked on every call, so a cookie from before logout stops working at once.
         var session = await http.AuthenticateAsync(IdentityConstants.ApplicationScheme);
-        var user = session.Succeeded && session.Principal is { } principal ? await users.GetUserAsync(principal) : null;
-        if (user is null)
+        var user = session.Succeeded ? await signIn.ValidateSecurityStampAsync(session.Principal) : null;
+        if (user is null || !await signIn.CanSignInAsync(user))
         {
             return Forbid(Errors.LoginRequired, "The user is not logged in.");
         }
@@ -78,11 +80,11 @@ internal static class ConnectEndpoints
             cancellationToken);
         identity.SetAuthorizationId(await authorizations.GetIdAsync(authorization, cancellationToken));
 
-        return Results.SignIn(new ClaimsPrincipal(identity), properties: null, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+        return TypedResults.SignIn(new ClaimsPrincipal(identity), properties: null, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
     }
 
     /// <summary>Exchanges a code or a refresh token, re-reading the user and membership so tokens never outlive them.</summary>
-    private static async Task<IResult> ExchangeAsync(
+    private static async Task<Results<SignInHttpResult, ForbidHttpResult>> ExchangeAsync(
         HttpContext http,
         UserManager<User> users,
         SignInManager<User> signIn,
@@ -111,11 +113,11 @@ internal static class ConnectEndpoints
         }
 
         var identity = TokenClaims.Apply(TokenClaims.CopyOf(result.Principal), user, membership);
-        return Results.SignIn(new ClaimsPrincipal(identity), properties: null, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+        return TypedResults.SignIn(new ClaimsPrincipal(identity), properties: null, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
     }
 
-    private static IResult Forbid(string error, string description)
-        => Results.Forbid(
+    private static ForbidHttpResult Forbid(string error, string description)
+        => TypedResults.Forbid(
             new AuthenticationProperties(new Dictionary<string, string?>
             {
                 [OpenIddictServerAspNetCoreConstants.Properties.Error] = error,

@@ -14,9 +14,9 @@ internal static class TransactionSettings
     public static Task SetTenantAsync(this IdentityDbContext db, Guid orgId, CancellationToken cancellationToken)
         => SetAsync(db, TenantRowLevelSecurity.SettingName, orgId, cancellationToken);
 
-    /// <summary>Lets this transaction read <paramref name="userId"/>'s memberships (policy <c>membership_self_read</c>).</summary>
+    /// <summary>Lets this transaction read <paramref name="userId"/>'s memberships (policy <c>user_self_read</c>, ADR-0007).</summary>
     public static Task SetUserAsync(this IdentityDbContext db, Guid userId, CancellationToken cancellationToken)
-        => SetAsync(db, IdentityRowLevelSecurity.UserIdSetting, userId, cancellationToken);
+        => SetAsync(db, UserRowLevelSecurity.SettingName, userId, cancellationToken);
 
     private static async Task SetAsync(IdentityDbContext db, string setting, Guid value, CancellationToken cancellationToken)
     {

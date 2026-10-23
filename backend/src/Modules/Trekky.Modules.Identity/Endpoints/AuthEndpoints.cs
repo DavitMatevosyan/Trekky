@@ -17,7 +17,8 @@ internal static class AuthEndpoints
 {
     internal const string EmailTakenMessage = "An account with this email already exists.";
     internal const string InvalidCredentialsMessage = "Email or password is incorrect.";
-    internal const string LockedOutMessage = "Too many failed attempts. Try again in 15 minutes.";
+    internal static readonly string LockedOutMessage =
+        $"Too many failed attempts. Try again in {IdentityServiceCollectionExtensions.LockoutDuration.TotalMinutes:0} minutes.";
 
     public static IEndpointRouteBuilder MapAuthEndpoints(this IEndpointRouteBuilder endpoints)
     {
@@ -47,7 +48,7 @@ internal static class AuthEndpoints
         return endpoints;
     }
 
-    private static async Task<Results<Created<MeResponse>, ValidationProblem, ProblemHttpResult>> SignUpAsync(
+    private static async Task<Results<Created<Me>, ValidationProblem, ProblemHttpResult>> SignUpAsync(
         SignUpRequest request,
         AccountService accounts,
         CancellationToken cancellationToken)
@@ -82,23 +83,26 @@ internal static class AuthEndpoints
         };
     }
 
+    /// <summary>Logs out everywhere: revokes all of the user's tokens and invalidates their session cookies.</summary>
     private static async Task<NoContent> LogOutAsync(
         ClaimsPrincipal principal,
+        UserManager<User> users,
         SessionRevoker sessions,
         SignInManager<User> signIn,
         CancellationToken cancellationToken)
     {
         var subject = principal.FindFirstValue(Claims.Subject);
-        if (!string.IsNullOrEmpty(subject))
+        var user = string.IsNullOrEmpty(subject) ? null : await users.FindByIdAsync(subject);
+        if (user is not null)
         {
-            await sessions.RevokeAllAsync(subject, cancellationToken);
+            await sessions.RevokeAllAsync(user, cancellationToken);
         }
 
         await signIn.SignOutAsync();
         return TypedResults.NoContent();
     }
 
-    private static async Task<Results<Ok<MeResponse>, UnauthorizedHttpResult>> GetMeAsync(
+    private static async Task<Results<Ok<Me>, UnauthorizedHttpResult>> GetMeAsync(
         ClaimsPrincipal principal,
         ITenantContext tenant,
         AccountService accounts,

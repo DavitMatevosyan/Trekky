@@ -27,11 +27,12 @@ internal sealed class AccountService(
     SignInManager<User> signIn,
     TimeProvider time)
 {
+
     /// <summary>
     /// Creates the user, the organization and the Owner membership in one transaction (US-01 AC5),
     /// then signs the user in.
     /// </summary>
-    public async Task<(SignUpOutcome Outcome, MeResponse? Me)> SignUpAsync(SignUpInput input, CancellationToken cancellationToken)
+    public async Task<(SignUpOutcome Outcome, Me? Me)> SignUpAsync(SignUpInput input, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(input);
 
@@ -79,7 +80,7 @@ internal sealed class AccountService(
 
         await signIn.SignInAsync(user, isPersistent: false);
 
-        return (SignUpOutcome.Created, new MeResponse(
+        return (SignUpOutcome.Created, new Me(
             new UserRef(user.Id, user.DisplayName, user.Email),
             new OrganizationRef(organization.Id, organization.Name),
             Roles.Owner));
@@ -91,6 +92,8 @@ internal sealed class AccountService(
         var user = await users.FindByEmailAsync(email.Trim());
         if (user is null)
         {
+            // Spend the same time hashing as a real check, so response time does not reveal unknown emails.
+            users.PasswordHasher.HashPassword(new User(), password);
             return LoginOutcome.InvalidCredentials;
         }
 
@@ -104,7 +107,7 @@ internal sealed class AccountService(
     }
 
     /// <summary>The current user, organization and role, read as the request's tenant.</summary>
-    public async Task<MeResponse?> GetMeAsync(Guid userId, Guid orgId, CancellationToken cancellationToken)
+    public async Task<Me?> GetMeAsync(Guid userId, Guid orgId, CancellationToken cancellationToken)
     {
         var user = await db.Users
             .AsNoTracking()
@@ -125,6 +128,6 @@ internal sealed class AccountService(
 
         return membership is null
             ? null
-            : new MeResponse(user, new OrganizationRef(membership.Id, membership.Name), membership.Role);
+            : new Me(user, new OrganizationRef(membership.Id, membership.Name), membership.Role);
     }
 }

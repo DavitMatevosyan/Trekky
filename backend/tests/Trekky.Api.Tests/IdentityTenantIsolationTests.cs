@@ -39,7 +39,7 @@ public sealed class IdentityTenantIsolationTests(TrekkyApiFactory factory)
         Assert.Equal(0, await CountAsync(connection, "identity.memberships", "org_id", meB.Organization.Id));
         Assert.Equal(1, await CountAsync(connection, "identity.organizations", "id", meA.Organization.Id));
 
-        // membership_self_read: user B may read their own membership, but not B's organization row.
+        // user_self_read: user B may read their own membership, but not B's organization row.
         await SetAsync(connection, "app.user_id", meB.User.Id);
         Assert.Equal(1, await CountAsync(connection, "identity.memberships", "org_id", meB.Organization.Id));
         Assert.Equal(0, await CountAsync(connection, "identity.organizations", "id", meB.Organization.Id));
@@ -51,7 +51,7 @@ public sealed class IdentityTenantIsolationTests(TrekkyApiFactory factory)
     }
 
     [Fact]
-    public async Task Membership_self_read_does_not_allow_writes()
+    public async Task User_self_read_does_not_allow_writes()
     {
         using var user = await AuthFlow.SignedUpUserAsync(factory, "Org C");
         var me = await GetMeAsync(user.Client, user.Tokens.AccessToken);

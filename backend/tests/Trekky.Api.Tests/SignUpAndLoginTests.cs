@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using Npgsql;
 
 namespace Trekky.Api.Tests;
 
@@ -41,6 +42,12 @@ public sealed class SignUpAndLoginTests(TrekkyApiFactory factory)
         var problem = await response.Content.ReadFromJsonAsync<ProblemBody>();
         Assert.Equal("An account with this email already exists.", problem?.Detail);
         Assert.False(response.Headers.Contains("Set-Cookie"));
+
+        // US-01 AC5: the failed sign-up left no organization behind.
+        await using var connection = new NpgsqlConnection(factory.SuperuserConnectionString);
+        await connection.OpenAsync();
+        await using var count = new NpgsqlCommand("SELECT count(*) FROM identity.organizations WHERE name = 'Another org'", connection);
+        Assert.Equal(0L, await count.ExecuteScalarAsync());
     }
 
     [Fact]

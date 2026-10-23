@@ -1,36 +1,35 @@
+using Microsoft.AspNetCore.Identity;
 using OpenIddict.Abstractions;
+using Trekky.Modules.Identity.Domain;
 
 namespace Trekky.Modules.Identity.Auth;
 
-/// <summary>Revokes every authorization and token of a user (logout, US-02 AC4).</summary>
+/// <summary>
+/// Logs a user out everywhere (US-02 AC4): revokes every OpenIddict authorization of the user, which
+/// invalidates the refresh and access tokens chained to them (authorization entry validation is on in
+/// both the server and the validation handler), and rotates the security stamp so existing session
+/// cookies stop working at <c>/connect/authorize</c>.
+/// </summary>
 internal sealed class SessionRevoker(
     IOpenIddictAuthorizationManager authorizations,
-    IOpenIddictTokenManager tokens)
+    UserManager<User> users)
 {
-    public async Task RevokeAllAsync(string subject, CancellationToken cancellationToken)
+    public async Task RevokeAllAsync(User user, CancellationToken cancellationToken)
     {
-        ArgumentException.ThrowIfNullOrEmpty(subject);
+        ArgumentNullException.ThrowIfNull(user);
 
         // Materialize first: Npgsql allows one open reader per connection, and revoking writes.
-        foreach (var token in await ToListAsync(tokens.FindBySubjectAsync(subject, cancellationToken), cancellationToken))
+        var active = new List<object>();
+        await foreach (var authorization in authorizations.FindBySubjectAsync(user.Id.ToString(), cancellationToken))
         {
-            await tokens.TryRevokeAsync(token, cancellationToken);
+            active.Add(authorization);
         }
 
-        foreach (var authorization in await ToListAsync(authorizations.FindBySubjectAsync(subject, cancellationToken), cancellationToken))
+        foreach (var authorization in active)
         {
             await authorizations.TryRevokeAsync(authorization, cancellationToken);
         }
-    }
 
-    private static async Task<List<object>> ToListAsync(IAsyncEnumerable<object> source, CancellationToken cancellationToken)
-    {
-        var list = new List<object>();
-        await foreach (var item in source.WithCancellation(cancellationToken))
-        {
-            list.Add(item);
-        }
-
-        return list;
+        await users.UpdateSecurityStampAsync(user);
     }
 }

@@ -7,7 +7,7 @@ public sealed record SignUpRequest(string? Email, string? Password, string? Orga
 public sealed record LoginRequest(string? Email, string? Password);
 
 /// <summary>The current user, organization and role.</summary>
-public sealed record MeResponse(UserRef User, OrganizationRef Organization, string Role);
+public sealed record Me(UserRef User, OrganizationRef Organization, string Role);
 
 public sealed record UserRef(Guid Id, string DisplayName, string? Email);
 

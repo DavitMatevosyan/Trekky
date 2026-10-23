@@ -109,6 +109,49 @@ public sealed class TokenTests(TrekkyApiFactory factory)
     }
 
     [Fact]
+    public async Task Logout_makes_a_copied_session_cookie_useless()
+    {
+        using var user = await AuthFlow.SignedUpUserAsync(factory);
+        using var logout = AuthFlow.WithBearer(HttpMethod.Post, "/api/v1/auth/logout", user.Tokens.AccessToken);
+        Assert.Equal(HttpStatusCode.NoContent, (await user.Client.SendAsync(logout)).StatusCode);
+
+        // Another browser (or an attacker) still holding the pre-logout cookie.
+        using var replay = factory.CreateClient(new() { BaseAddress = new Uri("https://localhost"), AllowAutoRedirect = false, HandleCookies = false });
+        replay.DefaultRequestHeaders.Add("Cookie", user.SessionCookie);
+        var authorize = await AuthFlow.AuthorizeAsync(replay, "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM", prompt: "none");
+
+        Assert.Equal(HttpStatusCode.Redirect, authorize.StatusCode);
+        Assert.Equal("login_required", QueryHelpers.ParseQuery(authorize.Headers.Location!.Query)["error"].ToString());
+    }
+
+    [Fact]
+    public async Task Logout_signs_out_every_session_of_the_user()
+    {
+        using var user = await AuthFlow.SignedUpUserAsync(factory);
+        using var otherDevice = factory.CreateBrowserClient();
+        Assert.Equal(HttpStatusCode.NoContent, (await AuthFlow.LogInAsync(otherDevice, user.Email)).StatusCode);
+        var otherTokens = await AuthFlow.GetTokensAsync(otherDevice);
+
+        using var logout = AuthFlow.WithBearer(HttpMethod.Post, "/api/v1/auth/logout", user.Tokens.AccessToken);
+        Assert.Equal(HttpStatusCode.NoContent, (await user.Client.SendAsync(logout)).StatusCode);
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await AuthFlow.RefreshAsync(otherDevice, otherTokens.RefreshToken)).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await SendMeAsync(otherDevice, otherTokens.AccessToken)).StatusCode);
+    }
+
+    [Theory]
+    [InlineData("/.well-known/openid-configuration")]
+    [InlineData("/.well-known/jwks")]
+    public async Task Discovery_and_signing_keys_are_public(string path)
+    {
+        using var client = factory.CreateBrowserClient();
+
+        var response = await client.GetAsync(new Uri(path, UriKind.Relative));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Logout_without_a_token_returns_401()
     {
         using var client = factory.CreateBrowserClient();
