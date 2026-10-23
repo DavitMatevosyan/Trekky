@@ -16,4 +16,12 @@ public interface IModule
 
     /// <summary>Maps the module's HTTP endpoints under the shared /api/v1 group.</summary>
     void MapEndpoints(IEndpointRouteBuilder endpoints);
+
+    /// <summary>
+    /// Maps endpoints that must live outside /api/v1, such as the OAuth endpoints under /connect.
+    /// Most modules have none.
+    /// </summary>
+    void MapRootEndpoints(IEndpointRouteBuilder endpoints)
+    {
+    }
 }

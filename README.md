@@ -42,6 +42,16 @@ npm run dev
 
 Local services: Postgres `localhost:5432`, Mailpit inbox `http://localhost:8025`. There is no object storage yet; see ADR-0006.
 
+Authentication (ADR-0003): `POST /api/v1/auth/sign-up` or `/login` sets the session cookie; the web client `trekky-web` then uses authorization code + PKCE at `/connect/authorize` and `/connect/token`. Development uses OpenIddict's development certificates; other environments need `Identity:SigningCertificate` and `Identity:EncryptionCertificate` (PKCS#12 path and password).
+
+New EF Core migration for a module (tool version pinned in `backend/.config/dotnet-tools.json`):
+
+```bash
+cd backend
+dotnet tool restore
+dotnet ef migrations add <Name> -p src/Modules/Trekky.Modules.<Module> -s src/Trekky.Api -o Persistence/Migrations
+```
+
 Database roles: on first start Postgres creates `trekky_owner` (runs migrations, owns tables) and `trekky_app` (used by the API; row-level security always applies) from `docker/postgres/init/01-roles.sql`. In Development the API applies pending migrations on startup. If your Postgres volume was created before these roles existed, recreate it once: `docker compose down -v && docker compose up -d` (this deletes local data).
 
 ## Conventions

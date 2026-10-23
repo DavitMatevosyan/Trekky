@@ -29,4 +29,15 @@ public static class ModuleExtensions
 
         return endpoints;
     }
+
+    /// <summary>Maps each module's endpoints that live outside /api/v1 (see <see cref="IModule.MapRootEndpoints"/>).</summary>
+    public static IEndpointRouteBuilder MapModuleRootEndpoints(this IEndpointRouteBuilder endpoints)
+    {
+        foreach (var module in endpoints.ServiceProvider.GetServices<IModule>())
+        {
+            module.MapRootEndpoints(endpoints);
+        }
+
+        return endpoints;
+    }
 }

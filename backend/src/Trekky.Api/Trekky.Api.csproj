@@ -2,9 +2,12 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <!-- Lets `dotnet ef migrations add ... -s src/Trekky.Api` build the model; not shipped. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Modules\Trekky.Modules.Identity\Trekky.Modules.Identity.csproj" />
     <ProjectReference Include="..\Trekky.Persistence\Trekky.Persistence.csproj" />
     <ProjectReference Include="..\Trekky.SharedKernel\Trekky.SharedKernel.csproj" />
   </ItemGroup>
