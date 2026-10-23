@@ -17,24 +17,13 @@ services:
       timeout: 3s
       retries: 10
 
-  minio:
-    image: minio/minio:latest
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-trekky}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-trekky_dev_secret}
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    volumes:
-      - minio-data:/data
-
   mailpit:
     image: axllent/mailpit:latest
     ports:
       - "1025:1025"
       - "8025:8025"
 
+# No object storage yet: MinIO was removed (ADR-0006). The attachments TRK adds the chosen S3-compatible server.
+
 volumes:
   postgres-data:
-  minio-data:

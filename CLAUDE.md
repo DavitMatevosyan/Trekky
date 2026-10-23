@@ -57,7 +57,7 @@ npm run dev                                # http://localhost:5173, proxies /api
 - **Work items.** One `work_item` table: `type` (Epic, Story, Task, SubTask, Bug, TechDebt) + `parent_id`; reserved `custom` JSONB column.
 - **API.** OpenAPI-first REST under `/api/v1`; RFC 9457 problem details; cursor pagination; ETag/If-Match for edits; `TypedResults`.
 - **Auth.** ASP.NET Core Identity + OpenIddict in-app (no external IdP); JWT with user, org and role claims.
-- **Storage / mail.** MinIO via the S3 API; SMTP (Mailpit locally).
+- **Storage / mail.** No object storage until attachments; when added, code only against the S3 API (ADR-0006: MinIO removed, SeaweedFS / Oracle Object Storage proposed). SMTP for mail (Mailpit locally).
 
 ## Code conventions
 
