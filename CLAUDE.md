@@ -13,12 +13,14 @@ So every entity must be machine-readable from day one: stable keys, structured f
 backend/                 .NET 10 modular monolith
   Trekky.slnx
   src/Trekky.Api/        Host: wiring, /api/v1 group, OpenAPI, health
-  src/Trekky.SharedKernel/   IModule contract and cross-cutting primitives only
+  src/Trekky.SharedKernel/   IModule contract and cross-cutting primitives only (incl. ITenantContext)
+  src/Trekky.Persistence/    EF Core + Npgsql wiring, tenant context, RLS helpers, dev migrator
   src/Modules/Trekky.Modules.<Name>/   One project per module (added per TRK)
   tests/                 xUnit; integration tests use WebApplicationFactory<Program>
 frontend/                React 19 + TypeScript strict + Vite; Vitest + Testing Library
 docs/adr/                ADRs (template: 0000-template.md)
-docker-compose.yml       Postgres 17, MinIO, Mailpit (local only)
+docker-compose.yml       Postgres 17, Mailpit (local only)
+docker/postgres/init/    Creates trekky_owner / trekky_app roles (local dev and tests)
 ```
 
 ## Commands
@@ -28,7 +30,7 @@ docker compose up -d                       # infra (copy .env.example to .env fi
 
 cd backend
 dotnet build                               # warnings are errors
-dotnet test
+dotnet test                                # needs Docker running (Testcontainers starts Postgres)
 dotnet run --project src/Trekky.Api        # http://localhost:5080, /api/v1/health
 
 cd frontend
@@ -51,7 +53,7 @@ npm run dev                                # http://localhost:5173, proxies /api
 ## Architecture rules
 
 - **Modular monolith.** Each module implements `IModule` (SharedKernel), owns its own Postgres schema and DbContext, and maps endpoints under `/api/v1`. Modules talk through public contracts or events — never through another module's internals or cross-schema joins.
-- **Tenancy.** Every tenant-owned table has `org_id`; Postgres RLS policies enforce it; the request sets `app.org_id` per connection. Never rely on `WHERE org_id = …` alone.
+- **Tenancy.** Every tenant-owned table has `org_id`; Postgres RLS policies enforce it; the request sets `app.org_id` per connection. Never rely on `WHERE org_id = …` alone. Register module DbContexts with `AddModuleDbContext<T>(configuration, schema)` and add the policy in the migration with `migrationBuilder.EnableTenantRowLevelSecurity(schema, table)` — never hand-write it. The API connects as `trekky_app` (RLS applies); migrations run as `trekky_owner`.
 - **Activity log.** Every state change writes an `activity_event` through the outbox in the same transaction. This stream later feeds notifications, real-time, webhooks and AI context — do not skip it.
 - **IDs.** UUIDv7 internally (`Guid.CreateVersion7()`); human keys like `TRK-42` externally.
 - **Work items.** One `work_item` table: `type` (Epic, Story, Task, SubTask, Bug, TechDebt) + `parent_id`; reserved `custom` JSONB column.
