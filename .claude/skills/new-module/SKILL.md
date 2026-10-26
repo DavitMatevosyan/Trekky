@@ -14,7 +14,7 @@ cd backend
 M=src/Modules/<Name>/Trekky.Modules.<Name>
 for layer in Api Application Domain Infrastructure Persistence; do
   dotnet new classlib -n Trekky.Modules.<Name>.$layer -o $M.$layer
-  dotnet sln Trekky.slnx add $M.$layer
+  dotnet sln Trekky.slnx add --solution-folder src/Modules/<Name> $M.$layer
 done
 dotnet new xunit -n Trekky.Modules.<Name>.Tests -o tests/Trekky.Modules.<Name>.Tests
 dotnet sln Trekky.slnx add tests/Trekky.Modules.<Name>.Tests
@@ -26,6 +26,8 @@ dotnet add $M.Api            reference $M.Application $M.Infrastructure src/Trek
 dotnet add src/Trekky.Api    reference $M.Api
 dotnet add tests/Trekky.Modules.<Name>.Tests reference $M.Api
 ```
+
+Check `Trekky.slnx`: the five projects belong in a `/src/Modules/<Name>/` solution folder, so the IDE shows the same tree as the disk.
 
 Remove `TargetFramework` and package versions that `dotnet new` writes; they come from `Directory.Build.props` and `Directory.Packages.props`. Delete the templates' `Class1.cs` / `UnitTest1.cs`. Api and Infrastructure need `<FrameworkReference Include="Microsoft.AspNetCore.App" />`; Application gets `<PackageReference Include="FluentValidation" />`. `src/Modules/Directory.Build.props` already makes the five projects and the test project friends; do not add `InternalsVisibleTo` by hand.
 
