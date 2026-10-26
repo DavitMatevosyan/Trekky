@@ -34,15 +34,22 @@ dotnet build
 dotnet test        # needs Docker running: tests start Postgres with Testcontainers
 dotnet run --project src/Trekky.Api
 
-# 3. Frontend (http://localhost:5173, proxies /api to the backend)
+# 3. Frontend (http://localhost:5173, proxies /api and /connect to the backend)
 cd frontend
 npm ci        # first time without a lockfile: npm install
 npm run dev
+npm run generate:api   # regenerate src/api/schema.d.ts from the running API's OpenAPI document
+
+# 4. End-to-end tests (Postgres must be up; Playwright starts the API and the dev server if they are not running)
+npx playwright install chromium   # once
+npm run e2e
 ```
 
 Local services: Postgres `localhost:5432`, Mailpit inbox `http://localhost:8025`. There is no object storage yet; see ADR-0006.
 
 Authentication (ADR-0003): `POST /api/v1/auth/sign-up` or `/login` sets the session cookie; the web client `trekky-web` then uses authorization code + PKCE at `/connect/authorize` and `/connect/token`. To try it by hand, import `postman/Trekky.postman_collection.json` into the Postman desktop app and run Auth → Sign up, Authorize, Token; the other requests then send the token for you (ADR-0008). In Rider, the shared run configuration **Trekky** starts Docker, the API and the web app (it expects Rider's Docker connection to be named `Docker`, the default).
+
+The web app does this for you: `/login` and `/sign-up` post the form, then redirect to `/connect/authorize` and come back to `/auth/callback`, which redeems the code. Tokens stay in memory; a reload re-runs the flow with `prompt=none` from the cookie, and the access token is refreshed before it expires or after a 401.
 
 Development uses OpenIddict's development certificates; other environments need `Identity:SigningCertificate` and `Identity:EncryptionCertificate` (PKCS#12 path and password).
 
