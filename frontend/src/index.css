@@ -1,15 +1,55 @@
+@import 'tailwindcss';
+
+/* shadcn/ui theme tokens (neutral). Text meets WCAG AA (4.5:1) and input borders 3:1 (1.4.11) in both themes. */
 :root {
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  line-height: 1.5;
-  color-scheme: light dark;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.48 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.5 0.21 27);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.62 0 0);
+  --ring: oklch(0.45 0 0);
+  color-scheme: light;
 }
 
-body {
-  margin: 0;
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0);
+    --muted: oklch(0.269 0 0);
+    --muted-foreground: oklch(0.75 0 0);
+    --primary: oklch(0.922 0 0);
+    --primary-foreground: oklch(0.205 0 0);
+    --destructive: oklch(0.72 0.17 22);
+    --border: oklch(1 0 0 / 12%);
+    --input: oklch(1 0 0 / 45%);
+    --ring: oklch(0.7 0 0);
+    color-scheme: dark;
+  }
 }
 
-.app {
-  max-width: 40rem;
-  margin: 4rem auto;
-  padding: 0 1rem;
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+@layer base {
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  }
 }

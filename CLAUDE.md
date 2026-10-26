@@ -38,7 +38,9 @@ dotnet tool restore && dotnet ef migrations add <Name> -p src/Modules/<Module>/T
 cd frontend
 npm ci                                     # installs exactly what package-lock.json pins
 npm run lint && npm test && npm run build
-npm run dev                                # http://localhost:5173, proxies /api → 5080
+npm run dev                                # http://localhost:5173, proxies /api and /connect → 5080
+npm run generate:api                       # regenerate src/api/schema.d.ts from the running API (commit it)
+npm run e2e                                # Playwright; needs Postgres up, starts API + dev server if not running
 ```
 
 ## How we work (non-negotiable)
