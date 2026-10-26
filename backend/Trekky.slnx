@@ -1,6 +1,10 @@
 <Solution>
   <Folder Name="/src/">
-    <Project Path="src/Modules/Trekky.Modules.Identity/Trekky.Modules.Identity.csproj" />
+    <Project Path="src/Modules/Identity/Trekky.Modules.Identity.Api/Trekky.Modules.Identity.Api.csproj" />
+    <Project Path="src/Modules/Identity/Trekky.Modules.Identity.Application/Trekky.Modules.Identity.Application.csproj" />
+    <Project Path="src/Modules/Identity/Trekky.Modules.Identity.Domain/Trekky.Modules.Identity.Domain.csproj" />
+    <Project Path="src/Modules/Identity/Trekky.Modules.Identity.Infrastructure/Trekky.Modules.Identity.Infrastructure.csproj" />
+    <Project Path="src/Modules/Identity/Trekky.Modules.Identity.Persistence/Trekky.Modules.Identity.Persistence.csproj" />
     <Project Path="src/Trekky.Api/Trekky.Api.csproj" />
     <Project Path="src/Trekky.Persistence/Trekky.Persistence.csproj" />
     <Project Path="src/Trekky.SharedKernel/Trekky.SharedKernel.csproj" />

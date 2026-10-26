@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
-using Trekky.Modules.Identity;
+using Trekky.Modules.Identity.Api;
 using Trekky.Persistence.Registration;
 using Trekky.Persistence.Tenancy;
 using Trekky.SharedKernel;

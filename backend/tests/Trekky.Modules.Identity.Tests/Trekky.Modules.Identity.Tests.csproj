@@ -20,7 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Modules\Trekky.Modules.Identity\Trekky.Modules.Identity.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Identity\Trekky.Modules.Identity.Api\Trekky.Modules.Identity.Api.csproj" />
   </ItemGroup>
 
 </Project>

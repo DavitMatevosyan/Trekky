@@ -51,7 +51,7 @@ New EF Core migration for a module (tool version pinned in `backend/.config/dotn
 ```bash
 cd backend
 dotnet tool restore
-dotnet ef migrations add <Name> -p src/Modules/Trekky.Modules.<Module> -s src/Trekky.Api -o Persistence/Migrations
+dotnet ef migrations add <Name> -p src/Modules/<Module>/Trekky.Modules.<Module>.Persistence -s src/Trekky.Api -o Migrations
 ```
 
 Database roles: on first start Postgres creates `trekky_owner` (runs migrations, owns tables) and `trekky_app` (used by the API; row-level security always applies) from `docker/postgres/init/01-roles.sql`. In Development the API applies pending migrations on startup. If your Postgres volume was created before these roles existed, recreate it once: `docker compose down -v && docker compose up -d` (this deletes local data).

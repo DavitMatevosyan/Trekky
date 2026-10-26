@@ -1,6 +1,6 @@
 using System.Security.Claims;
 using OpenIddict.Abstractions;
-using Trekky.Modules.Identity.Auth;
+using Trekky.Modules.Identity.Infrastructure;
 using Trekky.Modules.Identity.Domain;
 using Trekky.Modules.Identity.Persistence;
 using Trekky.SharedKernel;

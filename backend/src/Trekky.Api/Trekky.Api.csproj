@@ -7,7 +7,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Modules\Trekky.Modules.Identity\Trekky.Modules.Identity.csproj" />
+    <ProjectReference Include="..\Modules\Identity\Trekky.Modules.Identity.Api\Trekky.Modules.Identity.Api.csproj" />
     <ProjectReference Include="..\Trekky.Persistence\Trekky.Persistence.csproj" />
     <ProjectReference Include="..\Trekky.SharedKernel\Trekky.SharedKernel.csproj" />
   </ItemGroup>
