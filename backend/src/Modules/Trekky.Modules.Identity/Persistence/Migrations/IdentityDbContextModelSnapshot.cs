@@ -523,7 +523,7 @@ namespace Trekky.Modules.Identity.Persistence.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_user_claims_asp_net_users_user_id");
+                        .HasConstraintName("fk_user_claims_users_user_id");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<System.Guid>", b =>
@@ -533,7 +533,7 @@ namespace Trekky.Modules.Identity.Persistence.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_user_logins_asp_net_users_user_id");
+                        .HasConstraintName("fk_user_logins_users_user_id");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<System.Guid>", b =>
@@ -543,7 +543,7 @@ namespace Trekky.Modules.Identity.Persistence.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_user_tokens_asp_net_users_user_id");
+                        .HasConstraintName("fk_user_tokens_users_user_id");
                 });
 
             modelBuilder.Entity("OpenIddict.EntityFrameworkCore.Models.OpenIddictEntityFrameworkCoreAuthorization<System.Guid>", b =>
@@ -587,7 +587,7 @@ namespace Trekky.Modules.Identity.Persistence.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_memberships_asp_net_users_user_id");
+                        .HasConstraintName("fk_memberships_users_user_id");
                 });
 
             modelBuilder.Entity("OpenIddict.EntityFrameworkCore.Models.OpenIddictEntityFrameworkCoreApplication<System.Guid>", b =>

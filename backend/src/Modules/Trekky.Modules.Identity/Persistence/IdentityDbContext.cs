@@ -76,6 +76,18 @@ internal sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> opti
                 entity.SetTableName("openiddict_" + ToSnakeCase(table["OpenIddict".Length..]));
             }
         }
+
+        // Foreign key names were derived from the original principal table (fk_memberships_asp_net_users_user_id);
+        // name them after the renamed table instead (fk_memberships_users_user_id). The names are now explicit,
+        // so they will not follow a later rename of the principal table.
+        foreach (var foreignKey in builder.Model.GetEntityTypes().SelectMany(entity => entity.GetForeignKeys()))
+        {
+            var name = foreignKey.GetConstraintName();
+            if (name is not null && name.Contains("_asp_net_", StringComparison.Ordinal))
+            {
+                foreignKey.SetConstraintName(name.Replace("_asp_net_", "_", StringComparison.Ordinal));
+            }
+        }
     }
 
     internal static string ToSnakeCase(string name)

@@ -24,6 +24,21 @@ app.UseStatusCodePages();
 
 app.UseAuthentication();
 app.UseTenantContext(); // after authentication: reads the org_id claim
+
+// The fallback authorization policy also applies when no endpoint matched, which would turn unknown URLs into 401.
+// Answer 404 instead (problem details via UseStatusCodePages). This runs after authentication, so OpenIddict has
+// already served its own endpoints (discovery, JWKS, revoke); a wrong method on a real route still gets 405.
+app.Use((context, next) =>
+{
+    if (context.GetEndpoint() is null)
+    {
+        context.Response.StatusCode = StatusCodes.Status404NotFound;
+        return Task.CompletedTask;
+    }
+
+    return next(context);
+});
+
 app.UseAuthorization();
 
 if (app.Environment.IsDevelopment())

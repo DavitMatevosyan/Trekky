@@ -145,17 +145,17 @@ namespace Trekky.Modules.Identity.Persistence.Migrations
                     table.PrimaryKey("pk_memberships", x => new { x.org_id, x.user_id });
                     table.CheckConstraint("ck_memberships_role", "role IN ('owner', 'admin', 'member', 'viewer')");
                     table.ForeignKey(
-                        name: "fk_memberships_asp_net_users_user_id",
-                        column: x => x.user_id,
-                        principalSchema: "identity",
-                        principalTable: "users",
-                        principalColumn: "id",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
                         name: "fk_memberships_organizations_org_id",
                         column: x => x.org_id,
                         principalSchema: "identity",
                         principalTable: "organizations",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "fk_memberships_users_user_id",
+                        column: x => x.user_id,
+                        principalSchema: "identity",
+                        principalTable: "users",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -175,7 +175,7 @@ namespace Trekky.Modules.Identity.Persistence.Migrations
                 {
                     table.PrimaryKey("pk_user_claims", x => x.id);
                     table.ForeignKey(
-                        name: "fk_user_claims_asp_net_users_user_id",
+                        name: "fk_user_claims_users_user_id",
                         column: x => x.user_id,
                         principalSchema: "identity",
                         principalTable: "users",
@@ -197,7 +197,7 @@ namespace Trekky.Modules.Identity.Persistence.Migrations
                 {
                     table.PrimaryKey("pk_user_logins", x => new { x.login_provider, x.provider_key });
                     table.ForeignKey(
-                        name: "fk_user_logins_asp_net_users_user_id",
+                        name: "fk_user_logins_users_user_id",
                         column: x => x.user_id,
                         principalSchema: "identity",
                         principalTable: "users",
@@ -219,7 +219,7 @@ namespace Trekky.Modules.Identity.Persistence.Migrations
                 {
                     table.PrimaryKey("pk_user_tokens", x => new { x.user_id, x.login_provider, x.name });
                     table.ForeignKey(
-                        name: "fk_user_tokens_asp_net_users_user_id",
+                        name: "fk_user_tokens_users_user_id",
                         column: x => x.user_id,
                         principalSchema: "identity",
                         principalTable: "users",
