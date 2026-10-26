@@ -288,7 +288,8 @@
           "name": "Log out",
           "request": {
             "method": "POST",
-            "url": "{{baseUrl}}/api/v1/auth/logout"
+            "url": "{{baseUrl}}/api/v1/auth/logout",
+            "description": "Revokes every token of the user and invalidates their session cookies. Authenticates with the Bearer token or, since TRK-8.1, with the session cookie alone (so logout still works after the tokens have expired)."
           }
         }
       ]

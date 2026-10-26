@@ -81,7 +81,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** End the session and revoke the caller's refresh tokens */
+        /** End the session and revoke the caller's refresh tokens (bearer token or session cookie) */
         post: operations["LogOut"];
         delete?: never;
         options?: never;

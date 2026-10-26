@@ -17,7 +17,7 @@ backend/                 .NET 10 modular monolith
   src/Trekky.Persistence/    EF Core + Npgsql wiring, tenant context, RLS helpers, dev migrator
   src/Modules/<Name>/      One folder per module (added per TRK): Trekky.Modules.<Name>.{Api,Application,Domain,Infrastructure,Persistence} (ADR-0009)
   tests/                 xUnit; integration tests use WebApplicationFactory<Program>
-frontend/                React 19 + TypeScript strict + Vite; Vitest + Testing Library
+frontend/                React 19 + TypeScript strict + Vite, React Router, TanStack Query, Tailwind + shadcn/ui; Vitest + Testing Library + Playwright (ADR-0010)
 docs/adr/                ADRs (template: 0000-template.md)
 postman/                 Postman collection for manual API testing (ADR-0008)
 docker-compose.yml       Postgres 17, Mailpit (local only)
