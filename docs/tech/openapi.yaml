@@ -99,7 +99,7 @@ paths:
     post:
       tags: [Auth]
       operationId: logOut
-      summary: End the session and revoke the caller's refresh tokens
+      summary: Log out everywhere — revoke the caller's tokens and invalidate their session cookies
       responses:
         '204': { description: Logged out. }
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -637,13 +637,14 @@ components:
       required: [user, organization, role]
       properties:
         user: { $ref: '#/components/schemas/UserRef' }
-        organization:
-          type: object
-          required: [id, name]
-          properties:
-            id: { type: string, format: uuid }
-            name: { type: string }
+        organization: { $ref: '#/components/schemas/OrganizationRef' }
         role: { $ref: '#/components/schemas/Role' }
+    OrganizationRef:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
     Role:
       type: string
       enum: [owner, admin, member, viewer]

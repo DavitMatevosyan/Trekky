@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Trekky.SharedKernel;
 
 namespace Trekky.Persistence.Tenancy;
 
@@ -10,11 +11,9 @@ namespace Trekky.Persistence.Tenancy;
 /// </summary>
 internal sealed class TenantContextMiddleware(RequestDelegate next)
 {
-    public const string OrgIdClaimType = "org_id";
-
     public Task InvokeAsync(HttpContext context, TenantContext tenant)
     {
-        var claim = context.User.FindFirst(OrgIdClaimType)?.Value;
+        var claim = context.User.FindFirst(TrekkyClaimTypes.OrgId)?.Value;
         if (Guid.TryParse(claim, out var orgId) && orgId != Guid.Empty)
         {
             tenant.Set(orgId);

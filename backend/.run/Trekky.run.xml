@@ -1,0 +1,7 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Trekky" type="CompoundRunConfigurationType">
+    <toRun name="Api" type="LaunchSettings" />
+    <toRun name="Web" type="js.build_tools.npm" />
+    <method v="2" />
+  </configuration>
+</component>
