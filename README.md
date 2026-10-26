@@ -42,7 +42,9 @@ npm run dev
 
 Local services: Postgres `localhost:5432`, Mailpit inbox `http://localhost:8025`. There is no object storage yet; see ADR-0006.
 
-Authentication (ADR-0003): `POST /api/v1/auth/sign-up` or `/login` sets the session cookie; the web client `trekky-web` then uses authorization code + PKCE at `/connect/authorize` and `/connect/token`. Development uses OpenIddict's development certificates; other environments need `Identity:SigningCertificate` and `Identity:EncryptionCertificate` (PKCS#12 path and password).
+Authentication (ADR-0003): `POST /api/v1/auth/sign-up` or `/login` sets the session cookie; the web client `trekky-web` then uses authorization code + PKCE at `/connect/authorize` and `/connect/token`. To try it by hand, import `postman/Trekky.postman_collection.json` into the Postman desktop app and run Auth → Sign up, Authorize, Token; the other requests then send the token for you (ADR-0008). In Rider, the shared run configuration **Trekky** starts Docker, the API and the web app (it expects Rider's Docker connection to be named `Docker`, the default).
+
+Development uses OpenIddict's development certificates; other environments need `Identity:SigningCertificate` and `Identity:EncryptionCertificate` (PKCS#12 path and password).
 
 New EF Core migration for a module (tool version pinned in `backend/.config/dotnet-tools.json`):
 

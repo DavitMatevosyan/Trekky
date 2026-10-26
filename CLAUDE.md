@@ -19,6 +19,7 @@ backend/                 .NET 10 modular monolith
   tests/                 xUnit; integration tests use WebApplicationFactory<Program>
 frontend/                React 19 + TypeScript strict + Vite; Vitest + Testing Library
 docs/adr/                ADRs (template: 0000-template.md)
+postman/                 Postman collection for manual API testing (ADR-0008)
 docker-compose.yml       Postgres 17, Mailpit (local only)
 docker/postgres/init/    Creates trekky_owner / trekky_app roles (local dev and tests)
 ```
@@ -31,7 +32,7 @@ docker compose up -d                       # infra (copy .env.example to .env fi
 cd backend
 dotnet build                               # warnings are errors
 dotnet test                                # needs Docker running (Testcontainers starts Postgres)
-dotnet run --project src/Trekky.Api        # http://localhost:5080, /api/v1/health
+dotnet run --project src/Trekky.Api        # http://localhost:5080, /api/v1/health (or run config "Trekky" in Rider: infra + API + web)
 dotnet tool restore && dotnet ef migrations add <Name> -p src/Modules/Trekky.Modules.<Module> -s src/Trekky.Api -o Persistence/Migrations
 
 cd frontend
@@ -49,6 +50,7 @@ npm run dev                                # http://localhost:5173, proxies /api
 - **Never push, force-push, or rewrite pushed history.** Davit verifies and pushes. Do not amend or squash commits that exist on the remote.
 - **Never claim something is verified unless you ran it.** If you could not run the build or tests, say so plainly.
 - **Reviews:** every change is reviewed by Davit and Claude (use the `code-reviewer` agent) before it is pushed.
+- **Postman:** a TRK that adds or changes an endpoint updates `postman/Trekky.postman_collection.json` in the same commit (ADR-0008).
 - **Decisions:** anything that sets a rule goes in an ADR (`/adr` skill). ADRs are never edited after Agreed; supersede them instead.
 
 ## Architecture rules
