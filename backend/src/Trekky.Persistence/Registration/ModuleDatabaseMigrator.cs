@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace Trekky.Persistence.Registration;
 
@@ -25,6 +26,8 @@ public static class ModuleDatabaseMigrator
         var configuration = host.Services.GetRequiredService<IConfiguration>();
         var connectionString = PersistenceServiceCollectionExtensions.RequiredConnectionString(
             configuration, PersistenceServiceCollectionExtensions.MigrationsConnectionStringName);
+        var logger = host.Services.GetRequiredService<ILoggerFactory>().CreateLogger(typeof(ModuleDatabaseMigrator));
+        await DatabaseReadiness.WaitAsync(connectionString, logger, cancellationToken);
 
         foreach (var registration in registrations)
         {

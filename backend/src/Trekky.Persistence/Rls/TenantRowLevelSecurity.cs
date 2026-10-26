@@ -64,11 +64,11 @@ public static partial class TenantRowLevelSecurity
         return migrationBuilder;
     }
 
-    private static string Qualified(string schema, string table)
+    internal static string Qualified(string schema, string table)
         => $"{Identifier(schema, nameof(schema))}.{Identifier(table, nameof(table))}";
 
     // Names are interpolated into DDL, so only plain snake_case identifiers are accepted.
-    private static string Identifier(string name, string parameterName)
+    internal static string Identifier(string name, string parameterName)
     {
         if (string.IsNullOrEmpty(name) || !SnakeCaseIdentifier().IsMatch(name))
         {

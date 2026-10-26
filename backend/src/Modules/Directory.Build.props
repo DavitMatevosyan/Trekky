@@ -1,0 +1,19 @@
+<Project>
+
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <!--
+    ADR-0009: a module is five projects, Trekky.Modules.<Name>.{Api,Application,Domain,Infrastructure,Persistence}.
+    They see each other's internals, and so does the module's test project; other modules see only public types.
+  -->
+  <PropertyGroup Condition="$(MSBuildProjectName.Contains('.'))">
+    <TrekkyModule>$(MSBuildProjectName.Substring(0, $(MSBuildProjectName.LastIndexOf('.'))))</TrekkyModule>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(TrekkyModule)' != ''">
+    <InternalsVisibleTo
+      Include="$(TrekkyModule).Api;$(TrekkyModule).Application;$(TrekkyModule).Domain;$(TrekkyModule).Infrastructure;$(TrekkyModule).Persistence;$(TrekkyModule).Tests"
+      Exclude="$(MSBuildProjectName)" />
+  </ItemGroup>
+
+</Project>

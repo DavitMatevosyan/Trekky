@@ -48,6 +48,10 @@ public static class PersistenceServiceCollectionExtensions
             {
                 var options = new DbContextOptionsBuilder<TContext>();
                 Configure(options, connectionString, schema);
+
+                // Same application services as the runtime context, so contexts that read app options while
+                // building their model (ASP.NET Core Identity reads IdentityOptions.Stores) get the same model.
+                options.UseApplicationServiceProvider(sp);
                 return ActivatorUtilities.CreateInstance<TContext>(sp, options.Options);
             }));
 
