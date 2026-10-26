@@ -1,0 +1,118 @@
+# Production stack for the POC VM (ADR-0004). Run from this folder: `docker compose up -d --build`.
+# Settings and secrets come from deploy/.env (copy .env.example); certificates from deploy/secrets/.
+name: trekky-prod
+
+x-api: &api
+  # One image for the API and the migrate step.
+  image: trekky-prod-api
+  build:
+    context: ../backend
+  environment:
+    ASPNETCORE_ENVIRONMENT: Production
+    # Caddy terminates TLS; trust its X-Forwarded-Proto/For so the API sees HTTPS (OpenIddict, Secure cookie).
+    ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+    # GSS Encryption Mode=Disable: no Kerberos on the internal network; otherwise Npgsql logs a missing libgssapi.
+    ConnectionStrings__Trekky: Host=postgres;Database=${POSTGRES_DB};Username=trekky_app;Password=${TREKKY_APP_PASSWORD};GSS Encryption Mode=Disable
+    ConnectionStrings__TrekkyMigrations: Host=postgres;Database=${POSTGRES_DB};Username=trekky_owner;Password=${TREKKY_OWNER_PASSWORD};GSS Encryption Mode=Disable
+    Identity__SigningCertificate__Path: /run/secrets-trekky/signing.pfx
+    Identity__SigningCertificate__Password: ${IDENTITY_CERTIFICATE_PASSWORD}
+    Identity__EncryptionCertificate__Path: /run/secrets-trekky/encryption.pfx
+    Identity__EncryptionCertificate__Password: ${IDENTITY_CERTIFICATE_PASSWORD}
+    Identity__WebClient__RedirectUris__0: https://${TREKKY_DOMAIN}/auth/callback
+  volumes:
+    - ./secrets:/run/secrets-trekky:ro
+
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      TREKKY_OWNER_PASSWORD: ${TREKKY_OWNER_PASSWORD}
+      TREKKY_APP_PASSWORD: ${TREKKY_APP_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # Roles on first start (empty volume only): the shared roles script, then production passwords.
+      - ../docker/postgres/init/01-roles.sql:/trekky-init/01-roles.sql:ro
+      - ./postgres/10-roles.sh:/docker-entrypoint-initdb.d/10-roles.sh:ro
+    healthcheck:
+      # Over TCP: during first-start init Postgres listens on the socket only, so this waits for the real server.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    # No published port: only the containers on this network reach Postgres.
+
+  # Applies pending EF Core migrations as trekky_owner, then exits; the API waits for it.
+  migrate:
+    <<: *api
+    # `api` builds the shared image; this service only runs it.
+    build: !reset null
+    pull_policy: never
+    command: ["--migrate"]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    <<: *api
+    restart: unless-stopped
+    volumes:
+      - ./secrets:/run/secrets-trekky:ro
+      # Keys that protect the session cookie; kept across deploys so users stay logged in.
+      - dataprotection-keys:/home/app/.aspnet/DataProtection-Keys
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  web:
+    build:
+      context: ../frontend
+    restart: unless-stopped
+    environment:
+      TREKKY_DOMAIN: ${TREKKY_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - api
+
+  # Nightly pg_dump, kept 14 days on the VM and copied off it (see deploy/README.md).
+  backup:
+    build:
+      context: ./backup
+    restart: unless-stopped
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+      TZ: ${TZ:-UTC}
+      BACKUP_TIME: ${BACKUP_TIME:-02:30}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+      BACKUP_REMOTE: ${BACKUP_REMOTE:-}
+      RCLONE_CONFIG_OFFSITE_TYPE: s3
+      RCLONE_CONFIG_OFFSITE_PROVIDER: ${OFFSITE_S3_PROVIDER:-Other}
+      RCLONE_CONFIG_OFFSITE_ENDPOINT: ${OFFSITE_S3_ENDPOINT:-}
+      RCLONE_CONFIG_OFFSITE_REGION: ${OFFSITE_S3_REGION:-}
+      RCLONE_CONFIG_OFFSITE_ACCESS_KEY_ID: ${OFFSITE_S3_ACCESS_KEY_ID:-}
+      RCLONE_CONFIG_OFFSITE_SECRET_ACCESS_KEY: ${OFFSITE_S3_SECRET_ACCESS_KEY:-}
+      RCLONE_CONFIG_OFFSITE_FORCE_PATH_STYLE: "true"
+    volumes:
+      - ./backups:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  dataprotection-keys:
+  caddy-data:
+  caddy-config:

@@ -1,5 +1,6 @@
 -- Database roles for Trekky (ADR-0002). LOCAL DEVELOPMENT AND TESTS ONLY:
--- the passwords below are public. Production roles are provisioned in TRK-9.
+-- the passwords below are public. Production runs this file too, then sets real passwords
+-- (deploy/postgres/10-roles.sh).
 --
 -- Runs once, as the superuser, when the Postgres container starts with an empty volume
 -- (docker-entrypoint-initdb.d). The integration tests run this same file.

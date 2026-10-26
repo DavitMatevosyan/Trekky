@@ -13,6 +13,7 @@ docs/adr/   Architecture decision records
 .github/    CI workflows
 docker-compose.yml   Local infrastructure: Postgres, Mailpit
 docker/postgres/init/   Database roles created on first start
+deploy/     Production stack for the Oracle VM (HTTPS, migrations, nightly backups) — see deploy/README.md
 ```
 
 ## Prerequisites

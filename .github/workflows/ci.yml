@@ -47,6 +47,17 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  images:
+    name: Docker images (build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      # x64 only; the VM builds its own ARM64 images on deploy (deploy/README.md).
+      - run: docker build -t trekky-api backend
+      - run: docker build -t trekky-web frontend
+      - run: docker build -t trekky-backup deploy/backup
+
   e2e:
     name: E2E (Playwright)
     runs-on: ubuntu-latest

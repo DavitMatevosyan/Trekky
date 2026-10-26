@@ -19,6 +19,14 @@ builder.Services.AddModules(builder.Configuration, new IdentityModule());
 
 var app = builder.Build();
 
+// Outside Development, migrations are a deploy step: `Trekky.Api --migrate` applies them as trekky_owner and exits
+// (the `migrate` service in deploy/docker-compose.yml runs it before the API starts).
+if (args.Contains("--migrate", StringComparer.Ordinal))
+{
+    await app.MigrateModuleDatabasesAsync();
+    return;
+}
+
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 

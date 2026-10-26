@@ -20,6 +20,7 @@ backend/                 .NET 10 modular monolith
 frontend/                React 19 + TypeScript strict + Vite, React Router, TanStack Query, Tailwind + shadcn/ui; Vitest + Testing Library + Playwright (ADR-0010)
 docs/adr/                ADRs (template: 0000-template.md)
 postman/                 Postman collection for manual API testing (ADR-0008)
+deploy/                  Production Compose for the Oracle VM: Caddy (HTTPS + web), API, migrate, Postgres, backup (deploy/README.md)
 docker-compose.yml       Postgres 17, Mailpit (local only)
 docker/postgres/init/    Creates trekky_owner / trekky_app roles (local dev and tests)
 ```

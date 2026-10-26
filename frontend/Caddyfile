@@ -1,0 +1,40 @@
+# One origin for the web app, the API and OpenIddict, so the SameSite=Strict session cookie reaches
+# /connect/authorize (ADR-0010). Caddy gets the certificate from Let's Encrypt and redirects HTTP to HTTPS.
+# TREKKY_DOMAIN=localhost uses Caddy's local CA instead (for trying the production stack on a laptop).
+{$TREKKY_DOMAIN} {
+	encode zstd gzip
+
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		# Tokens live in JavaScript memory (ADR-0010), so only our own scripts may run. The Vite build has no
+		# inline scripts; inline styles stay allowed for Radix positioning.
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+		-Server
+	}
+
+	# HSTS on the real domain only: on localhost it would force the Vite dev server (http://localhost:5173) to HTTPS.
+	@not_localhost not host localhost
+	header @not_localhost Strict-Transport-Security "max-age=31536000"
+
+	# API, OAuth endpoints, and OpenID discovery + JWKS.
+	@api path /api/* /connect/* /.well-known/openid-configuration /.well-known/jwks
+	handle @api {
+		reverse_proxy api:8080
+	}
+
+	# Vite fingerprints asset file names, so they can be cached for good. Everything else (index.html) is
+	# revalidated, so a deploy never leaves a browser on an old page pointing at deleted assets.
+	@assets path /assets/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+	@not_assets not path /assets/* /api/* /connect/* /.well-known/*
+	header @not_assets Cache-Control "no-cache"
+
+	# The single-page app: unknown paths serve index.html and the router takes over.
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}
