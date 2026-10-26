@@ -1,6 +1,6 @@
 import { screen, waitFor } from '@testing-library/react'
 import { beginAuthorization } from '../auth/oauthClient.ts'
-import { jsonResponse, me, renderApp } from '../test/renderApp.tsx'
+import { fakeApi, jsonResponse, renderApp } from '../test/renderApp.tsx'
 
 /** Runs a real beginAuthorization to store state + verifier, and returns the state it sent. */
 async function pendingState(returnTo = '/'): Promise<string> {
@@ -14,10 +14,9 @@ describe('AuthCallbackPage', () => {
 
   it('stores the tokens and opens the page the user was headed to', async () => {
     const state = await pendingState('/')
-    const fetchFn = vi
-      .fn<typeof fetch>()
-      .mockResolvedValue(jsonResponse(me))
-      .mockResolvedValueOnce(jsonResponse({ access_token: 'access', refresh_token: 'refresh', expires_in: 900 }))
+    const fetchFn = fakeApi({
+      'POST /connect/token': () => jsonResponse({ access_token: 'access', refresh_token: 'refresh', expires_in: 900 }),
+    })
 
     const { session, router } = renderApp({ path: `/auth/callback?code=abc&state=${state}`, fetchFn })
 

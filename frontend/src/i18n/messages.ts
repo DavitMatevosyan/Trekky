@@ -31,10 +31,24 @@ export const messages = {
   },
   /** Labels for the API's role values (`owner`, `admin`, ...); unknown values are shown as sent. */
   roles: { owner: 'Owner', admin: 'Admin', member: 'Member', viewer: 'Viewer' } as Record<string, string | undefined>,
-  home: {
+  projects: {
     title: 'Projects',
     welcome: (organization: string, role: string) => `You are the ${role} of ${organization}.`,
-    empty: 'No projects yet. Projects arrive in the next version.',
+    empty: 'No projects yet. Create one to start tracking work.',
+    newProject: 'New project',
+    loading: 'Loading projects…',
+    loadMore: 'Load more',
+    itemCount: (count: number) => (count === 1 ? '1 item' : `${count} items`),
+    created: (key: string, name: string) => `Created project ${key} · ${name}.`,
+  },
+  newProject: {
+    title: 'New project',
+    name: 'Name',
+    key: 'Key',
+    keyHint: 'Suggested from the name. It can’t be changed later.',
+    cancel: 'Cancel',
+    submit: 'Create project',
+    submitting: 'Creating…',
   },
   notFound: {
     title: 'Page not found',

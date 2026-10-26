@@ -13,7 +13,7 @@ flowchart LR
 ```
 
 1. A module changes its own tables **and** inserts an outbox row in the same `SaveChanges` transaction. The state change and its event either both commit or neither does.
-2. A background dispatcher reads unprocessed outbox rows in order, writes them to `activity.activity_events`, and marks them processed. It sets `app.org_id` from each row before writing (ADR-0002).
+2. A background dispatcher reads unprocessed outbox rows in order, writes them to `activity.activity_events`, and marks them processed. It finds pending rows of every organization through the read-only `outbox_dispatch` policy (ADR-0011) and sets `app.org_id` from each row before writing (ADR-0002).
 3. Delivery is **at least once**; consumers deduplicate on `event_id`.
 
 History may lag a change by up to the dispatcher interval (target: under 1 second).

@@ -40,6 +40,10 @@
     {
       "key": "refresh_token",
       "value": ""
+    },
+    {
+      "key": "projectId",
+      "value": ""
     }
   ],
   "auth": {
@@ -290,6 +294,79 @@
             "method": "POST",
             "url": "{{baseUrl}}/api/v1/auth/logout",
             "description": "Revokes every token of the user and invalidates their session cookies. Authenticates with the Bearer token or, since TRK-8.1, with the session cookie alone (so logout still works after the tokens have expired)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Projects",
+      "description": "TRK-10: create, list (by name, cursor pagination) and get projects. Run Auth first; Create project saves projectId.",
+      "item": [
+        {
+          "name": "Create project",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('project created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "if (body.id) pm.collectionVariables.set('projectId', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Trekky\",\n  \"key\": \"TRK\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/projects",
+            "description": "The key must match ^[A-Z][A-Z0-9]{1,9}$ and be unique in the organization (409 otherwise); it never changes. Records a ProjectCreated activity event."
+          }
+        },
+        {
+          "name": "List projects",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/projects?limit=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "projects"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "cursor",
+                  "value": "",
+                  "disabled": true,
+                  "description": "nextCursor from the previous page"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get project",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/projects/{{projectId}}"
           }
         }
       ]

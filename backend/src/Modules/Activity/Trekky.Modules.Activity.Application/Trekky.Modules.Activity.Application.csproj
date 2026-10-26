@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Trekky.Modules.Activity.Domain\Trekky.Modules.Activity.Domain.csproj" />
+    <ProjectReference Include="..\..\..\Trekky.SharedKernel\Trekky.SharedKernel.csproj" />
+  </ItemGroup>
+
+</Project>
