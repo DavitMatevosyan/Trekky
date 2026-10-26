@@ -32,10 +32,20 @@ internal static class IdentityServiceCollectionExtensions
         services.AddIdentityPersistence(configuration);
 
         // API requests authenticate with the bearer access token; the Identity cookie is used only by
-        // login/sign-up (to set it) and /connect/authorize (to read it).
+        // login/sign-up (to set it), /connect/authorize and logout (to read it; logout via the
+        // BearerOrSessionCookie policy, so a tab without tokens can still end the session).
         services
             .AddAuthentication(OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme)
             .AddIdentityCookies();
+
+        services.AddAuthorizationBuilder()
+            .AddPolicy(AuthorizationPolicies.BearerOrSessionCookie, policy => policy
+                .AddAuthenticationSchemes(OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme, IdentityConstants.ApplicationScheme)
+                .RequireAuthenticatedUser());
+
+        // Check the security stamp on every cookie read instead of every 30 minutes, so a cookie copied before
+        // a logout stops working at once everywhere it is accepted. Cheap: only authorize and logout read it.
+        services.Configure<SecurityStampValidatorOptions>(stamp => stamp.ValidationInterval = TimeSpan.Zero);
 
         services.ConfigureApplicationCookie(cookie =>
         {

@@ -152,6 +152,44 @@ public sealed class TokenTests(TrekkyApiFactory factory)
     }
 
     [Fact]
+    public async Task Logout_with_only_the_session_cookie_revokes_tokens_and_ends_the_session()
+    {
+        // A browser tab whose tokens are gone (e.g. the refresh token expired) still holds the cookie (TRK-8.1).
+        using var user = await AuthFlow.SignedUpUserAsync(factory);
+
+        var response = await user.Client.PostAsync(new Uri("/api/v1/auth/logout", UriKind.Relative), content: null);
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await AuthFlow.RefreshAsync(user.Client, user.Tokens.RefreshToken)).StatusCode);
+        var authorize = await AuthFlow.AuthorizeAsync(user.Client, "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM", prompt: "none");
+        Assert.Equal("login_required", QueryHelpers.ParseQuery(authorize.Headers.Location!.Query)["error"].ToString());
+    }
+
+    [Fact]
+    public async Task Logout_rejects_a_session_cookie_copied_before_an_earlier_logout()
+    {
+        using var user = await AuthFlow.SignedUpUserAsync(factory);
+        using var logout = AuthFlow.WithBearer(HttpMethod.Post, "/api/v1/auth/logout", user.Tokens.AccessToken);
+        Assert.Equal(HttpStatusCode.NoContent, (await user.Client.SendAsync(logout)).StatusCode);
+
+        using var replay = factory.CreateClient(new() { BaseAddress = new Uri("https://localhost"), AllowAutoRedirect = false, HandleCookies = false });
+        replay.DefaultRequestHeaders.Add("Cookie", user.SessionCookie);
+        var response = await replay.PostAsync(new Uri("/api/v1/auth/logout", UriKind.Relative), content: null);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task The_session_cookie_alone_does_not_authenticate_other_api_endpoints()
+    {
+        using var user = await AuthFlow.SignedUpUserAsync(factory);
+
+        var response = await user.Client.GetAsync(new Uri("/api/v1/me", UriKind.Relative));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Logout_without_a_token_returns_401()
     {
         using var client = factory.CreateBrowserClient();

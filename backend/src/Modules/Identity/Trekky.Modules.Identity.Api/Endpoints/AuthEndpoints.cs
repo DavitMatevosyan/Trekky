@@ -35,9 +35,9 @@ internal static class AuthEndpoints
             .WithSummary("Check credentials and set the session cookie (US-02)");
 
         auth.MapPost("/logout", LogOutAsync)
-            .RequireAuthorization()
+            .RequireAuthorization(AuthorizationPolicies.BearerOrSessionCookie)
             .WithName("LogOut")
-            .WithSummary("End the session and revoke the caller's refresh tokens");
+            .WithSummary("End the session and revoke the caller's refresh tokens (bearer token or session cookie)");
 
         endpoints.MapGet("/me", GetMeAsync)
             .RequireAuthorization()
@@ -94,7 +94,10 @@ internal static class AuthEndpoints
         IAccountService accounts,
         CancellationToken cancellationToken)
     {
-        Guid? userId = Guid.TryParse(principal.FindFirstValue(Claims.Subject), out var id) ? id : null;
+        // Access tokens carry the user id as "sub"; the Identity session cookie as NameIdentifier. If both arrive
+        // (for different users), the bearer's user is logged out; signing out still clears the cookie.
+        var subject = principal.FindFirstValue(Claims.Subject) ?? principal.FindFirstValue(ClaimTypes.NameIdentifier);
+        Guid? userId = Guid.TryParse(subject, out var id) ? id : null;
         await accounts.LogOutAsync(userId, cancellationToken);
         return TypedResults.NoContent();
     }
