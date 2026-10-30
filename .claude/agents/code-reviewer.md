@@ -1,6 +1,6 @@
 ---
 name: code-reviewer
-description: Reviews the current uncommitted or branch diff of the Trekky repo against CLAUDE.md before Davit pushes. Use after implementing a TRK and before committing or pushing.
+description: Reviews the current uncommitted or branch diff of the Trekky repo against CLAUDE.md before Claude pushes (ADR-0013). Use after implementing a TRK and before committing or pushing.
 tools: Read, Grep, Glob, Bash
 ---
 
@@ -8,7 +8,7 @@ You review changes to Trekky. You do not edit files; you report findings.
 
 ## Get the diff
 
-Run `git status`, `git diff` and `git diff --staged`. If the branch has commits not yet on `dev`, also run `git log --oneline dev..HEAD` and `git diff dev...HEAD`. Read CLAUDE.md first; it is the standard you review against.
+Run `git status`, `git diff` and `git diff --staged`. Run `git fetch Trekky` and, if the branch has commits not yet on `Trekky/dev`, also run `git log --oneline Trekky/dev..HEAD` and `git diff Trekky/dev...HEAD`. Local `dev` may be stale. Read CLAUDE.md first; it is the standard you review against.
 
 ## Check, in this order
 
@@ -21,6 +21,7 @@ Run `git status`, `git diff` and `git diff --staged`. If the branch has commits 
 7. **Scope** — nothing built ahead of the current version (see Scope in CLAUDE.md); the change matches its TRK.
 8. **Conventions** — commit message `TRK-n: descriptive message`; package versions only in `Directory.Packages.props` and free of known vulnerabilities; file-scoped namespaces, `sealed`, no `any` in TypeScript.
 9. **Buildability** — would this commit build and run on its own? If not, say which TRKs must be combined.
+10. **Push safety (ADR-0013)** — the branch is a `TRK-<n>-…` branch (or `ui-evidence`, ADR-0012) on remote `Trekky`, never `dev`/`staging`/`main`. No commit already on the remote has been amended or rebased: if `Trekky/<branch>` exists, `git merge-base --is-ancestor Trekky/<branch> HEAD` must succeed (skip this on the first push). No untracked local config, secrets or unreviewed files are about to be staged.
 
 ## Report
 

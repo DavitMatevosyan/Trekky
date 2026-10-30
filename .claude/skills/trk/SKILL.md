@@ -1,6 +1,6 @@
 ---
 name: trk
-description: Start, implement and finish one Trekky TRK task end to end — branch, implement, test, verify, review, commit. Use when Davit says "do TRK-n", "start TRK-n" or "next TRK".
+description: Start, implement and finish one Trekky TRK task end to end — branch, implement, test, verify, review, commit, push and open the PR. Use when Davit says "do TRK-n", "start TRK-n" or "next TRK".
 ---
 
 # Work one TRK
@@ -14,9 +14,11 @@ description: Start, implement and finish one Trekky TRK task end to end — bran
 ## 2. Branch
 
 ```bash
-git switch dev
-git switch -c TRK-<n>-<short-description>
+git fetch Trekky
+git switch --no-track -c TRK-<n>-<short-description> Trekky/dev
 ```
+
+Branch from `Trekky/dev`, not local `dev`: Davit merges on GitHub, so local `dev` falls behind.
 
 ## 3. Implement
 
@@ -29,14 +31,22 @@ git switch -c TRK-<n>-<short-description>
 
 - Run `/verify`. Fix every failure.
 - Run the `code-reviewer` agent on the diff. Fix every "must fix" finding.
+- After any change, including fixes for review findings, run both again. The tree you commit must be the one that passed. This applies to every push, including later fix commits on an open PR.
 
 ## 5. Commit
 
 ```bash
-git add -A
+git status                       # stage only the files that were reviewed
+git add <reviewed files>
 git commit -m "TRK-<n>: <what changed and why>" -m "<body: details, trade-offs, follow-ups>"
 ```
 
 - A fix for this TRK found later stays under the same key.
-- Do **not** push. Tell Davit: branch name, what changed, verification results (or exactly what could not be run), and anything left for him to check by hand.
-- Once Davit confirms it is pushed and merged, tick the TRK checkbox on the Notion task list.
+- Never stage secrets, local config (for example an untracked `.mcp.json`) or files the review did not see. Avoid `git add -A`.
+
+## 6. Push and open the PR (ADR-0013)
+
+- Push only if `/verify` passed and the `code-reviewer` agent reported no must-fix findings, both on the exact tree being committed. If anything could not be run, do **not** push; tell Davit what is missing.
+- `git push -u Trekky TRK-<n>-<short-description>`: TRK branches (`TRK-<n>-…`) only. Never `dev`, `staging` or `main`, never `--force`, never rewrite commits already on the remote.
+- Open the PR with `gh pr create --repo DavitMatevosyan/Trekky --base dev --head TRK-<n>-<short-description>`. If the PR already exists, the push updates it; use `gh pr edit` to update its description. The description lists what changed, the verification results, and anything Davit should check by hand. It ends with the Claude Code attribution line.
+- Davit reviews and merges. Once he confirms it is merged, tick the TRK checkbox on the Notion task list.
