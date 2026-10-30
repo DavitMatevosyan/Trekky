@@ -65,7 +65,7 @@ npm run e2e                                # Playwright; needs Postgres up, star
 - **Work items.** One `work_item` table: `type` (Epic, Story, Task, SubTask, Bug, TechDebt) + `parent_id`; reserved `custom` JSONB column.
 - **API.** OpenAPI-first REST under `/api/v1`; RFC 9457 problem details; cursor pagination; ETag/If-Match for edits; `TypedResults`.
 - **Auth.** ASP.NET Core Identity + OpenIddict in-app (no external IdP); JWT with user, org and role claims.
-- **Storage / mail.** No object storage until attachments; when added, code only against the S3 API (ADR-0006: MinIO removed, SeaweedFS / Oracle Object Storage proposed). SMTP for mail (Mailpit locally).
+- **Storage / mail.** No object storage until attachments; when added, code only against the S3 API (ADR-0006: MinIO removed, SeaweedFS proposed; production store chosen with hosting). SMTP for mail (Mailpit locally).
 
 ## Code conventions
 
@@ -77,9 +77,11 @@ npm run e2e                                # Playwright; needs Postgres up, star
 
 | Version | Contents |
 | --- | --- |
-| v0.1 Skeleton (current) | Login (Identity + OpenIddict), org at sign-up, `org_id` + RLS, deploy to the Oracle VM, nightly backup |
+| v0.1 Skeleton (current) | Login (Identity + OpenIddict), org at sign-up, `org_id` + RLS |
 | v0.2 Work items | Projects with key, work items with parent/child, fixed workflow, list, detail, activity log |
 | v1.0 Dogfood | Board with drag and drop, comments, assignee |
+
+Deployment and backups (TRK-9) are deferred until the app is built; the host is chosen then (ADR-0004).
 
 Not before their version: sprints, notifications, real-time, custom workflows/fields, MCP server, SSO, billing.
 

@@ -22,12 +22,12 @@ How:
 
 ## Consequences
 
-- SameSite=Strict on the session cookie is the only CSRF defence for logout, and it is acceptable: the worst outcome is a forced logout. SameSite works per registrable domain, not per origin, so TRK-9 must not host untrusted sites on sibling subdomains of the app's domain.
+- SameSite=Strict on the session cookie is the only CSRF defence for logout, and it is acceptable: the worst outcome is a forced logout. SameSite works per registrable domain, not per origin, so production hosting (deferred, see ADR-0004) must not host untrusted sites on sibling subdomains of the app's domain.
 
 - Easier: new screens follow one pattern (route, then a query or mutation through the typed client, then shadcn components). API changes show up as TypeScript errors once `schema.d.ts` is regenerated.
 - Easier: no token in `localStorage`, so a cross-site script cannot read a long-lived token from storage. A reload costs one silent redirect.
 - Harder: `schema.d.ts` must be regenerated and committed whenever an endpoint changes. A CI drift check can come later if this is forgotten.
-- Harder: same-origin is a hosting requirement. TRK-9 must serve the web app, `/api` and `/connect` behind one origin (reverse proxy), or the `SameSite=Strict` session cookie never reaches `/connect/authorize`.
+- Harder: same-origin is a hosting requirement. Production hosting (deferred, see ADR-0004) must serve the web app, `/api` and `/connect` behind one origin (reverse proxy), or the `SameSite=Strict` session cookie never reaches `/connect/authorize`.
 - Harder: e2e needs Postgres and the API in CI, so the job is slower than the unit tests.
 - Follow-ups: i18next when a second language is needed. axe accessibility checks in Playwright (listed in the baseline) are not wired up yet; add them with the first screen that has real content (TRK-10).
 
