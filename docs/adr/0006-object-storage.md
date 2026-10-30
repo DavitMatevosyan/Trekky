@@ -21,7 +21,7 @@ Nothing in Trekky stores files yet. Attachments are not part of v0.1–v1.0.
 2. **Code only against the S3 API** when attachments arrive (AWS SDK for .NET with a configurable endpoint), so the storage server is a deployment choice, not a code dependency. (Agreed.)
 3. **Replacement — recommended, confirm when the attachments TRK is planned:** (Proposed.)
    - **Local development and self-hosting: SeaweedFS** (`chrislusf/seaweedfs`, pinned version) with its S3 gateway.
-   - **POC production:** Oracle Object Storage through its S3-compatible API — already planned for off-VM backups (ADR-0004), free tier, nothing extra to run on the VM.
+   - **POC production:** deferred together with hosting (ADR-0004, deferred 2026-10-30); choose an S3-compatible store with the host.
 
 ## Consequences
 

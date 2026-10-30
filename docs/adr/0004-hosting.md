@@ -1,8 +1,14 @@
 # ADR-0004: POC hosting — one Oracle Cloud Always Free VM with Docker Compose
 
-- **Status:** Agreed
+- **Status:** Deferred (2026-10-30) · was Agreed
 - **Date:** 2026-10-06 (agreed in planning, 2026-10-05)
 - **Deciders:** Davit, Claude
+
+## Deferral (2026-10-30)
+
+Hosting is on hold until the app is built. The Oracle Always Free VM could not be created, and Davit chose to build the product first and decide hosting afterwards. Until then there is no production deployment and no backups; TRK-9 is deferred.
+
+When hosting is picked up again, choose the host anew (candidates: Oracle with a Pay As You Go account, Google Cloud e2-micro, a home machine behind Cloudflare Tunnel, or a paid VM such as Hetzner) and update this ADR. The rest of this ADR is kept as the starting point for that decision, and the production stack already built for the Oracle VM (Dockerfiles, Caddy, production Compose, backup and restore scripts) stays on the branch `TRK-9-oracle-vm-deploy` (PR #11, closed unmerged). This edit to an Agreed ADR is a one-time exception approved by Davit.
 
 ## Context
 
