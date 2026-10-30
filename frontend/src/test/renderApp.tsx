@@ -22,6 +22,35 @@ export const me = {
   role: 'owner',
 }
 
+export const emptyProjectPage = { items: [], nextCursor: null }
+
+type Handler = (request: Request) => Response | Promise<Response>
+
+/**
+ * A fake API for a logged-in page: `"METHOD /path"` → response. GET /api/v1/me and GET /api/v1/projects answer by
+ * default; anything else is a 404 so a missing handler shows up in the test.
+ */
+export function fakeApi(handlers: Record<string, Handler> = {}) {
+  const all: Record<string, Handler> = {
+    'GET /api/v1/me': () => jsonResponse(me),
+    'GET /api/v1/projects': () => jsonResponse(emptyProjectPage),
+    ...handlers,
+  }
+  return vi.fn<typeof fetch>(async (input, init) => {
+    const request = input instanceof Request ? input : new Request(new URL(String(input), 'http://localhost'), init)
+    const handler = all[`${request.method} ${new URL(request.url).pathname}`]
+    return handler ? handler(request) : new Response(null, { status: 404 })
+  })
+}
+
+/** The requests a fetch mock received for `"METHOD /path"`, in order. */
+export function requestsTo(fetchFn: typeof fetch, route: string): Request[] {
+  return vi
+    .mocked(fetchFn)
+    .mock.calls.map(([input, init]) => (input instanceof Request ? input : new Request(new URL(String(input), 'http://localhost'), init)))
+    .filter((request) => `${request.method} ${new URL(request.url).pathname}` === route)
+}
+
 /** Renders the real routes in a memory router, with a session whose network calls go to `fetchFn`. */
 export function renderApp({
   path = '/',

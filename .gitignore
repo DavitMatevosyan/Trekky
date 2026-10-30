@@ -29,6 +29,7 @@ dist/
 npm-debug.log*
 playwright-report/
 test-results/
+.playwright-mcp/
 
 # Claude Code (personal settings)
 .claude/settings.local.json

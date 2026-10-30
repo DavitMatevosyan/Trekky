@@ -7,6 +7,13 @@
   <Folder Name="/src/Modules/">
     <File Path="src/Modules/Directory.Build.props" />
   </Folder>
+  <Folder Name="/src/Modules/Activity/">
+    <Project Path="src/Modules/Activity/Trekky.Modules.Activity.Api/Trekky.Modules.Activity.Api.csproj" />
+    <Project Path="src/Modules/Activity/Trekky.Modules.Activity.Application/Trekky.Modules.Activity.Application.csproj" />
+    <Project Path="src/Modules/Activity/Trekky.Modules.Activity.Domain/Trekky.Modules.Activity.Domain.csproj" />
+    <Project Path="src/Modules/Activity/Trekky.Modules.Activity.Infrastructure/Trekky.Modules.Activity.Infrastructure.csproj" />
+    <Project Path="src/Modules/Activity/Trekky.Modules.Activity.Persistence/Trekky.Modules.Activity.Persistence.csproj" />
+  </Folder>
   <Folder Name="/src/Modules/Identity/">
     <Project Path="src/Modules/Identity/Trekky.Modules.Identity.Api/Trekky.Modules.Identity.Api.csproj" />
     <Project Path="src/Modules/Identity/Trekky.Modules.Identity.Application/Trekky.Modules.Identity.Application.csproj" />
@@ -14,9 +21,18 @@
     <Project Path="src/Modules/Identity/Trekky.Modules.Identity.Infrastructure/Trekky.Modules.Identity.Infrastructure.csproj" />
     <Project Path="src/Modules/Identity/Trekky.Modules.Identity.Persistence/Trekky.Modules.Identity.Persistence.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/Projects/">
+    <Project Path="src/Modules/Projects/Trekky.Modules.Projects.Api/Trekky.Modules.Projects.Api.csproj" />
+    <Project Path="src/Modules/Projects/Trekky.Modules.Projects.Application/Trekky.Modules.Projects.Application.csproj" />
+    <Project Path="src/Modules/Projects/Trekky.Modules.Projects.Domain/Trekky.Modules.Projects.Domain.csproj" />
+    <Project Path="src/Modules/Projects/Trekky.Modules.Projects.Infrastructure/Trekky.Modules.Projects.Infrastructure.csproj" />
+    <Project Path="src/Modules/Projects/Trekky.Modules.Projects.Persistence/Trekky.Modules.Projects.Persistence.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Trekky.Api.Tests/Trekky.Api.Tests.csproj" />
+    <Project Path="tests/Trekky.Modules.Activity.Tests/Trekky.Modules.Activity.Tests.csproj" />
     <Project Path="tests/Trekky.Modules.Identity.Tests/Trekky.Modules.Identity.Tests.csproj" />
+    <Project Path="tests/Trekky.Modules.Projects.Tests/Trekky.Modules.Projects.Tests.csproj" />
     <Project Path="tests/Trekky.Persistence.Tests/Trekky.Persistence.Tests.csproj" />
   </Folder>
 </Solution>

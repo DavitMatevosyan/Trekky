@@ -49,9 +49,10 @@ npm run e2e                                # Playwright; needs Postgres up, star
 - **Buildable history.** Every TRK is verified locally (build, tests, lint, app starts) before it is pushed. If one TRK alone would leave the app not building or running, combine it with the TRKs it needs into one commit. A fix for a TRK goes under that same TRK key.
 - **Branches:** `TRK-42-short-description` off `dev`, squash-merged into `dev`. `dev` → `staging` → `main` are promoted by merge only.
 - **Commits:** `TRK-42: <descriptive message>` — say what changed and why, with a body when it is not obvious.
-- **Never push, force-push, or rewrite pushed history.** Davit verifies and pushes. Do not amend or squash commits that exist on the remote.
+- **Claude verifies, reviews and pushes (ADR-0013).** Run `/verify` and the `code-reviewer` agent and fix every must-fix finding. Then commit, push the `TRK-<n>-…` branch and open or update the PR to `dev`. Push only when both passed on the exact tree being committed, and run them again after every fix. If something could not be run, do not push and say what is missing. Stage only reviewed files. Push only TRK branches (`TRK-<n>-…`, branched from `Trekky/dev`) and `ui-evidence` (ADR-0012). Never push to `dev`, `staging` or `main`, never merge, never force-push, and never amend, squash or rebase commits on the remote. Davit reviews the PR and merges.
+- **Clean test runs.** Every UI or browser test run is arrange → test → validate → report → clean up: push the evidence (ADR-0012), then delete local screenshots, delete the test users, orgs and their data, and stop the API, dev server and browser started for the run.
 - **Never claim something is verified unless you ran it.** If you could not run the build or tests, say so plainly.
-- **Reviews:** every change is reviewed by Davit and Claude (use the `code-reviewer` agent) before it is pushed.
+- **Reviews:** every change is reviewed by Claude (the `code-reviewer` agent) before it is pushed, and by Davit on the PR before it is merged.
 - **Postman:** a TRK that adds or changes an endpoint updates `postman/Trekky.postman_collection.json` in the same commit (ADR-0008).
 - **Decisions:** anything that sets a rule goes in an ADR (`/adr` skill). ADRs are never edited after Agreed; supersede them instead.
 
@@ -60,7 +61,7 @@ npm run e2e                                # Playwright; needs Postgres up, star
 - **Modular monolith.** Each module implements `IModule` (SharedKernel), owns its own Postgres schema and DbContext, and maps endpoints under `/api/v1`. Modules talk through public contracts or events — never through another module's internals or cross-schema joins.
 - **Module layers (ADR-0009).** Api → Application, Infrastructure; Infrastructure → Application, Persistence; Application → Domain; Persistence → Domain. Only `<Name>Module` and `Application/Contracts` are public; `ModuleLayeringTests` checks the direction. Input validation is FluentValidation in Application, never in Domain. One type per file.
 - **Tenancy.** Every tenant-owned table has `org_id`; Postgres RLS policies enforce it; the request sets `app.org_id` per connection. Never rely on `WHERE org_id = …` alone. Register module DbContexts with `AddModuleDbContext<T>(configuration, schema)` and add the policy in the migration with `migrationBuilder.EnableTenantRowLevelSecurity(schema, table)` — never hand-write it. The API connects as `trekky_app` (RLS applies); migrations run as `trekky_owner`.
-- **Activity log.** Every state change writes an `activity_event` through the outbox in the same transaction. This stream later feeds notifications, real-time, webhooks and AI context — do not skip it.
+- **Activity log.** Every state change writes an `activity_event` through the outbox in the same transaction. This stream later feeds notifications, real-time, webhooks and AI context — do not skip it. In code: `modelBuilder.AddOutbox()`, `services.AddModuleOutbox(schema)`, `migrationBuilder.EnableOutboxRowLevelSecurity(schema)`, then `db.AddActivityEvent(ActivityEnvelope.Create(...))` before the `SaveChanges` that makes the change (ADR-0011).
 - **IDs.** UUIDv7 internally (`Guid.CreateVersion7()`); human keys like `TRK-42` externally.
 - **Work items.** One `work_item` table: `type` (Epic, Story, Task, SubTask, Bug, TechDebt) + `parent_id`; reserved `custom` JSONB column.
 - **API.** OpenAPI-first REST under `/api/v1`; RFC 9457 problem details; cursor pagination; ETag/If-Match for edits; `TypedResults`.
@@ -89,7 +90,7 @@ Not before their version: sprints, notifications, real-time, custom workflows/fi
 
 | Name | Kind | Use it to |
 | --- | --- | --- |
-| `code-reviewer` | agent | Review the current diff against these rules before Davit pushes |
+| `code-reviewer` | agent | Review the current diff against these rules before Claude pushes |
 | `test-writer` | agent | Write unit, integration or e2e tests for a change |
 | `/trk` | skill | Start, implement and finish a TRK end to end |
 | `/verify` | skill | Run the full local verification before a commit is pushed |

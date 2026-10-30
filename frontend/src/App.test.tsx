@@ -1,7 +1,7 @@
 import { act, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beginAuthorization } from './auth/oauthClient.ts'
-import { jsonResponse, me, problemResponse, renderApp, requestAt, validTokens } from './test/renderApp.tsx'
+import { fakeApi, jsonResponse, me, problemResponse, renderApp, requestAt, requestsTo, validTokens } from './test/renderApp.tsx'
 
 vi.mock('./auth/oauthClient.ts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./auth/oauthClient.ts')>()),
@@ -20,27 +20,22 @@ describe('App', () => {
     })
 
     it('show the organization and role of the logged-in user', async () => {
-      const fetchFn = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse(me))
+      const fetchFn = fakeApi()
       renderApp({ tokens: validTokens, fetchFn })
 
       expect(await screen.findByText('You are the Owner of Acme.')).toBeInTheDocument()
-      expect(requestAt(fetchFn, 0).headers.get('Authorization')).toBe(`Bearer ${validTokens.accessToken}`)
+      expect(requestsTo(fetchFn, 'GET /api/v1/me')[0]?.headers.get('Authorization')).toBe(`Bearer ${validTokens.accessToken}`)
     })
 
     it('log out: revoke on the server, forget the tokens and show the login page', async () => {
-      const fetchFn = vi
-        .fn<typeof fetch>()
-        .mockResolvedValueOnce(jsonResponse(me))
-        .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      const fetchFn = fakeApi({ 'POST /api/v1/auth/logout': () => new Response(null, { status: 204 }) })
       const { session, router } = renderApp({ tokens: validTokens, fetchFn })
       await screen.findByText('You are the Owner of Acme.')
 
       await userEvent.click(screen.getByRole('button', { name: 'Log out' }))
 
       expect(await screen.findByRole('heading', { name: 'Log in to Trekky' })).toBeInTheDocument()
-      const logout = requestAt(fetchFn, 1)
-      expect(new URL(logout.url).pathname).toBe('/api/v1/auth/logout')
-      expect(logout.method).toBe('POST')
+      expect(requestsTo(fetchFn, 'POST /api/v1/auth/logout')).toHaveLength(1)
       expect(session.status).toBe('loggedOut')
 
       // The back button must not show the protected page again, nor start a silent sign-in.
