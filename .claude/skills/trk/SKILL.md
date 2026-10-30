@@ -42,7 +42,7 @@ git commit -m "TRK-<n>: <what changed and why>" -m "<body: details, trade-offs, 
 ```
 
 - A fix for this TRK found later stays under the same key.
-- Never stage secrets, local config (for example an untracked `.mcp.json`) or files the review did not see. Avoid `git add -A`.
+- Never stage secrets, local config (for example `.env` or `.claude/settings.local.json`) or files the review did not see. Avoid `git add -A`.
 
 ## 6. Push and open the PR (ADR-0013)
 
