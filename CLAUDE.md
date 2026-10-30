@@ -49,7 +49,8 @@ npm run e2e                                # Playwright; needs Postgres up, star
 - **Buildable history.** Every TRK is verified locally (build, tests, lint, app starts) before it is pushed. If one TRK alone would leave the app not building or running, combine it with the TRKs it needs into one commit. A fix for a TRK goes under that same TRK key.
 - **Branches:** `TRK-42-short-description` off `dev`, squash-merged into `dev`. `dev` → `staging` → `main` are promoted by merge only.
 - **Commits:** `TRK-42: <descriptive message>` — say what changed and why, with a body when it is not obvious.
-- **Never push, force-push, or rewrite pushed history.** Davit verifies and pushes. Do not amend or squash commits that exist on the remote.
+- **Never push, force-push, or rewrite pushed history.** Davit verifies and pushes. Do not amend or squash commits that exist on the remote. The only exception: UI test screenshots may be pushed (fast-forward only) to the `ui-evidence` branch (ADR-0012).
+- **Clean test runs.** Every UI or browser test run is arrange → test → validate → report → clean up: push the evidence (ADR-0012), then delete local screenshots, delete the test users, orgs and their data, and stop the API, dev server and browser started for the run.
 - **Never claim something is verified unless you ran it.** If you could not run the build or tests, say so plainly.
 - **Reviews:** every change is reviewed by Davit and Claude (use the `code-reviewer` agent) before it is pushed.
 - **Postman:** a TRK that adds or changes an endpoint updates `postman/Trekky.postman_collection.json` in the same commit (ADR-0008).
