@@ -41,7 +41,9 @@ As an organization, I want my data invisible to every other organization, so I c
 - AC2: With no tenant set, queries return no rows and inserts fail.
 - AC3: A pooled database connection never carries one request's tenant into the next.
 
-### US-04 Trekky runs online with backups — TRK-9
+### US-04 Trekky runs online with backups — TRK-9 (deferred)
+
+> Deferred on 2026-10-30 until the app is built; the host is chosen then (ADR-0004).
 
 As the team, we want Trekky reachable over HTTPS with nightly backups, so we can use it daily without risk of losing work.
 
