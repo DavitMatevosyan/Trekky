@@ -195,6 +195,28 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /api/v1/projects/by-key/{key}:
+    parameters:
+      - name: key
+        in: path
+        required: true
+        description: Project key, e.g. `TRK`.
+        schema: { type: string, pattern: '^[A-Z][A-Z0-9]{1,9}$' }
+    get:
+      tags: [Projects]
+      operationId: getProjectByKey
+      summary: Get a project by its key (web app URLs like `/TRK`, TRK-11)
+      responses:
+        '200':
+          description: The project.
+          headers:
+            ETag: { $ref: '#/components/headers/ETag' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Project' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   /api/v1/projects/{projectId}/work-items:
     parameters:
       - $ref: '#/components/parameters/ProjectId'
@@ -273,7 +295,10 @@ paths:
       tags: [WorkItems]
       operationId: updateWorkItem
       summary: Edit title, description, type, parent or assignee (US-07, US-13)
-      description: JSON merge patch; only the fields sent change. Status changes use `/status`.
+      description: |
+        JSON merge patch; only the fields sent change, and `null` clears `descriptionMd` or `parentId`. Unknown fields
+        (including `status`) are a 400. Status changes use `/status` (TRK-12); `assigneeId` arrives with TRK-15.
+        An edit that changes nothing records no event and keeps the ETag.
       parameters:
         - $ref: '#/components/parameters/IfMatch'
       requestBody:
@@ -293,6 +318,11 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
         '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '415':
+          description: The body is not JSON (`application/merge-patch+json` or `application/json`).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
         '422': { $ref: '#/components/responses/ParentRuleViolation' }
         '428': { $ref: '#/components/responses/PreconditionRequired' }
 
@@ -534,7 +564,7 @@ components:
       name: If-Match
       in: header
       required: true
-      description: The `ETag` from the last read of this resource.
+      description: The `ETag` from the last read of this resource. `*`, a list and weak tags (`W/"7"`) are accepted.
       schema: { type: string }
 
   headers:
@@ -562,7 +592,10 @@ components:
         application/problem+json:
           schema: { $ref: '#/components/schemas/ValidationProblem' }
     ParentRuleViolation:
-      description: The parent is not allowed for this item type; `allowedParentTypes` lists the valid ones.
+      description: |
+        The parent is missing, in another project or not allowed for this item type; `allowedParentTypes` lists the
+        valid ones. When a new type no longer fits some children, `conflictingChildKeys` lists them and
+        `allowedParentTypes` is empty.
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/ParentRuleProblem' }
@@ -612,11 +645,15 @@ components:
       allOf:
         - $ref: '#/components/schemas/Problem'
         - type: object
-          required: [allowedParentTypes]
+          required: [allowedParentTypes, conflictingChildKeys]
           properties:
             allowedParentTypes:
               type: array
               items: { $ref: '#/components/schemas/WorkItemType' }
+            conflictingChildKeys:
+              type: array
+              description: Children whose type does not allow the item's new type as their parent; empty otherwise.
+              items: { type: string, examples: [TRK-43] }
 
     SignUpRequest:
       type: object
@@ -728,7 +765,8 @@ components:
       allOf:
         - $ref: '#/components/schemas/WorkItemSummary'
         - type: object
-          required: [projectId, allowedTransitions, children, createdAt, createdBy]
+          # allowedTransitions arrives with the workflow (TRK-12); createdBy with user lookups (TRK-12 history).
+          required: [projectId, descriptionMd, parent, children, createdAt]
           properties:
             projectId: { type: string, format: uuid }
             descriptionMd: { type: [string, 'null'] }

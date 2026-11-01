@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Trekky.Modules.Projects.Application.Contracts;
 using Trekky.Modules.Projects.Application.Projects;
 using Trekky.Modules.Projects.Persistence;
 
@@ -13,6 +14,7 @@ internal static class ProjectsServiceCollectionExtensions
         services.TryAddSingleton(TimeProvider.System);
         services.AddProjectsPersistence(configuration);
         services.AddScoped<IProjectService, ProjectService>();
+        services.AddScoped<IProjectDirectory, ProjectDirectory>();
         return services;
     }
 }

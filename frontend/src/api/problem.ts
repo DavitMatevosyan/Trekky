@@ -4,6 +4,10 @@ export interface ProblemDetails {
   detail?: string | null
   status?: number | null
   errors?: Record<string, string[]>
+  /** Work item parent rules (422): the parent types the item's type allows. */
+  allowedParentTypes?: string[]
+  /** Work item parent rules (422): children that would no longer fit a new type. */
+  conflictingChildKeys?: string[]
 }
 
 export function asProblem(value: unknown): ProblemDetails {

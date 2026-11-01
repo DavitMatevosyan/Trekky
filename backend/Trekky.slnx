@@ -28,11 +28,19 @@
     <Project Path="src/Modules/Projects/Trekky.Modules.Projects.Infrastructure/Trekky.Modules.Projects.Infrastructure.csproj" />
     <Project Path="src/Modules/Projects/Trekky.Modules.Projects.Persistence/Trekky.Modules.Projects.Persistence.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/WorkItems/">
+    <Project Path="src/Modules/WorkItems/Trekky.Modules.WorkItems.Api/Trekky.Modules.WorkItems.Api.csproj" />
+    <Project Path="src/Modules/WorkItems/Trekky.Modules.WorkItems.Application/Trekky.Modules.WorkItems.Application.csproj" />
+    <Project Path="src/Modules/WorkItems/Trekky.Modules.WorkItems.Domain/Trekky.Modules.WorkItems.Domain.csproj" />
+    <Project Path="src/Modules/WorkItems/Trekky.Modules.WorkItems.Infrastructure/Trekky.Modules.WorkItems.Infrastructure.csproj" />
+    <Project Path="src/Modules/WorkItems/Trekky.Modules.WorkItems.Persistence/Trekky.Modules.WorkItems.Persistence.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Trekky.Api.Tests/Trekky.Api.Tests.csproj" />
     <Project Path="tests/Trekky.Modules.Activity.Tests/Trekky.Modules.Activity.Tests.csproj" />
     <Project Path="tests/Trekky.Modules.Identity.Tests/Trekky.Modules.Identity.Tests.csproj" />
     <Project Path="tests/Trekky.Modules.Projects.Tests/Trekky.Modules.Projects.Tests.csproj" />
+    <Project Path="tests/Trekky.Modules.WorkItems.Tests/Trekky.Modules.WorkItems.Tests.csproj" />
     <Project Path="tests/Trekky.Persistence.Tests/Trekky.Persistence.Tests.csproj" />
   </Folder>
 </Solution>

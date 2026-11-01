@@ -13,4 +13,7 @@ internal interface IProjectService
 
     /// <summary>The project, or <c>null</c> when it does not exist or belongs to another organization.</summary>
     Task<VersionedProject?> GetAsync(Guid projectId, CancellationToken cancellationToken);
+
+    /// <summary>The project with this key, or <c>null</c> when the organization has none.</summary>
+    Task<VersionedProject?> GetByKeyAsync(string key, CancellationToken cancellationToken);
 }

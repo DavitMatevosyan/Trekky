@@ -10,7 +10,7 @@ using Trekky.SharedKernel;
 
 namespace Trekky.Modules.Projects.Api.Endpoints;
 
-/// <summary>Create, list and get projects, under /api/v1 (OpenAPI draft, TRK-5; US-05).</summary>
+/// <summary>Create, list and get projects (by id or key), under /api/v1 (OpenAPI draft, TRK-5; US-05).</summary>
 internal static class ProjectEndpoints
 {
     internal const string KeyTakenMessage = "A project with this key already exists in your organization.";
@@ -38,6 +38,13 @@ internal static class ProjectEndpoints
                 => GetAsync(projectId, service, response, cancellationToken))
             .WithName("GetProject")
             .WithSummary("Get a project")
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        projects.MapGet("/by-key/{key}", (string key, IProjectService service, HttpResponse response,
+                    CancellationToken cancellationToken)
+                => GetByKeyAsync(key, service, response, cancellationToken))
+            .WithName("GetProjectByKey")
+            .WithSummary("Get a project by its key (web app URLs like /TRK)")
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         return endpoints;
@@ -95,11 +102,17 @@ internal static class ProjectEndpoints
         return TypedResults.Ok(await service.ListAsync(pageSize, after, cancellationToken));
     }
 
+    // Another organization's project is invisible under RLS, so it is "not found" too.
     private static async Task<Results<Ok<Project>, ProblemHttpResult>> GetAsync(
         Guid projectId, IProjectService service, HttpResponse response, CancellationToken cancellationToken)
+        => Found(await service.GetAsync(projectId, cancellationToken), response);
+
+    private static async Task<Results<Ok<Project>, ProblemHttpResult>> GetByKeyAsync(
+        string key, IProjectService service, HttpResponse response, CancellationToken cancellationToken)
+        => Found(await service.GetByKeyAsync(key, cancellationToken), response);
+
+    private static Results<Ok<Project>, ProblemHttpResult> Found(VersionedProject? project, HttpResponse response)
     {
-        // Another organization's project is invisible under RLS, so it is "not found" too.
-        var project = await service.GetAsync(projectId, cancellationToken);
         if (project is null)
         {
             return TypedResults.Problem(title: "Project not found", statusCode: StatusCodes.Status404NotFound);

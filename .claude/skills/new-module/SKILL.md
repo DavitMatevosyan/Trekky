@@ -45,7 +45,7 @@ Only `<Name>Module` and `Application/Contracts` are public; everything else is `
 
 ## Rules
 
-- **Schema:** `<Name>DbContext` declares `public const string Schema = "<schema>";` and calls `modelBuilder.HasDefaultSchema(Schema)`. Migrations live in Persistence: `dotnet ef migrations add <Migration> -p src/Modules/<Name>/Trekky.Modules.<Name>.Persistence -s src/Trekky.Api -o Migrations`.
+- **Schema:** `<Name>DbContext` declares `public const string Schema = "<schema>";` and calls `modelBuilder.HasDefaultSchema(Schema)`. Migrations live in Persistence: `dotnet ef migrations add <Migration> --context <Name>DbContext -p src/Modules/<Name>/Trekky.Modules.<Name>.Persistence -s src/Trekky.Api -o Migrations`.
 - **Tenancy:** every tenant-owned table has `org_id` (uuid, not null, indexed). Register the DbContext with `AddModuleDbContext<T>(configuration, <Name>DbContext.Schema)` and add the policy in the migration with `migrationBuilder.EnableTenantRowLevelSecurity(schema, table)`; never hand-write it.
 - **IDs:** `Guid.CreateVersion7()`.
 - **Events:** state changes write an `activity_event` through the outbox in the same `SaveChanges` transaction. Map the table with `modelBuilder.AddOutbox()`, register it with `services.AddModuleOutbox(<Name>DbContext.Schema)` in `Add<Name>Persistence()`, secure it in the migration with `migrationBuilder.EnableOutboxRowLevelSecurity(schema)`, and queue events with `db.AddActivityEvent(ActivityEnvelope.Create(...))` (event names and payloads: docs/tech/activity-events.md; ADR-0011). `backend/src/Modules/Projects/` is the reference.

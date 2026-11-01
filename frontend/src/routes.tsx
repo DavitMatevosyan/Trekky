@@ -6,7 +6,10 @@ import { AuthCallbackPage } from './pages/AuthCallbackPage.tsx'
 import { ProjectsPage } from './pages/ProjectsPage.tsx'
 import { LogInPage } from './pages/LogInPage.tsx'
 import { NotFoundPage } from './pages/NotFoundPage.tsx'
+import { ProjectItemsPage } from './pages/ProjectItemsPage.tsx'
 import { SignUpPage } from './pages/SignUpPage.tsx'
+import { ProjectKeyRoute } from './projects/ProjectKeyRoute.tsx'
+import { WorkItemPage } from './pages/WorkItemPage.tsx'
 
 export const routes: RouteObject[] = [
   { path: '/login', element: <LogInPage /> },
@@ -15,6 +18,25 @@ export const routes: RouteObject[] = [
   {
     element: <RequireAuth />,
     children: [{ element: <AppShell />, children: [{ index: true, element: <ProjectsPage /> }] }],
+  },
+  {
+    // Project and item keys in the URL (US-09 AC3): /TRK and /TRK/items/TRK-42.
+    path: ':projectKey',
+    element: <ProjectKeyRoute />,
+    children: [
+      {
+        element: <RequireAuth />,
+        children: [
+          {
+            element: <AppShell />,
+            children: [
+              { index: true, element: <ProjectItemsPage /> },
+              { path: 'items/:itemKey', element: <WorkItemPage /> },
+            ],
+          },
+        ],
+      },
+    ],
   },
   { path: '*', element: <NotFoundPage /> },
 ]
