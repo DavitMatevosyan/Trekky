@@ -12,7 +12,7 @@ import { isWorkItemType, statusLabel, typeLabel } from '../workItems/workItemTyp
 // The Markdown renderer is most of a bundle's weight, and only this page needs it.
 const Markdown = lazy(() => import('../components/Markdown.tsx').then((module) => ({ default: module.Markdown })))
 
-/** One item (US-09, wireframes: Item detail) at /TRK/items/TRK-42; history arrives with TRK-12. */
+/** One item (US-09, wireframes: Item detail) at /TRK/items/TRK-42; history arrives with TRK-14. */
 export function WorkItemPage() {
   const { projectKey = '', itemKey = '' } = useParams()
   // /TRK/items/WEB-1 names another project's item: not an address of this project.

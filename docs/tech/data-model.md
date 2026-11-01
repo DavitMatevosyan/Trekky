@@ -16,7 +16,7 @@ Postgres 17, one schema per module (ADR-0001), `org_id` + RLS on every tenant ta
 | --- | --- | --- | --- |
 | Identity | `identity` | users (+ ASP.NET Identity tables), organizations, memberships, OpenIddict tables | TRK-7 |
 | Projects | `projects` | projects, outbox | TRK-10 |
-| Work items | `work_items` | work_items, item_counters, comments, outbox | TRK-11, TRK-14 |
+| Work items | `work_items` | work_items, item_counters, comments, outbox | TRK-11, TRK-18 |
 | Activity | `activity` | activity_events | TRK-10 |
 
 ## Diagram
@@ -130,12 +130,12 @@ erDiagram
 | `description_md` | text | nullable, Markdown |
 | `status` | text | `todo`, `in_progress`, `in_review`, `done` (check constraint) |
 | `parent_id` | uuid | FK → `work_items.id`, same project; parent rules enforced in the domain (user stories US-06) |
-| `assignee_id` | uuid | nullable user id (v1.0; column added by TRK-15) |
-| `rank` | text | lexicographic rank for board order within a status (v1.0; column added by TRK-13) |
+| `assignee_id` | uuid | nullable user id (v1.0; column added by TRK-20) |
+| `rank` | text | lexicographic rank for board order within a status (v1.0; column added by TRK-17) |
 | `custom` | jsonb | not null default `'{}'`, reserved for custom fields (v1.5) |
 | `created_by`, `created_at`, `updated_at` | | |
 
-Indexes: `(org_id, project_id, updated_at desc, id desc)` for the list; `(org_id, project_id, status, rank)` for the board (TRK-13); `(parent_id)`.
+Indexes: `(org_id, project_id, updated_at desc, id desc)` for the list; `(org_id, project_id, status, rank)` for the board (TRK-17); `(parent_id)`.
 
 The work items module checks that a project exists, and reads its key, through the projects module's public `IProjectDirectory`. The projects list shows item counts through `IProjectItemCounts`, which projects defines and work items implements, so the two modules depend on each other in one direction only and never read each other's tables.
 

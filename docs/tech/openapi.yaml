@@ -297,7 +297,7 @@ paths:
       summary: Edit title, description, type, parent or assignee (US-07, US-13)
       description: |
         JSON merge patch; only the fields sent change, and `null` clears `descriptionMd` or `parentId`. Unknown fields
-        (including `status`) are a 400. Status changes use `/status` (TRK-12); `assigneeId` arrives with TRK-15.
+        (including `status`) are a 400. Status changes use `/status` (TRK-12); `assigneeId` arrives with TRK-20.
         An edit that changes nothing records no event and keeps the ETag.
       parameters:
         - $ref: '#/components/parameters/IfMatch'
@@ -765,7 +765,7 @@ components:
       allOf:
         - $ref: '#/components/schemas/WorkItemSummary'
         - type: object
-          # allowedTransitions arrives with the workflow (TRK-12); createdBy with user lookups (TRK-12 history).
+          # allowedTransitions arrives with the workflow (TRK-12); createdBy with user lookups (TRK-13).
           required: [projectId, descriptionMd, parent, children, createdAt]
           properties:
             projectId: { type: string, format: uuid }
