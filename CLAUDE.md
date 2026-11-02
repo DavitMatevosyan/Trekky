@@ -33,7 +33,7 @@ cd backend
 dotnet build                               # warnings are errors
 dotnet test                                # needs Docker running (Testcontainers starts Postgres)
 dotnet run --project src/Trekky.Api        # http://localhost:5080, /api/v1/health (or run config "Trekky" in Rider: infra + API + web)
-dotnet tool restore && dotnet ef migrations add <Name> -p src/Modules/<Module>/Trekky.Modules.<Module>.Persistence -s src/Trekky.Api -o Migrations
+dotnet tool restore && dotnet ef migrations add <Name> --context <Module>DbContext -p src/Modules/<Module>/Trekky.Modules.<Module>.Persistence -s src/Trekky.Api -o Migrations
 
 cd frontend
 npm ci                                     # installs exactly what package-lock.json pins

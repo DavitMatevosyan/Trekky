@@ -44,6 +44,14 @@
     {
       "key": "projectId",
       "value": ""
+    },
+    {
+      "key": "workItemId",
+      "value": ""
+    },
+    {
+      "key": "workItemEtag",
+      "value": ""
     }
   ],
   "auth": {
@@ -300,7 +308,7 @@
     },
     {
       "name": "Projects",
-      "description": "TRK-10: create, list (by name, cursor pagination) and get projects. Run Auth first; Create project saves projectId.",
+      "description": "TRK-10: create, list (by name, cursor pagination) and get projects (by id or key; itemCount since TRK-11). Run Auth first; Create project saves projectId.",
       "item": [
         {
           "name": "Create project",
@@ -367,6 +375,149 @@
           "request": {
             "method": "GET",
             "url": "{{baseUrl}}/api/v1/projects/{{projectId}}"
+          }
+        },
+        {
+          "name": "Get project by key",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/projects/by-key/TRK",
+            "description": "The web app's /TRK URLs use this. 404 when the organization has no project with this key."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Work items",
+      "description": "TRK-11: create, list (newest update first, cursor pagination), get (by id or key) and edit work items. Run Auth and Create project first; Create work item saves workItemId and its ETag, which Edit sends as If-Match.",
+      "item": [
+        {
+          "name": "Create work item",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('work item created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "if (body.id) pm.collectionVariables.set('workItemId', body.id);",
+                  "const etag = pm.response.headers.get('ETag');",
+                  "if (etag) pm.collectionVariables.set('workItemEtag', etag);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"story\",\n  \"title\": \"Comments on items\",\n  \"descriptionMd\": \"Members can **discuss** an item.\",\n  \"parentId\": null\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/work-items",
+            "description": "type: epic, story, task, subtask, bug or tech_debt. The item starts in To Do with the project's next key (TRK-1, TRK-2, ...). parentId must be an item of the same project whose type the parent rules allow (422 with allowedParentTypes otherwise); a subtask needs one. Records a WorkItemCreated activity event."
+          }
+        },
+        {
+          "name": "List work items",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/projects/{{projectId}}/work-items?limit=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "projects",
+                "{{projectId}}",
+                "work-items"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "cursor",
+                  "value": "",
+                  "disabled": true,
+                  "description": "nextCursor from the previous page"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get work item",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('work item found', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "if (body.id) pm.collectionVariables.set('workItemId', body.id);",
+                  "const etag = pm.response.headers.get('ETag');",
+                  "if (etag) pm.collectionVariables.set('workItemEtag', etag);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/work-items/{{workItemId}}",
+            "description": "With its parent and children. Saves the ETag for Edit."
+          }
+        },
+        {
+          "name": "Get work item by key",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/work-items/by-key/TRK-1"
+          }
+        },
+        {
+          "name": "Edit work item",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('work item edited', () => pm.response.to.have.status(200));",
+                  "const etag = pm.response.headers.get('ETag');",
+                  "if (etag) pm.collectionVariables.set('workItemEtag', etag);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/merge-patch+json"
+              },
+              {
+                "key": "If-Match",
+                "value": "{{workItemEtag}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Comments on work items\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/work-items/{{workItemId}}",
+            "description": "JSON merge patch: only the fields sent change (type, title, descriptionMd, parentId); null clears descriptionMd or parentId. If-Match is required (428) and must be the latest ETag (412 otherwise). A new type or parent re-checks the parent rules for the item and its children (422). Records a WorkItemUpdated activity event when something changed."
           }
         }
       ]

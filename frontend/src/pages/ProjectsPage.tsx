@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { Link } from 'react-router'
 import { useMe } from '../auth/useMe.ts'
 import { Button } from '../components/ui/Button.tsx'
 import { messages } from '../i18n/messages.ts'
@@ -63,7 +64,9 @@ export function ProjectsPage() {
           {items.map((project) => (
             <li key={project.id} className="flex items-center gap-4 px-4 py-3">
               <span className="w-16 font-mono text-sm font-semibold">{project.key}</span>
-              <span className="flex-1">{project.name}</span>
+              <Link to={`/${project.key}`} className="flex-1 underline-offset-4 hover:underline">
+                {project.name}
+              </Link>
               <span className="text-sm text-muted-foreground">{messages.projects.itemCount(Number(project.itemCount))}</span>
             </li>
           ))}

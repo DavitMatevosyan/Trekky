@@ -10,6 +10,7 @@
     <ProjectReference Include="..\Modules\Activity\Trekky.Modules.Activity.Api\Trekky.Modules.Activity.Api.csproj" />
     <ProjectReference Include="..\Modules\Identity\Trekky.Modules.Identity.Api\Trekky.Modules.Identity.Api.csproj" />
     <ProjectReference Include="..\Modules\Projects\Trekky.Modules.Projects.Api\Trekky.Modules.Projects.Api.csproj" />
+    <ProjectReference Include="..\Modules\WorkItems\Trekky.Modules.WorkItems.Api\Trekky.Modules.WorkItems.Api.csproj" />
     <ProjectReference Include="..\Trekky.Persistence\Trekky.Persistence.csproj" />
     <ProjectReference Include="..\Trekky.SharedKernel\Trekky.SharedKernel.csproj" />
   </ItemGroup>

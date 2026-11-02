@@ -80,13 +80,13 @@ Indexes: `(org_id, entity_id, event_id desc)` for item history, `(org_id, projec
 | Event | Emitted by | When | Payload |
 | --- | --- | --- | --- |
 | `ProjectCreated` | Projects (TRK-10) | A project is created | `{ "key": "TRK", "name": "Trekky" }` |
-| `WorkItemCreated` | Work items (TRK-11) | An item is created | `{ "type": "story", "title": "Comments on items", "status": "todo", "parentId": "…" \| null }` |
-| `WorkItemUpdated` | Work items (TRK-11) | Title, description, type or parent changes | `{ "changes": { "title": { "from": "Comments", "to": "Comments on items" } } }` — description changes record `{ "changed": true }`, not the full text |
+| `WorkItemCreated` | Work items (TRK-11) | An item is created | `{ "type": "story", "title": "Comments on items", "status": "todo", "parentId": "…" \| null, "parentKey": "TRK-2" \| null }` |
+| `WorkItemUpdated` | Work items (TRK-11) | Title, description, type or parent changes | `{ "changes": { "title": { "from": "Comments", "to": "Comments on items" } } }` — fields are `type`, `title`, `descriptionMd` and `parent`; description changes record `{ "changed": true }`, not the full text; parent changes record `{ "from": { "id": "…", "key": "TRK-2" } \| null, "to": … }`. An edit that changes nothing records no event |
 | `WorkItemStatusChanged` | Work items (TRK-12) | Status changes | `{ "from": "in_progress", "to": "in_review" }` |
-| `WorkItemAssigned` | Work items (TRK-15) | Assignee changes, including to nobody | `{ "from": "…" \| null, "to": "…" \| null }` |
-| `CommentAdded` | Work items (TRK-14) | A comment is posted (entity = the work item) | `{ "commentId": "…", "excerpt": "first 200 characters" }` |
+| `WorkItemAssigned` | Work items (TRK-20) | Assignee changes, including to nobody | `{ "from": "…" \| null, "to": "…" \| null }` |
+| `CommentAdded` | Work items (TRK-18) | A comment is posted (entity = the work item) | `{ "commentId": "…", "excerpt": "first 200 characters" }` |
 
-Organization and user events (`OrganizationCreated`, `MemberJoined`) are added with invites in v1.1. `CommentEdited` and `CommentDeleted` arrive with TRK-14 if editing ships there.
+Organization and user events (`OrganizationCreated`, `MemberJoined`) are added with invites in v1.1. `CommentEdited` and `CommentDeleted` arrive with TRK-19.
 
 ## History view (US-09)
 

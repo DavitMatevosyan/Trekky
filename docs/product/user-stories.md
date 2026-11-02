@@ -100,7 +100,7 @@ As a member, I want a list of a project's items, so I can scan everything at onc
 - AC2: Sorted by last updated, newest first; loads 50 at a time with "Load more" (cursor pagination).
 - AC3: Clicking a row opens the item detail.
 
-### US-09 See a work item's detail — TRK-11, TRK-12
+### US-09 See a work item's detail — TRK-11, TRK-13, TRK-14
 
 As a member, I want one page with everything about an item, so I don't have to hunt for context.
 
@@ -129,7 +129,7 @@ As a member, I want to change an item's status, so everyone sees where the work 
 
 ## v1.0 Dogfood
 
-### US-11 Work on a board — TRK-13
+### US-11 Work on a board — TRK-15, TRK-16, TRK-17
 
 As a member, I want a Kanban board per project, so I can see and move work at a glance.
 
@@ -139,7 +139,7 @@ As a member, I want a Kanban board per project, so I can see and move work at a 
 - AC4: Dragging within a column reorders it, and the order persists for everyone (rank).
 - AC5: Cards can be moved with the keyboard as well as the mouse.
 
-### US-12 Comment on an item — TRK-14
+### US-12 Comment on an item — TRK-18, TRK-19
 
 As a member, I want to discuss an item in comments, so decisions stay with the work.
 
@@ -147,7 +147,7 @@ As a member, I want to discuss an item in comments, so decisions stay with the w
 - AC2: I can edit or delete my own comments; edited comments show "edited".
 - AC3: Adding a comment records a `CommentAdded` event.
 
-### US-13 Assign an item — TRK-15
+### US-13 Assign an item — TRK-20
 
 As a member, I want to assign an item to a person, so it is clear who owns it.
 
@@ -156,7 +156,7 @@ As a member, I want to assign an item to a person, so it is clear who owns it.
 - AC3: Changing it records a `WorkItemAssigned` event.
 - Note: until invites arrive (v1.1) the only member is the organization's Owner.
 
-### US-14 Trekky tracks itself — TRK-16
+### US-14 Trekky tracks itself — TRK-21
 
 As the team, we want our own Trekky work tracked in Trekky, so we find what hurts before anyone else does.
 

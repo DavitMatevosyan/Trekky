@@ -124,6 +124,79 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/by-key/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a project by its key (web app URLs like /TRK) */
+        get: operations["GetProjectByKey"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{projectId}/work-items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List a project's work items, newest update first (US-08) */
+        get: operations["ListWorkItems"];
+        put?: never;
+        /** Create a work item in To Do with the project's next key (US-06) */
+        post: operations["CreateWorkItem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/work-items/{workItemId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a work item with its parent and children (US-09) */
+        get: operations["GetWorkItem"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edit title, description, type or parent (US-07)
+         * @description JSON merge patch: only the fields sent change; null clears descriptionMd or parentId. Needs If-Match.
+         */
+        patch: operations["UpdateWorkItem"];
+        trace?: never;
+    };
+    "/api/v1/work-items/by-key/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a work item by its key, e.g. TRK-42 (US-09 AC3) */
+        get: operations["GetWorkItemByKey"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -131,6 +204,13 @@ export interface components {
         CreateProjectRequest: {
             name: null | string;
             key: null | string;
+        };
+        CreateWorkItemRequest: {
+            type: null | string;
+            title: null | string;
+            descriptionMd?: null | string;
+            /** Format: uuid */
+            parentId?: null | string;
         };
         HealthResponse: {
             status: string;
@@ -188,11 +268,51 @@ export interface components {
             organizationName: null | string;
             displayName?: null | string;
         };
+        UpdateWorkItemRequest: {
+            type?: null | string;
+            title?: null | string;
+            descriptionMd?: null | string;
+            /** Format: uuid */
+            parentId?: null | string;
+        };
         UserRef: {
             /** Format: uuid */
             id: string;
             displayName: string;
             email: null | string;
+        };
+        WorkItemDetail: {
+            /** Format: uuid */
+            id: string;
+            key: string;
+            type: string;
+            title: string;
+            status: string;
+            parentKey: null | string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: uuid */
+            projectId: string;
+            descriptionMd: null | string;
+            parent: null | components["schemas"]["WorkItemSummary"];
+            children: components["schemas"]["WorkItemSummary"][];
+            /** Format: date-time */
+            createdAt: string;
+        };
+        WorkItemPage: {
+            items: components["schemas"]["WorkItemSummary"][];
+            nextCursor: null | string;
+        };
+        WorkItemSummary: {
+            /** Format: uuid */
+            id: string;
+            key: string;
+            type: string;
+            title: string;
+            status: string;
+            parentKey: null | string;
+            /** Format: date-time */
+            updatedAt: string;
         };
     };
     responses: never;
@@ -435,6 +555,331 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Project"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    GetProjectByKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Project"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ListWorkItems: {
+        parameters: {
+            query?: {
+                limit?: number | string;
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkItemPage"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    CreateWorkItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateWorkItemRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkItemDetail"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    GetWorkItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workItemId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkItemDetail"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    UpdateWorkItem: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string;
+            };
+            path: {
+                workItemId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/merge-patch+json": components["schemas"]["UpdateWorkItemRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkItemDetail"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Precondition Failed */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unsupported Media Type */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Precondition Required */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    GetWorkItemByKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkItemDetail"];
                 };
             };
             /** @description Unauthorized */

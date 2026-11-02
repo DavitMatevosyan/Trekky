@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Trekky.Modules.Activity.Api;
 using Trekky.Modules.Identity.Api;
 using Trekky.Modules.Projects.Api;
+using Trekky.Modules.WorkItems.Api;
 using Trekky.Persistence.Registration;
 using Trekky.Persistence.Tenancy;
 using Trekky.SharedKernel;
@@ -16,8 +17,9 @@ builder.Services.AddTrekkyPersistence();
 builder.Services.AddAuthorizationBuilder()
     .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
 
-// Modules (WorkItems, ...) are added here as they are built.
-builder.Services.AddModules(builder.Configuration, new IdentityModule(), new ProjectsModule(), new ActivityModule());
+// Modules are added here as they are built.
+builder.Services.AddModules(
+    builder.Configuration, new IdentityModule(), new ProjectsModule(), new WorkItemsModule(), new ActivityModule());
 
 var app = builder.Build();
 

@@ -12,7 +12,8 @@ using ProjectEntity = Trekky.Modules.Projects.Domain.Project;
 
 namespace Trekky.Modules.Projects.Infrastructure;
 
-internal sealed class ProjectService(ProjectsDbContext db, ITenantContext tenant, TimeProvider time) : IProjectService
+internal sealed class ProjectService(ProjectsDbContext db, ITenantContext tenant, TimeProvider time, IProjectItemCounts itemCounts)
+    : IProjectService
 {
     public async Task<(CreateProjectOutcome Outcome, VersionedProject? Project)> CreateAsync(
         CreateProjectRequest request, Guid actorId, CancellationToken cancellationToken)
@@ -55,7 +56,7 @@ internal sealed class ProjectService(ProjectsDbContext db, ITenantContext tenant
             return (CreateProjectOutcome.KeyTaken, null);
         }
 
-        return (CreateProjectOutcome.Created, ToVersioned(project));
+        return (CreateProjectOutcome.Created, ToVersioned(project, itemCount: 0));
     }
 
     public async Task<ProjectPage> ListAsync(int limit, ProjectCursor? after, CancellationToken cancellationToken)
@@ -76,18 +77,34 @@ internal sealed class ProjectService(ProjectsDbContext db, ITenantContext tenant
 
         var page = rows.Take(limit).ToList();
         var next = rows.Count > limit ? new ProjectCursor(page[^1].Name, page[^1].Id).Encode() : null;
-        return new ProjectPage(page.Select(ToContract).ToList(), next);
+        var counts = await itemCounts.CountAsync(page.Select(p => p.Id).ToList(), cancellationToken);
+        return new ProjectPage(page.Select(p => ToContract(p, counts.GetValueOrDefault(p.Id))).ToList(), next);
     }
 
     public async Task<VersionedProject?> GetAsync(Guid projectId, CancellationToken cancellationToken)
+        => await WithItemCountAsync(
+            await db.Projects.AsNoTracking().FirstOrDefaultAsync(p => p.Id == projectId, cancellationToken),
+            cancellationToken);
+
+    public async Task<VersionedProject?> GetByKeyAsync(string key, CancellationToken cancellationToken)
+        => await WithItemCountAsync(
+            await db.Projects.AsNoTracking().FirstOrDefaultAsync(p => p.Key == key, cancellationToken),
+            cancellationToken);
+
+    private async Task<VersionedProject?> WithItemCountAsync(ProjectEntity? project, CancellationToken cancellationToken)
     {
-        var project = await db.Projects.AsNoTracking().FirstOrDefaultAsync(p => p.Id == projectId, cancellationToken);
-        return project is null ? null : ToVersioned(project);
+        if (project is null)
+        {
+            return null;
+        }
+
+        var counts = await itemCounts.CountAsync([project.Id], cancellationToken);
+        return ToVersioned(project, counts.GetValueOrDefault(project.Id));
     }
 
-    private static VersionedProject ToVersioned(ProjectEntity project) => new(ToContract(project), project.Version);
+    private static VersionedProject ToVersioned(ProjectEntity project, int itemCount)
+        => new(ToContract(project, itemCount), project.Version);
 
-    // Item counts arrive with work items (TRK-11).
-    private static Application.Contracts.Project ToContract(ProjectEntity project)
-        => new(project.Id, project.Key, project.Name, ItemCount: 0, project.CreatedAt);
+    private static Application.Contracts.Project ToContract(ProjectEntity project, int itemCount)
+        => new(project.Id, project.Key, project.Name, itemCount, project.CreatedAt);
 }

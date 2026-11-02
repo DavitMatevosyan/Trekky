@@ -16,7 +16,7 @@ Postgres 17, one schema per module (ADR-0001), `org_id` + RLS on every tenant ta
 | --- | --- | --- | --- |
 | Identity | `identity` | users (+ ASP.NET Identity tables), organizations, memberships, OpenIddict tables | TRK-7 |
 | Projects | `projects` | projects, outbox | TRK-10 |
-| Work items | `work_items` | work_items, item_counters, comments, outbox | TRK-11, TRK-14 |
+| Work items | `work_items` | work_items, item_counters, comments, outbox | TRK-11, TRK-18 |
 | Activity | `activity` | activity_events | TRK-10 |
 
 ## Diagram
@@ -124,27 +124,30 @@ erDiagram
 | `id` | uuid | PK, UUIDv7 |
 | `org_id` | uuid | not null, RLS |
 | `project_id` | uuid | projects module id, no FK |
-| `project_key`, `number` | text, int | unique `(project_id, number)`; key = `project_key || '-' || number` |
+| `project_key`, `number` | text, int | unique `(project_id, number)` and `(org_id, project_key, number)` (lookup by key); key = `project_key || '-' || number` |
 | `type` | text | `epic`, `story`, `task`, `subtask`, `bug`, `tech_debt` (check constraint) |
 | `title` | text | 1–200 |
 | `description_md` | text | nullable, Markdown |
 | `status` | text | `todo`, `in_progress`, `in_review`, `done` (check constraint) |
 | `parent_id` | uuid | FK → `work_items.id`, same project; parent rules enforced in the domain (user stories US-06) |
-| `assignee_id` | uuid | nullable user id (v1.0) |
-| `rank` | text | lexicographic rank for board order within a status (v1.0) |
+| `assignee_id` | uuid | nullable user id (v1.0; column added by TRK-20) |
+| `rank` | text | lexicographic rank for board order within a status (v1.0; column added by TRK-17) |
 | `custom` | jsonb | not null default `'{}'`, reserved for custom fields (v1.5) |
 | `created_by`, `created_at`, `updated_at` | | |
 
-Indexes: `(org_id, project_id, updated_at desc, id)` for the list; `(org_id, project_id, status, rank)` for the board; `(parent_id)`.
+Indexes: `(org_id, project_id, updated_at desc, id desc)` for the list; `(org_id, project_id, status, rank)` for the board (TRK-17); `(parent_id)`.
 
-`item_counters`: PK `project_id`, `org_id`, `next_number int not null default 1`. Created when the work-items module handles `ProjectCreated`. Creating an item runs, in one transaction:
+The work items module checks that a project exists, and reads its key, through the projects module's public `IProjectDirectory`. The projects list shows item counts through `IProjectItemCounts`, which projects defines and work items implements, so the two modules depend on each other in one direction only and never read each other's tables.
+
+`item_counters`: PK `project_id`, `org_id`, `next_number int not null`. The project's first item creates the row (TRK-11 chose this over handling `ProjectCreated`, so an item can be created the moment its project exists, without waiting for the outbox). Creating an item runs, in one transaction with the insert:
 
 ```sql
-UPDATE work_items.item_counters
-   SET next_number = next_number + 1
- WHERE project_id = @projectId
+INSERT INTO work_items.item_counters (project_id, org_id, next_number) VALUES (@projectId, @orgId, 2)
+ON CONFLICT (project_id) DO UPDATE SET next_number = item_counters.next_number + 1
 RETURNING next_number - 1;   -- the new item's number
 ```
+
+The row lock serializes concurrent creates in a project; a rolled-back create returns its number.
 
 `comments` (v1.0): soft delete via `deleted_at`; edits set `updated_at`.
 
