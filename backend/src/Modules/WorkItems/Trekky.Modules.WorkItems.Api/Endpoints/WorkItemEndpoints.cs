@@ -36,10 +36,14 @@ internal static class WorkItemEndpoints
             .WithSummary("Create a work item in To Do with the project's next key (US-06)")
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
-        inProject.MapGet("/", (Guid projectId, int? limit, string? cursor, IWorkItemService service, CancellationToken cancellationToken)
-                => ListAsync(projectId, limit, cursor, service, cancellationToken))
+        inProject.MapGet("/", (Guid projectId, int? limit, string? cursor, [FromQuery(Name = "type")] string[]? types,
+                    [FromQuery(Name = "q")] string? search, IValidator<WorkItemFilter> validator, IWorkItemService service,
+                    CancellationToken cancellationToken)
+                => ListAsync(projectId, limit, cursor, WorkItemFilter.From(types, search), validator, service, cancellationToken))
             .WithName("ListWorkItems")
-            .WithSummary("List a project's work items, newest update first (US-08)");
+            .WithSummary("List a project's work items, newest update first (US-08)")
+            .WithDescription(
+                "Optional filters (TRK-11.1, e.g. parent candidates): repeat `type` to keep only those types; `q` keeps items whose key starts with it or whose title contains it, case-insensitive; an exact key match comes first.");
 
         var items = endpoints.MapGroup("/work-items")
             .WithTags("WorkItems")
@@ -104,26 +108,33 @@ internal static class WorkItemEndpoints
     }
 
     private static async Task<Results<Ok<WorkItemPage>, ValidationProblem, ProblemHttpResult>> ListAsync(
-        Guid projectId, int? limit, string? cursor, IWorkItemService service, CancellationToken cancellationToken)
+        Guid projectId,
+        int? limit,
+        string? cursor,
+        WorkItemFilter filter,
+        IValidator<WorkItemFilter> validator,
+        IWorkItemService service,
+        CancellationToken cancellationToken)
     {
+        // Every query-string problem in one answer.
+        var errors = (await validator.ValidateAsync(filter, cancellationToken)).ToDictionary();
         var pageSize = limit ?? WorkItemCursor.DefaultLimit;
         if (pageSize is < 1 or > WorkItemCursor.MaxLimit)
         {
-            return TypedResults.ValidationProblem(new Dictionary<string, string[]>
-            {
-                ["limit"] = [$"Limit must be between 1 and {WorkItemCursor.MaxLimit}."],
-            });
+            errors["limit"] = [$"Limit must be between 1 and {WorkItemCursor.MaxLimit}."];
         }
 
         if (!WorkItemCursor.TryDecode(cursor, out var after))
         {
-            return TypedResults.ValidationProblem(new Dictionary<string, string[]>
-            {
-                ["cursor"] = ["The cursor is not valid; use nextCursor from the previous page."],
-            });
+            errors["cursor"] = ["The cursor is not valid; use nextCursor from the previous page."];
         }
 
-        var page = await service.ListAsync(projectId, pageSize, after, cancellationToken);
+        if (errors.Count > 0)
+        {
+            return TypedResults.ValidationProblem(errors);
+        }
+
+        var page = await service.ListAsync(projectId, filter, pageSize, after, cancellationToken);
         return page is null ? ProjectNotFound() : TypedResults.Ok(page);
     }
 

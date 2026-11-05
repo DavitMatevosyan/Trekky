@@ -389,7 +389,7 @@
     },
     {
       "name": "Work items",
-      "description": "TRK-11: create, list (newest update first, cursor pagination), get (by id or key) and edit work items. Run Auth and Create project first; Create work item saves workItemId and its ETag, which Edit sends as If-Match.",
+      "description": "TRK-11: create, list (newest update first, cursor pagination; filter by type and key or title since TRK-11.1), get (by id or key) and edit work items. Run Auth and Create project first; Create work item saves workItemId and its ETag, which Edit sends as If-Match.",
       "item": [
         {
           "name": "Create work item",
@@ -450,6 +450,23 @@
                   "value": "",
                   "disabled": true,
                   "description": "nextCursor from the previous page"
+                },
+                {
+                  "key": "type",
+                  "value": "epic",
+                  "disabled": true,
+                  "description": "Repeat to keep only these types, e.g. the parent types an item allows (TRK-11.1)"
+                },
+                {
+                  "key": "type",
+                  "value": "story",
+                  "disabled": true
+                },
+                {
+                  "key": "q",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Key prefix (TRK-1) or title text, case-insensitive"
                 }
               ]
             }

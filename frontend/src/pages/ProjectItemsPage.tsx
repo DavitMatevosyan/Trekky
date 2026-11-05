@@ -8,7 +8,7 @@ import { useCreateWorkItem, useProjectByKey, useWorkItems } from '../workItems/u
 import { WorkItemForm } from '../workItems/WorkItemForm.tsx'
 import { statusLabel, typeLabel } from '../workItems/workItemTypes.ts'
 
-const EMPTY_ITEM = { type: 'task', title: '', descriptionMd: '', parentKey: '' } as const
+const EMPTY_ITEM = { type: 'task', title: '', descriptionMd: '', parent: null } as const
 
 /** A project's items as a list, newest update first (US-08, wireframes: List view), with "New item" (US-06). */
 export function ProjectItemsPage() {
@@ -62,7 +62,7 @@ function ProjectItems({ projectId, projectKey, projectName }: { projectId: strin
       {creating && (
         <WorkItemForm
           heading={messages.workItemForm.newTitle}
-          projectKey={projectKey}
+          projectId={projectId}
           initial={EMPTY_ITEM}
           submitLabel={messages.workItemForm.create}
           submittingLabel={messages.workItemForm.creating}
@@ -71,7 +71,7 @@ function ProjectItems({ projectId, projectKey, projectName }: { projectId: strin
           onCancel={closeForm}
           onSubmit={(values) =>
             createItem.mutate(
-              { type: values.type, title: values.title, descriptionMd: values.descriptionMd || null, parentId: values.parentId },
+              { type: values.type, title: values.title, descriptionMd: values.descriptionMd || null, parentId: values.parent?.id ?? null },
               {
                 onSuccess: (created) => {
                   setAnnouncement(messages.project.created(created.key, created.title))

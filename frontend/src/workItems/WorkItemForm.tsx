@@ -6,23 +6,22 @@ import { SelectField } from '../components/SelectField.tsx'
 import { TextAreaField } from '../components/TextAreaField.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { messages } from '../i18n/messages.ts'
-import { useFindWorkItemId } from './useWorkItems.ts'
-import { isWorkItemType, parentHint, typeLabel, WORK_ITEM_TYPES, type WorkItemType } from './workItemTypes.ts'
+import { ParentPicker, type ParentChoice } from './ParentPicker.tsx'
+import { useResolveParent } from './useResolveParent.ts'
+import { ALLOWED_PARENT_TYPES, isWorkItemType, parentHint, typeLabel, WORK_ITEM_TYPES, type WorkItemType } from './workItemTypes.ts'
 
 export interface WorkItemFormValues {
   type: WorkItemType
   title: string
   descriptionMd: string
-  /** The parent's key as typed, e.g. `TRK-2`; empty for no parent. */
-  parentKey: string
-}
-
-export interface WorkItemFormSubmit extends WorkItemFormValues {
-  /** The parent's id, found from {@link WorkItemFormValues.parentKey}; `null` for no parent. */
-  parentId: string | null
+  parent: ParentChoice | null
 }
 
 const FIELDS = ['type', 'title', 'descriptionMd', 'parentId']
+
+function fitsType(parent: ParentChoice | null, type: WorkItemType): boolean {
+  return parent === null || ALLOWED_PARENT_TYPES[type].some((allowed) => allowed === parent.type)
+}
 const TYPE_OPTIONS = WORK_ITEM_TYPES.map((type) => ({ value: type, label: typeLabel(type) }))
 
 /** Where a problem from the API shows: parent rules on the parent field, children that no longer fit on the type. */
@@ -38,8 +37,7 @@ function errorsFor(problem: ProblemDetails | null): Record<string, string | unde
 }
 
 /** The message above the form; parent rule problems (422) show on their fields instead. */
-function formMessage(error: Error | null, problem: ProblemDetails | null, notice: string | null, lookupFailed: boolean) {
-  if (lookupFailed) return messages.common.unexpectedError
+function formMessage(error: Error | null, problem: ProblemDetails | null, notice: string | null) {
   if (notice) return notice
   if (!error) return null
   if (!problem) return messages.common.unexpectedError
@@ -47,14 +45,16 @@ function formMessage(error: Error | null, problem: ProblemDetails | null, notice
 }
 
 /**
- * The fields of a work item (US-06 AC1, US-07): type, title, Markdown description and parent. The parent is typed as
- * a key (`TRK-2`) and looked up before saving; the hint under it names the parent types the chosen type allows.
+ * The fields of a work item (US-06 AC1, US-07): type, title, Markdown description and parent. The parent is chosen
+ * from the project's items of the types the chosen type allows (TRK-11.1); a type change drops a parent that no
+ * longer fits. A key typed but not chosen is looked up before saving, so the item is never saved without the parent
+ * the field shows.
  */
 export function WorkItemForm({
   heading,
-  projectKey,
+  projectId,
+  itemId,
   initial,
-  initialParentId = null,
   submitLabel,
   submittingLabel,
   pending,
@@ -64,23 +64,24 @@ export function WorkItemForm({
   onCancel,
 }: {
   heading: string
-  projectKey: string
+  projectId: string
+  /** The item being edited, which is never offered as its own parent; absent when creating. */
+  itemId?: string
   initial: WorkItemFormValues
-  /** The id behind {@link WorkItemFormValues.parentKey} in `initial`, so an unchanged parent needs no lookup. */
-  initialParentId?: string | null
   submitLabel: string
   submittingLabel: string
   pending: boolean
   error: Error | null
   /** A message above the fields that is not an error of this form, e.g. "changed by someone else". */
   notice?: string | null
-  onSubmit: (values: WorkItemFormSubmit) => void
+  onSubmit: (values: WorkItemFormValues) => void
   onCancel: () => void
 }) {
-  const findWorkItemId = useFindWorkItemId()
   const [values, setValues] = useState(initial)
-  const [parentError, setParentError] = useState<string | null>(null)
-  const [lookupError, setLookupError] = useState(false)
+  const resolveParent = useResolveParent(projectId, itemId)
+  // Text typed in the parent field but not chosen; an error found for it shows until the text changes.
+  const [pendingParent, setPendingParent] = useState('')
+  const [parentError, setParentError] = useState<{ text: string; message: string } | null>(null)
   const [resolving, setResolving] = useState(false)
   const titleInput = useRef<HTMLInputElement>(null)
   const headingId = `work-item-form-${heading.replace(/\W+/g, '-').toLowerCase()}`
@@ -89,42 +90,44 @@ export function WorkItemForm({
 
   const problem = error instanceof ProblemError ? error.problem : null
   const errors = errorsFor(problem)
-  const formError = formMessage(error, problem, notice ?? null, lookupError)
+  const formError = formMessage(error, problem, notice ?? null)
 
   function update(changes: Partial<WorkItemFormValues>) {
     setValues((current) => ({ ...current, ...changes }))
   }
 
+  function changeType(type: WorkItemType) {
+    setValues((current) => ({
+      ...current,
+      type,
+      // A parent the new type does not allow is dropped rather than sent and refused.
+      parent: fitsType(current.parent, type) ? current.parent : null,
+    }))
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setParentError(null)
-    setLookupError(false)
-    const parentKey = values.parentKey.trim().toUpperCase()
-    let parentId: string | null = null
-    if (parentKey && parentKey === initial.parentKey && initialParentId) {
-      parentId = initialParentId
-    } else if (parentKey) {
+    let parent = values.parent
+    if (!parent && pendingParent) {
       setResolving(true)
-      try {
-        parentId = await findWorkItemId(parentKey)
-      } catch {
-        setLookupError(true)
-        return
-      } finally {
-        setResolving(false)
-      }
-      if (!parentId) {
-        setParentError(messages.workItemForm.parentNotFound(parentKey))
+      const result = await resolveParent(pendingParent, ALLOWED_PARENT_TYPES[values.type])
+      setResolving(false)
+      if ('error' in result) {
+        setParentError({ text: pendingParent, message: result.error })
         return
       }
+      parent = result.choice
+      update({ parent })
     }
-    onSubmit({ ...values, parentKey, parentId })
+    onSubmit({ ...values, parent })
   }
 
   const busy = pending || resolving
+  const parentFieldError = parentError?.text === pendingParent ? parentError.message : errors.parent
 
   return (
-    <form aria-labelledby={headingId} className="grid gap-4 rounded-xl border border-border bg-card p-4" onSubmit={(e) => void submit(e)} noValidate>
+    <form aria-labelledby={headingId} className="grid gap-4 rounded-xl border border-border bg-card p-4" onSubmit={(event) => void submit(event)} noValidate>
       <h2 id={headingId} className="text-lg font-semibold">
         {heading}
       </h2>
@@ -136,7 +139,7 @@ export function WorkItemForm({
         options={TYPE_OPTIONS}
         value={values.type}
         onChange={(event) => {
-          if (isWorkItemType(event.target.value)) update({ type: event.target.value })
+          if (isWorkItemType(event.target.value)) changeType(event.target.value)
         }}
         error={errors.type}
       />
@@ -160,16 +163,16 @@ export function WorkItemForm({
         hint={messages.workItemForm.descriptionHint}
         error={errors.descriptionMd}
       />
-      <FormField
-        label={messages.workItemForm.parent}
-        name="parentKey"
-        autoComplete="off"
-        className="w-40 font-mono uppercase"
-        placeholder={messages.workItemForm.parentPlaceholder(projectKey)}
-        value={values.parentKey}
-        onChange={(event) => update({ parentKey: event.target.value.toUpperCase() })}
+      <ParentPicker
+        projectId={projectId}
+        allowedTypes={ALLOWED_PARENT_TYPES[values.type]}
+        excludeId={itemId}
+        value={values.parent}
+        // A choice that no longer fits the type (a lookup that finished after a type change) is dropped.
+        onChange={(parent) => setValues((current) => ({ ...current, parent: fitsType(parent, current.type) ? parent : null }))}
+        onPendingChange={setPendingParent}
         hint={parentHint(values.type)}
-        error={parentError ?? errors.parent}
+        error={parentFieldError}
       />
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" onClick={onCancel}>

@@ -6,7 +6,7 @@ import { RelativeTime } from '../components/RelativeTime.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { messages } from '../i18n/messages.ts'
 import { useUpdateWorkItem, useWorkItem, type UpdateWorkItemInput, type VersionedWorkItem } from '../workItems/useWorkItems.ts'
-import { WorkItemForm, type WorkItemFormSubmit } from '../workItems/WorkItemForm.tsx'
+import { WorkItemForm, type WorkItemFormValues } from '../workItems/WorkItemForm.tsx'
 import { isWorkItemType, statusLabel, typeLabel } from '../workItems/workItemTypes.ts'
 
 // The Markdown renderer is most of a bundle's weight, and only this page needs it.
@@ -30,12 +30,12 @@ export function WorkItemPage() {
 }
 
 /** Only the fields that changed, so the merge patch does not touch the rest (US-07). */
-function changesFrom(item: VersionedWorkItem['item'], values: WorkItemFormSubmit): UpdateWorkItemInput {
+function changesFrom(item: VersionedWorkItem['item'], values: WorkItemFormValues): UpdateWorkItemInput {
   const changes: UpdateWorkItemInput = {}
   if (values.type !== item.type) changes.type = values.type
   if (values.title !== item.title) changes.title = values.title
   if (values.descriptionMd !== (item.descriptionMd ?? '')) changes.descriptionMd = values.descriptionMd || null
-  if (values.parentKey !== (item.parentKey ?? '')) changes.parentId = values.parentId
+  if ((values.parent?.id ?? null) !== (item.parent?.id ?? null)) changes.parentId = values.parent?.id ?? null
   return changes
 }
 
@@ -54,7 +54,7 @@ function WorkItemView({ projectKey, current }: { projectKey: string; current: Ve
     requestAnimationFrame(() => editButton.current?.focus())
   }
 
-  function save(values: WorkItemFormSubmit) {
+  function save(values: WorkItemFormValues) {
     const changes = changesFrom(item, values)
     if (Object.keys(changes).length === 0) {
       closeForm()
@@ -101,14 +101,14 @@ function WorkItemView({ projectKey, current }: { projectKey: string; current: Ve
           // A new version (after a 412 reload) starts the form again from the latest values.
           key={current.etag}
           heading={messages.workItemForm.editTitle}
-          projectKey={projectKey}
+          projectId={item.projectId}
+          itemId={item.id}
           initial={{
             type: isWorkItemType(item.type) ? item.type : 'task',
             title: item.title,
             descriptionMd: item.descriptionMd ?? '',
-            parentKey: item.parentKey ?? '',
+            parent: item.parent ? { id: item.parent.id, key: item.parent.key, type: item.parent.type, title: item.parent.title } : null,
           }}
-          initialParentId={item.parent?.id ?? null}
           submitLabel={messages.workItemForm.save}
           submittingLabel={messages.workItemForm.saving}
           pending={update.isPending}
