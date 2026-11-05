@@ -13,6 +13,9 @@ internal enum WorkItemOutcome
     /// <summary>A new type would no longer fit as the parent of some of the item's children (US-07 AC2).</summary>
     ChildrenNotAllowed,
 
+    /// <summary>The workflow does not allow moving from the current status to the requested one (US-10 AC2, AC3).</summary>
+    TransitionNotAllowed,
+
     /// <summary><c>If-Match</c> does not match the current version (US-07 AC1).</summary>
     Stale,
 }

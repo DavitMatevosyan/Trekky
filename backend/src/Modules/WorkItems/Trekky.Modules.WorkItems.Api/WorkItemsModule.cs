@@ -10,7 +10,7 @@ using Trekky.SharedKernel;
 
 namespace Trekky.Modules.WorkItems.Api;
 
-/// <summary>Work items of every type with parent/child rules and per-project keys (US-06 to US-09). Owns the <c>work_items</c> schema.</summary>
+/// <summary>Work items of every type with parent/child rules and per-project keys (US-06 to US-10). Owns the <c>work_items</c> schema.</summary>
 public sealed class WorkItemsModule : IModule
 {
     public void RegisterServices(IServiceCollection services, IConfiguration configuration)
@@ -18,6 +18,7 @@ public sealed class WorkItemsModule : IModule
         services.AddSingleton<IValidator<CreateWorkItemRequest>, CreateWorkItemRequestValidator>();
         services.AddSingleton<IValidator<WorkItemPatch>, WorkItemPatchValidator>();
         services.AddSingleton<IValidator<WorkItemFilter>, WorkItemFilterValidator>();
+        services.AddSingleton<IValidator<ChangeStatusRequest>, ChangeStatusRequestValidator>();
         services.AddWorkItemsInfrastructure(configuration);
     }
 

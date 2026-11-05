@@ -13,7 +13,7 @@ using Trekky.SharedKernel;
 
 namespace Trekky.Modules.WorkItems.Api.Endpoints;
 
-/// <summary>Create, list, get and edit work items, under /api/v1 (OpenAPI draft, TRK-5; US-06 to US-09).</summary>
+/// <summary>Create, list, get, edit and move work items, under /api/v1 (OpenAPI draft, TRK-5; US-06 to US-10).</summary>
 internal static class WorkItemEndpoints
 {
     internal const string MergePatchContentType = "application/merge-patch+json";
@@ -71,6 +71,17 @@ internal static class WorkItemEndpoints
             .Accepts<UpdateWorkItemRequest>(MergePatchContentType)
             .ProducesProblem(StatusCodes.Status412PreconditionFailed)
             .ProducesProblem(StatusCodes.Status415UnsupportedMediaType)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+            .ProducesProblem(StatusCodes.Status428PreconditionRequired);
+
+        items.MapPost("/{workItemId:guid}/status", (Guid workItemId, [FromHeader(Name = "If-Match")] string? ifMatch,
+                    ChangeStatusRequest request, IValidator<ChangeStatusRequest> validator, IWorkItemService service,
+                    ClaimsPrincipal principal, HttpResponse response, CancellationToken cancellationToken)
+                => ChangeStatusAsync(workItemId, ifMatch, request, validator, service, principal, response, cancellationToken))
+            .WithName("ChangeWorkItemStatus")
+            .WithSummary("Move an item through the workflow (US-10)")
+            .WithDescription("Only allowed moves succeed; otherwise 422 lists allowedTransitions. Needs If-Match.")
+            .ProducesProblem(StatusCodes.Status412PreconditionFailed)
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
             .ProducesProblem(StatusCodes.Status428PreconditionRequired);
 
@@ -197,14 +208,18 @@ internal static class WorkItemEndpoints
 
         if (string.IsNullOrEmpty(ifMatch))
         {
-            return TypedResults.Problem(
-                title: "If-Match required",
-                detail: "Send the ETag from your last read of this item in If-Match.",
-                statusCode: StatusCodes.Status428PreconditionRequired);
+            return IfMatchRequired();
         }
 
         var result = await service.UpdateAsync(workItemId, patch, ifMatch, actorId, cancellationToken);
-        if (result is not { Outcome: WorkItemOutcome.Succeeded, Item: { } updated })
+        return Saved(result, response);
+    }
+
+    /// <summary>The saved item with its new ETag, or the problem; a stale edit also sends the latest ETag.</summary>
+    private static Results<Ok<WorkItemDetail>, ValidationProblem, ProblemHttpResult, UnauthorizedHttpResult> Saved(
+        WorkItemResult result, HttpResponse response)
+    {
+        if (result is not { Outcome: WorkItemOutcome.Succeeded, Item: { } saved })
         {
             if (result is { Outcome: WorkItemOutcome.Stale, Item: { } latest })
             {
@@ -215,8 +230,44 @@ internal static class WorkItemEndpoints
             return Failure(result);
         }
 
-        response.Headers.ETag = updated.ETag;
-        return TypedResults.Ok(updated.Item);
+        response.Headers.ETag = saved.ETag;
+        return TypedResults.Ok(saved.Item);
+    }
+
+    private static ProblemHttpResult IfMatchRequired()
+        => TypedResults.Problem(
+            title: "If-Match required",
+            detail: "Send the ETag from your last read of this item in If-Match.",
+            statusCode: StatusCodes.Status428PreconditionRequired);
+
+    private static async Task<Results<Ok<WorkItemDetail>, ValidationProblem, ProblemHttpResult, UnauthorizedHttpResult>> ChangeStatusAsync(
+        Guid workItemId,
+        string? ifMatch,
+        ChangeStatusRequest request,
+        IValidator<ChangeStatusRequest> validator,
+        IWorkItemService service,
+        ClaimsPrincipal principal,
+        HttpResponse response,
+        CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(principal.FindFirstValue(TrekkyClaimTypes.Subject), out var actorId))
+        {
+            return TypedResults.Unauthorized();
+        }
+
+        var validation = await validator.ValidateAsync(request, cancellationToken);
+        if (!validation.IsValid)
+        {
+            return TypedResults.ValidationProblem(validation.ToDictionary());
+        }
+
+        if (string.IsNullOrEmpty(ifMatch))
+        {
+            return IfMatchRequired();
+        }
+
+        var result = await service.ChangeStatusAsync(workItemId, request.To!, ifMatch, actorId, cancellationToken);
+        return Saved(result, response);
     }
 
     private static Results<Ok<WorkItemDetail>, ProblemHttpResult> Found(VersionedWorkItem? item, HttpResponse response)
@@ -248,6 +299,12 @@ internal static class WorkItemEndpoints
                     ["allowedParentTypes"] = violation.AllowedParentTypes,
                     ["conflictingChildKeys"] = violation.ConflictingChildKeys,
                 }),
+        WorkItemOutcome.TransitionNotAllowed when result.Transition is { } transition
+            => TypedResults.Problem(
+                title: "Status change not allowed",
+                detail: transition.Detail,
+                statusCode: StatusCodes.Status422UnprocessableEntity,
+                extensions: new Dictionary<string, object?> { ["allowedTransitions"] = transition.AllowedTransitions }),
         _ => throw new InvalidOperationException($"No problem response for {result.Outcome}."),
     };
 

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useRef, useState } from 'react'
+import { lazy, Suspense, useId, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { ErrorBoundary } from '../components/ErrorBoundary.tsx'
 import { ProblemError } from '../api/problem.ts'
@@ -6,13 +6,14 @@ import { RelativeTime } from '../components/RelativeTime.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { messages } from '../i18n/messages.ts'
 import { useUpdateWorkItem, useWorkItem, type UpdateWorkItemInput, type VersionedWorkItem } from '../workItems/useWorkItems.ts'
+import { StatusSelect } from '../workItems/StatusSelect.tsx'
 import { WorkItemForm, type WorkItemFormValues } from '../workItems/WorkItemForm.tsx'
 import { isWorkItemType, statusLabel, typeLabel } from '../workItems/workItemTypes.ts'
 
 // The Markdown renderer is most of a bundle's weight, and only this page needs it.
 const Markdown = lazy(() => import('../components/Markdown.tsx').then((module) => ({ default: module.Markdown })))
 
-/** One item (US-09, wireframes: Item detail) at /TRK/items/TRK-42; history arrives with TRK-14. */
+/** One item (US-09, wireframes: Item detail) at /TRK/items/TRK-42, with its status select (US-10); history arrives with TRK-14. */
 export function WorkItemPage() {
   const { projectKey = '', itemKey = '' } = useParams()
   // /TRK/items/WEB-1 names another project's item: not an address of this project.
@@ -45,6 +46,7 @@ function WorkItemView({ projectKey, current }: { projectKey: string; current: Ve
   const [editing, setEditing] = useState(false)
   const [announcement, setAnnouncement] = useState('')
   const editButton = useRef<HTMLButtonElement>(null)
+  const statusLabelId = useId()
 
   const stale = update.error instanceof ProblemError && update.error.problem.status === 412
 
@@ -163,8 +165,18 @@ function WorkItemView({ projectKey, current }: { projectKey: string; current: Ve
             {messages.workItem.details}
           </h2>
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
-            <dt className="text-muted-foreground">{messages.workItem.status}</dt>
-            <dd>{statusLabel(item.status)}</dd>
+            <dt id={statusLabelId} className="self-center text-muted-foreground">
+              {messages.workItem.status}
+            </dt>
+            <dd>
+              <StatusSelect
+                current={current}
+                labelledBy={statusLabelId}
+                // A move gives the item a new version, which would restart the open form and lose what was typed.
+                disabled={editing}
+                onMoved={(status) => setAnnouncement(messages.workItem.statusChanged(item.key, statusLabel(status)))}
+              />
+            </dd>
             <dt className="text-muted-foreground">{messages.workItem.parent}</dt>
             <dd>
               {item.parent ? (

@@ -536,6 +536,41 @@
             "url": "{{baseUrl}}/api/v1/work-items/{{workItemId}}",
             "description": "JSON merge patch: only the fields sent change (type, title, descriptionMd, parentId); null clears descriptionMd or parentId. If-Match is required (428) and must be the latest ETag (412 otherwise). A new type or parent re-checks the parent rules for the item and its children (422). Records a WorkItemUpdated activity event when something changed."
           }
+        },
+        {
+          "name": "Change work item status",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status changed', () => pm.response.to.have.status(200));",
+                  "const etag = pm.response.headers.get('ETag');",
+                  "if (etag) pm.collectionVariables.set('workItemEtag', etag);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "If-Match",
+                "value": "{{workItemEtag}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"to\": \"in_progress\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/work-items/{{workItemId}}/status",
+            "description": "Moves the item through the workflow (US-10): To Do → In Progress; In Progress → To Do or In Review; In Review → To Do, In Progress or Done; Done → In Progress. Any other target, including the current status, is a 422 with allowedTransitions; an unknown status is a 400. If-Match is required (428) and must be the latest ETag (412 otherwise). Records a WorkItemStatusChanged activity event. The item's allowedTransitions lists where it can move now."
+          }
         }
       ]
     }

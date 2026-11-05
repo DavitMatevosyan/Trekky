@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-test('a user creates work items with a parent, opens one and edits it', async ({ page }) => {
+test('a user creates work items with a parent, opens one, edits it and moves it', async ({ page }) => {
   await page.goto('/sign-up')
   await page.getByLabel('Email').fill(`e2e-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`)
   await page.getByLabel('Password').fill('correct-horse-battery')
@@ -58,9 +58,18 @@ test('a user creates work items with a parent, opens one and edits it', async ({
   await page.getByRole('button', { name: 'Save' }).click()
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Comments on work items')
 
+  // US-10: the status select offers only allowed moves; a move is saved and survives a reload.
+  const status = page.getByRole('combobox', { name: 'Status' })
+  await expect(status.getByRole('option')).toHaveText(['To Do', 'In Progress'])
+  await status.selectOption('in_progress')
+  await expect(page.getByRole('status')).toHaveText('TRK-2 moved to In Progress.')
+  await expect(status.getByRole('option')).toHaveText(['To Do', 'In Progress', 'In Review'])
+  await page.reload()
+  await expect(status).toHaveValue('in_progress')
+
   // The parent lists its child, and the projects page counts both items.
   await page.getByRole('link', { name: 'TRK-1 Epic' }).click()
-  await expect(page.getByRole('list', { name: 'Children' })).toContainText('TRK-2StoryComments on work itemsTo Do')
+  await expect(page.getByRole('list', { name: 'Children' })).toContainText('TRK-2StoryComments on work itemsIn Progress')
   await page.getByRole('link', { name: 'Trekky', exact: true }).click()
   await expect(page.getByRole('list', { name: 'Projects' }).getByRole('listitem')).toHaveText(['TRKTrekky2 items'])
 })

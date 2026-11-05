@@ -7,7 +7,7 @@ using Npgsql;
 
 namespace Trekky.Api.Tests;
 
-/// <summary>US-06 to US-09: create, list, get and edit work items, parent rules, per-project keys, activity events.</summary>
+/// <summary>US-06 to US-10: create, list, get, edit and move work items, parent rules, per-project keys, activity events.</summary>
 [Collection(ApiCollection.Name)]
 public sealed class WorkItemsEndpointsTests(TrekkyApiFactory factory)
 {
@@ -543,6 +543,102 @@ public sealed class WorkItemsEndpointsTests(TrekkyApiFactory factory)
     }
 
     [Fact]
+    public async Task An_item_moves_through_the_workflow_and_always_lists_its_allowed_moves()
+    {
+        using var user = await AuthFlow.SignedUpUserAsync(factory);
+        var project = await CreateProjectAsync(user, "TRK");
+        var item = await CreateItemAsync(user, project, "task", "Workflow");
+        Assert.Equal(["in_progress"], item.AllowedTransitions);
+
+        var inProgress = await MoveAsync(user, item, "in_progress");
+        Assert.Equal("in_progress", inProgress.Status);
+        Assert.Equal(["todo", "in_review"], inProgress.AllowedTransitions);
+        Assert.NotEqual(item.ETag, inProgress.ETag);
+        Assert.True(inProgress.UpdatedAt > item.UpdatedAt);
+
+        var inReview = await MoveAsync(user, inProgress, "in_review");
+        Assert.Equal(["todo", "in_progress", "done"], inReview.AllowedTransitions);
+        var done = await MoveAsync(user, inReview, "done");
+        Assert.Equal(["in_progress"], done.AllowedTransitions);
+        var reopened = await MoveAsync(user, done, "in_progress");
+        var backToStart = await MoveAsync(user, reopened, "todo");
+
+        var reloaded = await GetAsync(user, "/api/v1/work-items/by-key/TRK-1");
+        Assert.Equal("todo", reloaded.Status);
+        Assert.Equal(["in_progress"], reloaded.AllowedTransitions);
+        Assert.Equal(backToStart.ETag, reloaded.ETag);
+        Assert.Equal("todo", (await ListAsync(user, project, "")).Items.Single().Status);
+    }
+
+    [Theory]
+    [InlineData("done")]
+    [InlineData("in_review")]
+    [InlineData("todo")]
+    public async Task A_disallowed_move_is_rejected_with_the_allowed_targets(string to)
+    {
+        using var user = await AuthFlow.SignedUpUserAsync(factory);
+        var project = await CreateProjectAsync(user, "TRK");
+        var item = await CreateItemAsync(user, project, "task", "Workflow");
+
+        var response = await ChangeStatusAsync(user, item.Id, item.ETag, $$"""{ "to": "{{to}}" }""");
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        using var problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal(["in_progress"], problem.RootElement.GetProperty("allowedTransitions").EnumerateArray().Select(s => s.GetString()));
+        Assert.StartsWith("TRK-1 cannot move from To Do to ", problem.RootElement.GetProperty("detail").GetString(), StringComparison.Ordinal);
+        Assert.Equal("todo", (await GetAsync(user, $"/api/v1/work-items/{item.Id}")).Status);
+    }
+
+    [Theory]
+    [InlineData("""{ }""")]
+    [InlineData("""{ "to": null }""")]
+    [InlineData("""{ "to": "blocked" }""")]
+    [InlineData("""{ "to": "Done" }""")]
+    public async Task A_status_change_needs_a_known_status(string body)
+    {
+        using var user = await AuthFlow.SignedUpUserAsync(factory);
+        var project = await CreateProjectAsync(user, "TRK");
+        var item = await CreateItemAsync(user, project, "task", "Workflow");
+
+        await AssertFieldErrorAsync(await ChangeStatusAsync(user, item.Id, item.ETag, body), "to");
+    }
+
+    [Fact]
+    public async Task A_status_change_needs_the_current_etag()
+    {
+        using var user = await AuthFlow.SignedUpUserAsync(factory);
+        var project = await CreateProjectAsync(user, "TRK");
+        var item = await CreateItemAsync(user, project, "task", "Workflow");
+        var moved = await MoveAsync(user, item, "in_progress");
+
+        Assert.Equal((HttpStatusCode)428, (await ChangeStatusAsync(user, item.Id, ifMatch: null, """{ "to": "in_review" }""")).StatusCode);
+
+        var stale = await ChangeStatusAsync(user, item.Id, item.ETag, """{ "to": "in_review" }""");
+        Assert.Equal(HttpStatusCode.PreconditionFailed, stale.StatusCode);
+        Assert.Equal(moved.ETag, stale.Headers.ETag?.ToString());
+        Assert.Equal("in_progress", (await GetAsync(user, $"/api/v1/work-items/{item.Id}")).Status);
+    }
+
+    [Fact]
+    public async Task A_status_change_records_a_WorkItemStatusChanged_event()
+    {
+        using var user = await AuthFlow.SignedUpUserAsync(factory);
+        var project = await CreateProjectAsync(user, "TRK");
+        var item = await CreateItemAsync(user, project, "task", "Workflow");
+        var actorId = AuthFlow.DecodeJwtPart(user.Tokens.AccessToken, 1).GetProperty("sub").GetString();
+
+        await MoveAsync(user, item, "in_progress");
+
+        var changed = await WaitForActivityAsync(item.Id, "WorkItemStatusChanged");
+        Assert.Equal("TRK-1", changed.EntityKey);
+        Assert.Equal(project, changed.ProjectId);
+        Assert.Equal(actorId, changed.ActorId.ToString());
+        using var payload = JsonDocument.Parse(changed.Payload);
+        Assert.Equal("todo", payload.RootElement.GetProperty("from").GetString());
+        Assert.Equal("in_progress", payload.RootElement.GetProperty("to").GetString());
+    }
+
+    [Fact]
     public async Task The_project_shows_how_many_items_it_has()
     {
         using var user = await AuthFlow.SignedUpUserAsync(factory);
@@ -586,10 +682,14 @@ public sealed class WorkItemsEndpointsTests(TrekkyApiFactory factory)
 
         Assert.Equal(HttpStatusCode.NotFound, (await CreateAsync(userB, projectA, new { type = "task", title = "Intruder" })).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await PatchAsync(userB, item.Id, item.ETag, """{ "title": "Hacked" }""")).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.NotFound, (await ChangeStatusAsync(userB, item.Id, item.ETag, """{ "to": "in_progress" }""")).StatusCode);
 
         // Another organization's item cannot become a parent either.
         await AssertRuleViolationAsync(await CreateAsync(userB, projectB, new { type = "story", title = "Story", parentId = item.Id }), ["epic"]);
-        Assert.Equal("Secret", (await GetAsync(userA, $"/api/v1/work-items/{item.Id}")).Title);
+        var unchanged = await GetAsync(userA, $"/api/v1/work-items/{item.Id}");
+        Assert.Equal("Secret", unchanged.Title);
+        Assert.Equal("todo", unchanged.Status);
     }
 
     [Fact]
@@ -664,6 +764,26 @@ public sealed class WorkItemsEndpointsTests(TrekkyApiFactory factory)
         return user.Client.SendAsync(request);
     }
 
+    private static Task<HttpResponseMessage> ChangeStatusAsync(SignedUpUser user, Guid id, string? ifMatch, string body)
+    {
+        var request = AuthFlow.WithBearer(HttpMethod.Post, $"/api/v1/work-items/{id}/status", user.Tokens.AccessToken);
+        request.Content = new StringContent(body, Encoding.UTF8, "application/json");
+        if (ifMatch is not null)
+        {
+            request.Headers.TryAddWithoutValidation("If-Match", ifMatch);
+        }
+
+        return user.Client.SendAsync(request);
+    }
+
+    /// <summary>Moves the item and returns it with its new ETag.</summary>
+    private static async Task<DetailBody> MoveAsync(SignedUpUser user, DetailBody item, string to)
+    {
+        var response = await ChangeStatusAsync(user, item.Id, item.ETag, $$"""{ "to": "{{to}}" }""");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        return (await response.Content.ReadFromJsonAsync<DetailBody>())! with { ETag = response.Headers.ETag!.ToString() };
+    }
+
     private static async Task AssertFieldErrorAsync(HttpResponseMessage response, string field)
     {
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -721,6 +841,7 @@ public sealed class WorkItemsEndpointsTests(TrekkyApiFactory factory)
         string? DescriptionMd,
         SummaryBody? Parent,
         List<SummaryBody> Children,
+        List<string> AllowedTransitions,
         DateTimeOffset CreatedAt)
     {
         public string ETag { get; init; } = string.Empty;

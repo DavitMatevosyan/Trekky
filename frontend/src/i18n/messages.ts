@@ -112,6 +112,9 @@ export const messages = {
     children: 'Children',
     noChildren: 'No children.',
     saved: (key: string) => `Saved ${key}.`,
+    statusChanged: (key: string, status: string) => `${key} moved to ${status}.`,
+    statusStale: 'This item was changed by someone else. Its latest status is shown; change it again.',
+    statusNotAllowed: (statuses: string) => `This item can only move to ${statuses}.`,
   },
   notFound: {
     title: 'Page not found',

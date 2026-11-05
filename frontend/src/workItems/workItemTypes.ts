@@ -14,6 +14,9 @@ export const ALLOWED_PARENT_TYPES: Record<WorkItemType, readonly WorkItemType[]>
   tech_debt: ['epic'],
 }
 
+/** The workflow's statuses in order (US-10 AC1); the API decides which moves are allowed. */
+export const WORK_ITEM_STATUSES: readonly string[] = ['todo', 'in_progress', 'in_review', 'done']
+
 export function isWorkItemType(value: string): value is WorkItemType {
   return (WORK_ITEM_TYPES as readonly string[]).includes(value)
 }
