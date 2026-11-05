@@ -10,6 +10,7 @@ internal static class ActivityPersistenceServiceCollectionExtensions
     {
         services.AddModuleDbContext<ActivityDbContext>(configuration, ActivityDbContext.Schema);
         services.AddScoped<ActivityEventWriter>();
+        services.AddScoped<ActivityHistoryReader>();
         return services;
     }
 }

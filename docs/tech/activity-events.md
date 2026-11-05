@@ -81,7 +81,7 @@ Indexes: `(org_id, entity_id, event_id desc)` for item history, `(org_id, projec
 | --- | --- | --- | --- |
 | `ProjectCreated` | Projects (TRK-10) | A project is created | `{ "key": "TRK", "name": "Trekky" }` |
 | `WorkItemCreated` | Work items (TRK-11) | An item is created | `{ "type": "story", "title": "Comments on items", "status": "todo", "parentId": "…" \| null, "parentKey": "TRK-2" \| null }` |
-| `WorkItemUpdated` | Work items (TRK-11) | Title, description, type or parent changes | `{ "changes": { "title": { "from": "Comments", "to": "Comments on items" } } }` — fields are `type`, `title`, `descriptionMd` and `parent`; description changes record `{ "changed": true }`, not the full text; parent changes record `{ "from": { "id": "…", "key": "TRK-2" } \| null, "to": … }`. An edit that changes nothing records no event |
+| `WorkItemUpdated` | Work items (TRK-11) | Title, description, type or parent changes | `{ "changes": { "title": { "from": "Comments", "to": "Comments on items" } } }` — fields are `type`, `title`, `descriptionMd` and `parent`; description changes record `{ "changed": true }`, not the full text (the full text of every revision will be kept in `work_items.work_item_revisions`; ADR-0014, proposed); parent changes record `{ "from": { "id": "…", "key": "TRK-2" } \| null, "to": … }`. An edit that changes nothing records no event |
 | `WorkItemStatusChanged` | Work items (TRK-12) | Status changes | `{ "from": "in_progress", "to": "in_review" }` |
 | `WorkItemAssigned` | Work items (TRK-20) | Assignee changes, including to nobody | `{ "from": "…" \| null, "to": "…" \| null }` |
 | `CommentAdded` | Work items (TRK-18) | A comment is posted (entity = the work item) | `{ "commentId": "…", "excerpt": "first 200 characters" }` |
@@ -91,3 +91,7 @@ Organization and user events (`OrganizationCreated`, `MemberJoined`) are added w
 ## History view (US-09)
 
 The item detail's History tab reads `activity_events` for the item's `entity_id` (comment events use the item as their entity), newest first, 50 per page, and renders each event type with a fixed sentence, e.g. *Davit changed status In Progress → In Review*.
+
+`GET /api/v1/work-items/{id}/history` (TRK-13) serves it: the activity module checks that the item exists through the work items module's public `IWorkItemDirectory`, reads the page by `event_id` (the cursor), and adds each user actor's current `displayName` through the identity module's public `IUserDirectory`. That lookup only finds members of the request's organization, so a user who has left shows with `displayName: null`; events store the actor's id, never the name.
+
+Events answer *what changed*. *What the item was* at each revision, including the full description text, will come from the revision table proposed in ADR-0014. Item events will then carry an optional `revision` field (additive, so still `schemaVersion` 1), and a history entry can link to its snapshot.

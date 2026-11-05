@@ -23,7 +23,14 @@ builder.Services.AddModules(
 
 var app = builder.Build();
 
-app.UseExceptionHandler();
+// A request the endpoint cannot bind (e.g. ?limit=abc) throws BadHttpRequestException in Development; answer with its
+// status (400) as problem details instead of a 500.
+app.UseExceptionHandler(new ExceptionHandlerOptions
+{
+    StatusCodeSelector = exception => exception is BadHttpRequestException badRequest
+        ? badRequest.StatusCode
+        : StatusCodes.Status500InternalServerError,
+});
 app.UseStatusCodePages();
 
 app.UseAuthentication();

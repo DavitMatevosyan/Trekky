@@ -1,9 +1,11 @@
+using System.Text.Json;
+using Trekky.Modules.Activity.Application.Contracts;
 using Trekky.Modules.Activity.Domain;
 using Trekky.SharedKernel.Events;
 
 namespace Trekky.Modules.Activity.Application.ActivityEvents;
 
-/// <summary>Turns an event envelope from the outbox into an activity log row.</summary>
+/// <summary>Turns an event envelope from the outbox into an activity log row, and a row into a history entry.</summary>
 internal static class ActivityEventMapper
 {
     public static ActivityEvent FromEnvelope(ActivityEnvelope envelope)
@@ -24,5 +26,19 @@ internal static class ActivityEventMapper
             ProjectId = envelope.ProjectId,
             Payload = envelope.Payload.ToJsonString(),
         };
+    }
+
+    public static HistoryEvent ToHistoryEvent(ActivityEvent activity, string? actorDisplayName)
+    {
+        ArgumentNullException.ThrowIfNull(activity);
+        using var payload = JsonDocument.Parse(activity.Payload);
+        return new HistoryEvent(
+            activity.EventId,
+            activity.EventType,
+            activity.SchemaVersion,
+            activity.OccurredAt,
+            new HistoryActor(activity.ActorType, activity.ActorId, actorDisplayName),
+            new HistoryEntity(activity.EntityType, activity.EntityId, activity.EntityKey),
+            payload.RootElement.Clone());
     }
 }

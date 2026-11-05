@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
+using Trekky.Modules.Identity.Application.Contracts;
 using Trekky.Modules.Projects.Application.Contracts;
 using Trekky.Modules.WorkItems.Application.Contracts;
 using Trekky.Modules.WorkItems.Application.WorkItems;
@@ -11,7 +12,12 @@ using Trekky.SharedKernel.Events;
 
 namespace Trekky.Modules.WorkItems.Infrastructure;
 
-internal sealed class WorkItemService(WorkItemsDbContext db, ITenantContext tenant, TimeProvider time, IProjectDirectory projects)
+internal sealed class WorkItemService(
+    WorkItemsDbContext db,
+    ITenantContext tenant,
+    TimeProvider time,
+    IProjectDirectory projects,
+    IUserDirectory users)
     : IWorkItemService
 {
     public async Task<WorkItemResult> CreateAsync(
@@ -277,6 +283,9 @@ internal sealed class WorkItemService(WorkItemsDbContext db, ITenantContext tena
             : null;
         var children = await Summaries(db.WorkItems.AsNoTracking().Where(w => w.ParentId == item.Id).OrderBy(w => w.Number))
             .ToListAsync(cancellationToken);
+        var creator = (await users.FindMembersAsync([item.CreatedBy], cancellationToken)).GetValueOrDefault(item.CreatedBy) is { } user
+            ? new WorkItemUser(user.Id, user.DisplayName, user.Email)
+            : null;
 
         var detail = new WorkItemDetail(
             item.Id,
@@ -291,7 +300,8 @@ internal sealed class WorkItemService(WorkItemsDbContext db, ITenantContext tena
             parent is null ? null : ToSummary(parent),
             children.Select(ToSummary).ToList(),
             StatusWorkflow.AllowedTransitions(item.Status),
-            item.CreatedAt);
+            item.CreatedAt,
+            creator);
         return new VersionedWorkItem(detail, item.Version);
     }
 

@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Trekky.Modules.Activity.Application.History;
 using Trekky.Modules.Activity.Persistence;
 using Trekky.SharedKernel.Events;
 
@@ -11,6 +12,7 @@ internal static class ActivityServiceCollectionExtensions
     {
         services.AddActivityPersistence(configuration);
         services.AddScoped<IActivityEventSink, ActivityEventSink>();
+        services.AddScoped<IHistoryService, HistoryService>();
         return services;
     }
 }

@@ -8,8 +8,9 @@
     <ProjectReference Include="..\..\..\Trekky.SharedKernel\Trekky.SharedKernel.csproj" />
     <ProjectReference Include="..\Trekky.Modules.WorkItems.Application\Trekky.Modules.WorkItems.Application.csproj" />
     <ProjectReference Include="..\Trekky.Modules.WorkItems.Persistence\Trekky.Modules.WorkItems.Persistence.csproj" />
-    <!-- Another module's public contracts only (ADR-0009): the project lookup and the item-count port. -->
+    <!-- Other modules' public contracts only (ADR-0009): the project lookup, the item-count port and the user lookup. -->
     <ProjectReference Include="..\..\Projects\Trekky.Modules.Projects.Application\Trekky.Modules.Projects.Application.csproj" />
+    <ProjectReference Include="..\..\Identity\Trekky.Modules.Identity.Application\Trekky.Modules.Identity.Application.csproj" />
   </ItemGroup>
 
 </Project>
