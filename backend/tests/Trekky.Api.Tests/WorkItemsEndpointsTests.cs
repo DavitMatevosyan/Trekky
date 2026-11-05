@@ -195,6 +195,105 @@ public sealed class WorkItemsEndpointsTests(TrekkyApiFactory factory)
         Assert.Equal("TRK-1", (await ListAsync(user, project, string.Empty)).Items[0].Key);
     }
 
+    [Fact]
+    public async Task The_list_filters_by_type_and_by_key_or_title()
+    {
+        using var user = await AuthFlow.SignedUpUserAsync(factory);
+        var project = await CreateProjectAsync(user, "TRK");
+        var epic = await CreateItemAsync(user, project, "epic", "Dogfood");
+        await CreateItemAsync(user, project, "story", "Comments on items", epic.Id);
+        await CreateItemAsync(user, project, "task", "Write 100% of the tests");
+        for (var i = 4; i <= 10; i++)
+        {
+            await CreateItemAsync(user, project, "bug", $"Bug {i}");
+        }
+
+        // Parent candidates for a Task: Epics and Stories.
+        Assert.Equal(["TRK-2", "TRK-1"], (await ListAsync(user, project, "?type=epic&type=story")).Items.Select(i => i.Key));
+        // Title contains, case-insensitive.
+        Assert.Equal(["TRK-2"], (await ListAsync(user, project, "?q=COMMENTS")).Items.Select(i => i.Key));
+        // Key starts with: TRK-1 (the exact key, first) and TRK-10, not TRK-2.
+        Assert.Equal(["TRK-1", "TRK-10"], (await ListAsync(user, project, "?q=trk-1")).Items.Select(i => i.Key));
+        // LIKE wildcards are literal.
+        Assert.Equal(["TRK-3"], (await ListAsync(user, project, "?q=100%25")).Items.Select(i => i.Key));
+        Assert.Empty((await ListAsync(user, project, "?q=_")).Items);
+        // Filters combine.
+        Assert.Equal(["TRK-1"], (await ListAsync(user, project, "?type=epic&q=dog")).Items.Select(i => i.Key));
+    }
+
+    [Fact]
+    public async Task An_exact_key_comes_first_however_many_keys_start_the_same_way()
+    {
+        using var user = await AuthFlow.SignedUpUserAsync(factory);
+        var project = await CreateProjectAsync(user, "TRK");
+        for (var i = 1; i <= 12; i++)
+        {
+            await CreateItemAsync(user, project, "epic", $"Epic {i}");
+        }
+
+        // TRK-1 is the oldest of TRK-1, TRK-10, TRK-11, TRK-12: without the rule it would be cut off at limit 3.
+        var first = await ListAsync(user, project, "?q=trk-1&limit=3");
+        Assert.Equal(["TRK-1", "TRK-12", "TRK-11"], first.Items.Select(i => i.Key));
+
+        // Later pages leave it out, so paging still returns each item once.
+        var second = await ListAsync(user, project, $"?q=trk-1&limit=3&cursor={Uri.EscapeDataString(first.NextCursor!)}");
+        Assert.Equal(["TRK-10"], second.Items.Select(i => i.Key));
+        Assert.Null(second.NextCursor);
+
+        // With limit 1 it fills the first page alone, and paging still returns every match once.
+        var keys = new List<string>();
+        string? cursor = null;
+        do
+        {
+            var page = await ListAsync(user, project, cursor is null ? "?q=trk-1&limit=1" : $"?q=trk-1&limit=1&cursor={Uri.EscapeDataString(cursor)}");
+            keys.AddRange(page.Items.Select(i => i.Key));
+            cursor = page.NextCursor;
+        }
+        while (cursor is not null);
+        Assert.Equal(["TRK-1", "TRK-12", "TRK-11", "TRK-10"], keys);
+
+        // The type filter still applies to it.
+        Assert.Empty((await ListAsync(user, project, "?q=TRK-1&type=story")).Items);
+    }
+
+    [Fact]
+    public async Task Every_query_string_problem_is_reported_at_once()
+    {
+        using var user = await AuthFlow.SignedUpUserAsync(factory);
+        var project = await CreateProjectAsync(user, "TRK");
+        using var request = AuthFlow.WithBearer(
+            HttpMethod.Get, $"/api/v1/projects/{project}/work-items?type=feature&limit=0", user.Tokens.AccessToken);
+
+        var response = await user.Client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        using var problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal(["limit", "type"], problem.RootElement.GetProperty("errors").EnumerateObject().Select(e => e.Name).Order());
+    }
+
+    [Theory]
+    [InlineData("?type=feature", "type")]
+    [InlineData("?type=epic&type=Story", "type")]
+    public async Task An_unknown_type_filter_is_a_validation_problem(string query, string field)
+    {
+        using var user = await AuthFlow.SignedUpUserAsync(factory);
+        var project = await CreateProjectAsync(user, "TRK");
+        using var request = AuthFlow.WithBearer(HttpMethod.Get, $"/api/v1/projects/{project}/work-items{query}", user.Tokens.AccessToken);
+
+        await AssertFieldErrorAsync(await user.Client.SendAsync(request), field);
+    }
+
+    [Fact]
+    public async Task A_search_longer_than_200_characters_is_a_validation_problem()
+    {
+        using var user = await AuthFlow.SignedUpUserAsync(factory);
+        var project = await CreateProjectAsync(user, "TRK");
+        using var request = AuthFlow.WithBearer(
+            HttpMethod.Get, $"/api/v1/projects/{project}/work-items?q={new string('a', 201)}", user.Tokens.AccessToken);
+
+        await AssertFieldErrorAsync(await user.Client.SendAsync(request), "q");
+    }
+
     [Theory]
     [InlineData("?limit=0", "limit")]
     [InlineData("?limit=101", "limit")]

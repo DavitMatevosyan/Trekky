@@ -154,14 +154,47 @@ internal sealed class WorkItemService(WorkItemsDbContext db, ITenantContext tena
         return await SucceededAsync(workItemId, cancellationToken);
     }
 
-    public async Task<WorkItemPage?> ListAsync(Guid projectId, int limit, WorkItemCursor? after, CancellationToken cancellationToken)
+    public async Task<WorkItemPage?> ListAsync(
+        Guid projectId, WorkItemFilter filter, int limit, WorkItemCursor? after, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(filter);
         if (await projects.FindAsync(projectId, cancellationToken) is null)
         {
             return null;
         }
 
         IQueryable<WorkItem> query = db.WorkItems.AsNoTracking().Where(w => w.ProjectId == projectId);
+        if (filter.Types.Count > 0)
+        {
+            var types = filter.Types;
+            query = query.Where(w => types.Contains(w.Type));
+        }
+
+        // A search that is a key of this project (TRK-1): that item comes first on the first page, so it can always be
+        // found by its key however many other keys start the same way (TRK-10, TRK-100, ...). Later pages leave it out.
+        SummaryRow? exact = null;
+        if (filter.Query is { } key && WorkItemKey.TryParse(key.ToUpperInvariant(), out var keyProject, out var keyNumber))
+        {
+            if (after is null)
+            {
+                exact = await Summaries(query.Where(w => w.ProjectKey == keyProject && w.Number == keyNumber))
+                    .FirstOrDefaultAsync(cancellationToken);
+            }
+
+            query = query.Where(w => !(w.ProjectKey == keyProject && w.Number == keyNumber));
+        }
+
+        if (filter.Query is { } search)
+        {
+            // LIKE wildcards in the search are literal characters, not patterns.
+            var escaped = search.Replace(@"\", @"\\", StringComparison.Ordinal)
+                .Replace("%", @"\%", StringComparison.Ordinal)
+                .Replace("_", @"\_", StringComparison.Ordinal);
+            query = query.Where(w =>
+                EF.Functions.ILike(w.Title, "%" + escaped + "%", @"\")
+                || EF.Functions.ILike(w.ProjectKey + "-" + w.Number.ToString(), escaped + "%", @"\"));
+        }
+
         if (after is not null)
         {
             // Keyset: rows after the previous page's last (updated_at, id), newest first, as a row-value comparison.
@@ -169,12 +202,16 @@ internal sealed class WorkItemService(WorkItemsDbContext db, ITenantContext tena
                 ValueTuple.Create(w.UpdatedAt, w.Id), ValueTuple.Create(after.UpdatedAt, after.Id)));
         }
 
-        var rows = await Summaries(query.OrderByDescending(w => w.UpdatedAt).ThenByDescending(w => w.Id).Take(limit + 1))
+        var size = exact is null ? limit : limit - 1;
+        var rows = await Summaries(query.OrderByDescending(w => w.UpdatedAt).ThenByDescending(w => w.Id).Take(size + 1))
             .ToListAsync(cancellationToken);
 
-        var page = rows.Take(limit).ToList();
-        var next = rows.Count > limit ? new WorkItemCursor(page[^1].Item.UpdatedAt, page[^1].Item.Id).Encode() : null;
-        return new WorkItemPage(page.Select(ToSummary).ToList(), next);
+        var page = rows.Take(size).ToList();
+        // With limit 1 the exact item fills the first page alone; the next page then starts before every row.
+        var next = rows.Count <= size ? null
+            : page.Count == 0 ? new WorkItemCursor(DateTimeOffset.MaxValue, Guid.AllBitsSet).Encode()
+            : new WorkItemCursor(page[^1].Item.UpdatedAt, page[^1].Item.Id).Encode();
+        return new WorkItemPage((exact is null ? page : page.Prepend(exact)).Select(ToSummary).ToList(), next);
     }
 
     public Task<VersionedWorkItem?> GetAsync(Guid workItemId, CancellationToken cancellationToken)

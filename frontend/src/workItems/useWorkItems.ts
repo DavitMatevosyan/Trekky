@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { asProblem, ProblemError } from '../api/problem.ts'
 import type { components } from '../api/schema.d.ts'
 import { useAuth } from '../auth/AuthContext.ts'
@@ -64,15 +64,37 @@ export function useWorkItem(key: string, enabled = true) {
   })
 }
 
-/** Finds an item's id from the key a user typed, e.g. for the parent field; `null` when there is no such item. */
-export function useFindWorkItemId() {
+/** Looks up an item by the key a user typed; `null` when there is no such item. */
+export function useFindWorkItem() {
   const { api } = useAuth()
-  return async (key: string): Promise<string | null> => {
+  return async (key: string): Promise<WorkItemDetail | null> => {
     const { data, response } = await api.GET('/api/v1/work-items/by-key/{key}', { params: { path: { key } } })
-    if (data) return data.id
+    if (data) return data
     if (response.status === 404) return null
     throw new ProblemError({ status: response.status })
   }
+}
+
+const CANDIDATE_LIMIT = 20
+
+/**
+ * Items that could be the parent (TRK-11.1): the project's items of the allowed `types` whose key starts with or whose
+ * title contains `search`, newest update first. Keeps showing the last results while the next search loads.
+ */
+export function useParentCandidates(projectId: string, types: readonly string[], search: string, enabled: boolean) {
+  const { api } = useAuth()
+  return useQuery({
+    queryKey: ['work-items', 'candidates', projectId, types, search] as const,
+    enabled: enabled && types.length > 0,
+    placeholderData: keepPreviousData,
+    queryFn: async () => {
+      const { data, error } = await api.GET('/api/v1/projects/{projectId}/work-items', {
+        params: { path: { projectId }, query: { type: [...types], q: search || undefined, limit: CANDIDATE_LIMIT } },
+      })
+      if (!data) throw new ProblemError(asProblem(error))
+      return data.items
+    },
+  })
 }
 
 /** POST a new item; refreshes the list and the project's item count. Throws ProblemError (400, 404, 422). */

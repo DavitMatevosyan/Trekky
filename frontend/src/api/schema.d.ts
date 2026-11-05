@@ -148,7 +148,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List a project's work items, newest update first (US-08) */
+        /**
+         * List a project's work items, newest update first (US-08)
+         * @description Optional filters (TRK-11.1, e.g. parent candidates): repeat `type` to keep only those types; `q` keeps items whose key starts with it or whose title contains it, case-insensitive.
+         */
         get: operations["ListWorkItems"];
         put?: never;
         /** Create a work item in To Do with the project's next key (US-06) */
@@ -622,6 +625,8 @@ export interface operations {
             query?: {
                 limit?: number | string;
                 cursor?: string;
+                type?: string[];
+                q?: string;
             };
             header?: never;
             path: {

@@ -113,66 +113,178 @@ describe('ProjectItemsPage', () => {
     expect(await requestsTo(fetchFn, createPath)[0]?.json()).toEqual({ type: 'task', title: 'Write tests', descriptionMd: null, parentId: null })
   })
 
-  it('finds the parent from the key typed and names the allowed parent types', async () => {
+  it('offers only the parent types the chosen type allows and creates with the chosen parent', async () => {
     const { fetchFn } = renderItems({
-      'GET /api/v1/work-items/by-key/TRK-1': () => jsonResponse(detail(epic)),
       [createPath]: () => jsonResponse(detail({ ...story, key: 'TRK-3' }), 201),
     })
     const form = await openForm()
-
-    const parent = within(form).getByLabelText('Parent key')
+    const parent = within(form).getByRole('combobox', { name: 'Parent' })
     expect(parent).toHaveAccessibleDescription('Optional: Epic or Story.')
-    await userEvent.selectOptions(within(form).getByLabelText('Type'), 'subtask')
-    expect(parent).toHaveAccessibleDescription('Required: Story or Task.')
-    await userEvent.selectOptions(within(form).getByLabelText('Type'), 'story')
+
     await userEvent.type(within(form).getByLabelText('Title'), 'Child')
     await userEvent.type(within(form).getByLabelText('Description'), '**Why** it matters')
-    await userEvent.type(parent, 'trk-1')
-    expect(parent).toHaveValue('TRK-1')
+    await userEvent.click(parent)
+    const options = await within(await within(form).findByRole('listbox')).findAllByRole('option')
+    expect(options.map((option) => option.textContent)).toEqual(['TRK-2StoryComments on items', 'TRK-1Epicv1.0 Dogfood'])
+    const candidates = requestsTo(fetchFn, itemsPath).map((request) => new URL(request.url).searchParams)
+    expect(candidates.at(-1)?.getAll('type')).toEqual(['epic', 'story'])
+    await userEvent.click(options[1] as HTMLElement)
+    expect(parent).toHaveValue('TRK-1 · v1.0 Dogfood')
     await userEvent.click(within(form).getByRole('button', { name: 'Create item' }))
 
     await waitFor(() => expect(requestsTo(fetchFn, createPath)).toHaveLength(1))
     expect(await requestsTo(fetchFn, createPath)[0]?.json()).toEqual({
-      type: 'story',
+      type: 'task',
       title: 'Child',
       descriptionMd: '**Why** it matters',
       parentId: epic.id,
     })
   })
 
-  it('shows an unknown parent key on the parent field without creating anything', async () => {
-    const { fetchFn } = renderItems({ 'GET /api/v1/work-items/by-key/TRK-9': () => problemResponse(404, { title: 'Work item not found' }) })
+  it('searches with the keyboard and chooses with Enter without submitting', async () => {
+    const { fetchFn } = renderItems({
+      [itemsPath]: (request) => {
+        const q = new URL(request.url).searchParams.get('q')
+        return jsonResponse({ items: q === 'dog' ? [epic] : [story, epic], nextCursor: null })
+      },
+    })
     const form = await openForm()
+    const parent = within(form).getByRole('combobox', { name: 'Parent' })
 
+    await userEvent.type(parent, 'dog')
+    await waitFor(() => expect(within(within(form).getByRole('listbox')).getAllByRole('option')).toHaveLength(1))
+    await userEvent.keyboard('{ArrowDown}')
+    expect(parent).toHaveAttribute('aria-activedescendant', within(within(form).getByRole('listbox')).getByRole('option').id)
+    await userEvent.keyboard('{Enter}')
+
+    expect(parent).toHaveValue('TRK-1 · v1.0 Dogfood')
+    expect(parent).toHaveAttribute('aria-expanded', 'false')
+    expect(requestsTo(fetchFn, createPath)).toHaveLength(0)
+    expect(requestsTo(fetchFn, itemsPath).some((request) => new URL(request.url).searchParams.get('q') === 'dog')).toBe(true)
+  })
+
+  it('drops a parent the new type does not allow, and has none for an Epic', async () => {
+    renderItems()
+    const form = await openForm()
+    const parent = within(form).getByRole('combobox', { name: 'Parent' })
+    await userEvent.click(parent)
+    await userEvent.click(within(form).getByRole('option', { name: /TRK-2/ }))
+    expect(parent).toHaveValue('TRK-2 · Comments on items')
+
+    // A SubTask may sit under a Story: the choice stays.
+    await userEvent.selectOptions(within(form).getByLabelText('Type'), 'subtask')
+    expect(parent).toHaveValue('TRK-2 · Comments on items')
+    expect(parent).toHaveAccessibleDescription('Required: Story or Task.')
+    // A Story may not: it is dropped.
+    await userEvent.selectOptions(within(form).getByLabelText('Type'), 'story')
+    expect(parent).toHaveValue('')
+    await userEvent.selectOptions(within(form).getByLabelText('Type'), 'epic')
+    expect(parent).toBeDisabled()
+    expect(parent).toHaveAccessibleDescription('Epic items have no parent.')
+  })
+
+  it('takes an exact key typed without choosing, and keeps anything else with why', async () => {
+    // Leaving the field looks the typed key up; any other key is not found (404).
+    const { fetchFn } = renderItems({ 'GET /api/v1/work-items/by-key/TRK-1': () => jsonResponse(detail(epic)) })
+    const form = await openForm()
+    const parent = within(form).getByRole('combobox', { name: 'Parent' })
+
+    await userEvent.type(parent, 'trk-1')
+    await waitFor(() => expect(within(within(form).getByRole('listbox')).getAllByRole('option')).toHaveLength(2))
+    await userEvent.click(within(form).getByLabelText('Title'))
+    await waitFor(() => expect(parent).toHaveValue('TRK-1 · v1.0 Dogfood'))
+
+    await userEvent.click(within(form).getByRole('button', { name: 'Clear parent' }))
+    await userEvent.type(parent, 'nothing like it')
+    await userEvent.click(within(form).getByLabelText('Title'))
+    expect(await within(form).findByText('Choose a parent from the list, or clear the field.')).toBeInTheDocument()
+    expect(parent).toHaveValue('nothing like it')
+    expect(parent).toHaveAttribute('aria-invalid', 'true')
+    // Text that is not a key is never looked up.
+    expect(requestsTo(fetchFn, 'GET /api/v1/work-items/by-key/NOTHING%20LIKE%20IT')).toHaveLength(0)
+  })
+
+  it('creates with a key typed but not chosen, whether submitted by click or by Enter', async () => {
+    const byKey = { 'GET /api/v1/work-items/by-key/TRK-1': () => jsonResponse(detail(epic)) }
+    for (const submit of ['click', 'escape then enter'] as const) {
+      const { fetchFn, unmount } = renderItems({ ...byKey, [createPath]: () => jsonResponse(detail({ ...story, key: 'TRK-3' }), 201) })
+      const form = await openForm()
+      await userEvent.type(within(form).getByLabelText('Title'), 'Child')
+      await userEvent.type(within(form).getByRole('combobox', { name: 'Parent' }), 'trk-1')
+
+      if (submit === 'click') await userEvent.click(within(form).getByRole('button', { name: 'Create item' }))
+      else await userEvent.keyboard('{Escape}{Enter}')
+
+      await waitFor(() => expect(requestsTo(fetchFn, createPath)).toHaveLength(1))
+      expect((await requestsTo(fetchFn, createPath)[0]?.json()) as unknown).toMatchObject({ parentId: epic.id })
+      unmount()
+    }
+  })
+
+  it('does not create when the typed key is not an item of this project, and says why', async () => {
+    const { fetchFn } = renderItems()
+    const form = await openForm()
     await userEvent.type(within(form).getByLabelText('Title'), 'Child')
-    await userEvent.type(within(form).getByLabelText('Parent key'), 'TRK-9')
+    const parent = within(form).getByRole('combobox', { name: 'Parent' })
+    await userEvent.type(parent, 'trk-9')
+
     await userEvent.click(within(form).getByRole('button', { name: 'Create item' }))
 
-    await waitFor(() => expect(within(form).getByLabelText('Parent key')).toHaveAttribute('aria-invalid', 'true'))
-    expect(within(form).getByText('There is no item TRK-9 in this project.')).toBeInTheDocument()
+    expect(await within(form).findByText('There is no item TRK-9 in this project.')).toBeInTheDocument()
+    expect(parent).toHaveValue('trk-9')
+    expect(parent).toHaveAttribute('aria-invalid', 'true')
     expect(requestsTo(fetchFn, createPath)).toHaveLength(0)
+  })
+
+  it('ignores a key lookup that finishes after the type changed to one without a parent', async () => {
+    let answer: (response: Response) => void = () => {}
+    const { fetchFn } = renderItems({
+      'GET /api/v1/work-items/by-key/TRK-1': () => new Promise<Response>((resolve) => (answer = resolve)),
+      [createPath]: () => jsonResponse(detail(epic), 201),
+    })
+    const form = await openForm()
+    await userEvent.selectOptions(within(form).getByLabelText('Type'), 'story')
+    await userEvent.type(within(form).getByRole('combobox', { name: 'Parent' }), 'trk-1')
+    await userEvent.type(within(form).getByLabelText('Title'), 'Big one')
+    await userEvent.selectOptions(within(form).getByLabelText('Type'), 'epic')
+
+    answer(jsonResponse(detail(epic)))
+    await waitFor(() => expect(requestsTo(fetchFn, 'GET /api/v1/work-items/by-key/TRK-1')).toHaveLength(1))
+    expect(within(form).getByRole('combobox', { name: 'Parent' })).toHaveValue('')
+    await userEvent.click(within(form).getByRole('button', { name: 'Create item' }))
+
+    await waitFor(() => expect(requestsTo(fetchFn, createPath)).toHaveLength(1))
+    expect((await requestsTo(fetchFn, createPath)[0]?.json()) as unknown).toMatchObject({ type: 'epic', parentId: null })
+  })
+
+  it('says when no item of the allowed types matches', async () => {
+    renderItems({ [itemsPath]: (request) => jsonResponse({ items: new URL(request.url).searchParams.has('type') ? [] : [story, epic], nextCursor: null }) })
+    const form = await openForm()
+
+    await userEvent.click(within(form).getByRole('combobox', { name: 'Parent' }))
+
+    expect(await within(form).findByRole('status')).toHaveTextContent('No Epic or Story items match.')
   })
 
   it('shows a parent rule violation on the parent field', async () => {
     renderItems({
-      'GET /api/v1/work-items/by-key/TRK-2': () => jsonResponse(detail(story)),
       [createPath]: () =>
         problemResponse(422, {
           title: 'Parent not allowed',
-          detail: 'A Story can only have a parent of type Epic, not Story.',
-          allowedParentTypes: ['epic'],
+          detail: 'The parent must be a work item in the same project.',
+          allowedParentTypes: ['epic', 'story'],
           conflictingChildKeys: [],
         }),
     })
     const form = await openForm()
 
-    await userEvent.selectOptions(within(form).getByLabelText('Type'), 'story')
     await userEvent.type(within(form).getByLabelText('Title'), 'Child')
-    await userEvent.type(within(form).getByLabelText('Parent key'), 'TRK-2')
+    await userEvent.click(within(form).getByRole('combobox', { name: 'Parent' }))
+    await userEvent.click(await within(form).findByRole('option', { name: /TRK-1/ }))
     await userEvent.click(within(form).getByRole('button', { name: 'Create item' }))
 
-    expect(await within(form).findByText('A Story can only have a parent of type Epic, not Story.')).toBeInTheDocument()
-    expect(within(form).getByLabelText('Parent key')).toHaveAttribute('aria-invalid', 'true')
+    expect(await within(form).findByText('The parent must be a work item in the same project.')).toBeInTheDocument()
+    expect(within(form).getByRole('combobox', { name: 'Parent' })).toHaveAttribute('aria-invalid', 'true')
   })
 
   it('shows validation errors next to their fields', async () => {

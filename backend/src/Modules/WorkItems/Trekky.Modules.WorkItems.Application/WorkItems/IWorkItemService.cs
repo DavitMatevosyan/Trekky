@@ -18,8 +18,9 @@ internal interface IWorkItemService
     Task<WorkItemResult> UpdateAsync(
         Guid workItemId, WorkItemPatch patch, string ifMatch, Guid actorId, CancellationToken cancellationToken);
 
-    /// <summary>The project's items, newest update first; <c>null</c> when the project does not exist.</summary>
-    Task<WorkItemPage?> ListAsync(Guid projectId, int limit, WorkItemCursor? after, CancellationToken cancellationToken);
+    /// <summary>The project's items that match <paramref name="filter"/>, newest update first; <c>null</c> when the project does not exist.</summary>
+    Task<WorkItemPage?> ListAsync(
+        Guid projectId, WorkItemFilter filter, int limit, WorkItemCursor? after, CancellationToken cancellationToken);
 
     /// <summary>The item, or <c>null</c> when it does not exist or belongs to another organization.</summary>
     Task<VersionedWorkItem?> GetAsync(Guid workItemId, CancellationToken cancellationToken);

@@ -31,7 +31,11 @@ test('a user creates work items with a parent, opens one and edits it', async ({
   await page.getByLabel('Type').selectOption('story')
   await page.getByLabel('Title').fill('Comments on items')
   await page.getByLabel('Description').fill('Members can **discuss** an item.')
-  await page.getByLabel('Parent key').fill('TRK-1')
+  // TRK-11.1: pick the parent from the candidates of the allowed types.
+  const parent = page.getByRole('combobox', { name: 'Parent' })
+  await parent.fill('dog')
+  await page.getByRole('listbox', { name: 'Parent' }).getByRole('option', { name: /TRK-1/ }).click()
+  await expect(parent).toHaveValue('TRK-1 · v1.0 Dogfood')
   await page.getByRole('button', { name: 'Create item' }).click()
   await expect(page.getByRole('status')).toHaveText('Created TRK-2 · Comments on items.')
 

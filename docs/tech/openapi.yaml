@@ -227,12 +227,27 @@ paths:
       parameters:
         - $ref: '#/components/parameters/Limit'
         - $ref: '#/components/parameters/Cursor'
+        - name: type
+          in: query
+          required: false
+          description: Repeat to keep only these types, e.g. the parent candidates for an item (TRK-11.1).
+          schema:
+            type: array
+            items: { $ref: '#/components/schemas/WorkItemType' }
+          style: form
+          explode: true
+        - name: q
+          in: query
+          required: false
+          description: Keeps items whose key starts with it or whose title contains it, case-insensitive. When it is a key of this project, that item comes first on the first page and later pages leave it out.
+          schema: { type: string, maxLength: 200 }
       responses:
         '200':
           description: A page of work items.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/WorkItemPage' }
+        '400': { $ref: '#/components/responses/ValidationProblem' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
     post:

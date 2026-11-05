@@ -43,7 +43,8 @@ describe('WorkItemPage', () => {
     const heading = await screen.findByRole('heading', { level: 1 })
     expect(heading).toHaveTextContent('StoryComments on items')
     expect(within(screen.getByRole('navigation', { name: 'Breadcrumb' })).getByText('TRK-14')).toHaveAttribute('aria-current', 'page')
-    expect((await screen.findByText('discuss')).tagName).toBe('STRONG')
+    // The Markdown renderer loads lazily; give it time when the whole suite runs in parallel.
+    expect((await screen.findByText('discuss', {}, { timeout: 5000 })).tagName).toBe('STRONG')
     expect(screen.getByText('bad')).not.toHaveAttribute('href', expect.stringContaining('javascript'))
     // Images are links, never loaded.
     expect(screen.queryByRole('img')).not.toBeInTheDocument()
@@ -68,7 +69,7 @@ describe('WorkItemPage', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Edit' }))
     const form = screen.getByRole('form', { name: 'Edit item' })
 
-    expect(within(form).getByLabelText('Parent key')).toHaveValue('TRK-2')
+    expect(within(form).getByRole('combobox', { name: 'Parent' })).toHaveValue('TRK-2 · v1.0 Dogfood')
     const title = within(form).getByLabelText('Title')
     await userEvent.clear(title)
     await userEvent.type(title, 'Comments')
@@ -83,12 +84,25 @@ describe('WorkItemPage', () => {
     expect(await patch?.json()).toEqual({ title: 'Comments' })
   })
 
-  it('clears the parent when its key is removed', async () => {
+  it('never offers the item as its own parent', async () => {
+    const listPath = `GET /api/v1/projects/${item.projectId}/work-items`
+    renderItem({ [listPath]: () => jsonResponse({ items: [summary('TRK-14', 'story', 'Comments on items'), epic], nextCursor: null }) })
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit' }))
+    const form = screen.getByRole('form', { name: 'Edit item' })
+
+    await userEvent.click(within(form).getByRole('button', { name: 'Clear parent' }))
+    await userEvent.click(within(form).getByRole('combobox', { name: 'Parent' }))
+
+    const options = await within(await within(form).findByRole('listbox')).findAllByRole('option')
+    expect(options.map((option) => option.textContent)).toEqual(['TRK-2Epicv1.0 Dogfood'])
+  })
+
+  it('clears the parent with the clear button', async () => {
     const { fetchFn } = renderItem({ [patchPath]: () => withETag({ ...item, parentKey: null, parent: null }, '"8"') })
     await userEvent.click(await screen.findByRole('button', { name: 'Edit' }))
     const form = screen.getByRole('form', { name: 'Edit item' })
 
-    await userEvent.clear(within(form).getByLabelText('Parent key'))
+    await userEvent.click(within(form).getByRole('button', { name: 'Clear parent' }))
     await userEvent.click(within(form).getByRole('button', { name: 'Save' }))
 
     await waitFor(() => expect(requestsTo(fetchFn, patchPath)).toHaveLength(1))
