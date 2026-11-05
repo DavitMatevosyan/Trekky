@@ -19,6 +19,7 @@ const item = {
   descriptionMd: 'Members can **discuss** an item.\n\n[bad](javascript:alert(1)) ![tracker](https://example.com/pixel.png)',
   parent: epic,
   children: [summary('TRK-15', 'task', 'Edit own comments', 'todo', 'TRK-14'), summary('TRK-16', 'task', 'Delete own comments', 'done', 'TRK-14')],
+  allowedTransitions: ['todo', 'in_review'],
   createdAt: '2026-10-20T10:00:00Z',
 }
 
@@ -148,6 +149,81 @@ describe('WorkItemPage', () => {
 
     expect(await within(form).findByText('A Bug cannot be the parent of TRK-15, TRK-16. Move them first.')).toBeInTheDocument()
     expect(within(form).getByLabelText('Type')).toHaveAttribute('aria-invalid', 'true')
+  })
+
+  describe('status', () => {
+    const statusPath = `POST /api/v1/work-items/${item.id}/status`
+    const statusSelect = () => screen.findByRole('combobox', { name: 'Status' })
+
+    it('offers only the current status and the allowed moves, in workflow order', async () => {
+      renderItem()
+
+      const options = within(await statusSelect()).getAllByRole('option')
+      expect(options.map((option) => option.textContent)).toEqual(['To Do', 'In Progress', 'In Review'])
+      expect(await statusSelect()).toHaveValue('in_progress')
+    })
+
+    it('moves the item with If-Match and announces it', async () => {
+      const { fetchFn } = renderItem({
+        [statusPath]: () => withETag({ ...item, status: 'in_review', allowedTransitions: ['todo', 'in_progress', 'done'] }, '"8"'),
+      })
+
+      await userEvent.selectOptions(await statusSelect(), 'in_review')
+
+      await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('TRK-14 moved to In Review.'))
+      const select = await statusSelect()
+      expect(select).toHaveValue('in_review')
+      expect(within(select).getAllByRole('option').map((option) => option.textContent)).toEqual(['To Do', 'In Progress', 'In Review', 'Done'])
+      const [move] = requestsTo(fetchFn, statusPath)
+      expect(move?.headers.get('If-Match')).toBe('"7"')
+      expect(await move?.json()).toEqual({ to: 'in_review' })
+    })
+
+    it('shows the latest status when someone else changed the item', async () => {
+      let version = 7
+      const { fetchFn } = renderItem({
+        [itemPath]: () => withETag(version === 7 ? item : { ...item, status: 'todo', allowedTransitions: ['in_progress'] }, `"${version}"`),
+        [statusPath]: () => {
+          version = 9
+          return problemResponse(412, { title: 'Changed by someone else' })
+        },
+      })
+
+      await userEvent.selectOptions(await statusSelect(), 'in_review')
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        'This item was changed by someone else. Its latest status is shown; change it again.',
+      )
+      await waitFor(async () => expect(await statusSelect()).toHaveValue('todo'))
+      expect(requestsTo(fetchFn, itemPath).length).toBeGreaterThanOrEqual(2)
+    })
+
+    it('says where the item can go when the move is not allowed', async () => {
+      renderItem({
+        [statusPath]: () =>
+          problemResponse(422, { title: 'Status change not allowed', allowedTransitions: ['todo', 'in_review'] }),
+      })
+
+      await userEvent.selectOptions(await statusSelect(), 'todo')
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('This item can only move to To Do or In Review.')
+      expect(await statusSelect()).toHaveValue('in_progress')
+      expect(await statusSelect()).toHaveAttribute('aria-invalid', 'true')
+
+      // Editing the item is other work: the failed move's message goes.
+      await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
+      expect(screen.queryByText('This item can only move to To Do or In Review.')).not.toBeInTheDocument()
+      expect(await statusSelect()).not.toHaveAttribute('aria-invalid')
+    })
+
+    it('cannot be changed while the item is being edited', async () => {
+      renderItem()
+      await userEvent.click(await screen.findByRole('button', { name: 'Edit' }))
+
+      expect(await statusSelect()).toBeDisabled()
+      await userEvent.click(within(screen.getByRole('form', { name: 'Edit item' })).getByRole('button', { name: 'Cancel' }))
+      expect(await statusSelect()).toBeEnabled()
+    })
   })
 
   it('closes without a request when nothing changed', async () => {

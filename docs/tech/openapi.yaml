@@ -370,6 +370,10 @@ paths:
       tags: [WorkItems]
       operationId: changeWorkItemStatus
       summary: Move an item through the workflow (US-10)
+      description: |
+        Allowed moves (US-10 AC2): To Do → In Progress; In Progress → To Do or In Review; In Review → To Do, In Progress
+        or Done; Done → In Progress. Any other target, including the current status, is a 422 that lists
+        `allowedTransitions`. Records a `WorkItemStatusChanged` event.
       parameters:
         - $ref: '#/components/parameters/IfMatch'
       requestBody:
@@ -389,14 +393,15 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/WorkItemDetail' }
+        '400': { $ref: '#/components/responses/ValidationProblem' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
-        '409':
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '422':
           description: Transition not allowed; `allowedTransitions` lists the valid targets.
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/TransitionProblem' }
-        '412': { $ref: '#/components/responses/PreconditionFailed' }
         '428': { $ref: '#/components/responses/PreconditionRequired' }
 
   /api/v1/work-items/{workItemId}/move:
@@ -430,12 +435,12 @@ paths:
               schema: { $ref: '#/components/schemas/WorkItemSummary' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
-        '409':
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '422':
           description: Transition not allowed.
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/TransitionProblem' }
-        '412': { $ref: '#/components/responses/PreconditionFailed' }
         '428': { $ref: '#/components/responses/PreconditionRequired' }
 
   /api/v1/work-items/{workItemId}/history:
@@ -780,8 +785,8 @@ components:
       allOf:
         - $ref: '#/components/schemas/WorkItemSummary'
         - type: object
-          # allowedTransitions arrives with the workflow (TRK-12); createdBy with user lookups (TRK-13).
-          required: [projectId, descriptionMd, parent, children, createdAt]
+          # createdBy arrives with user lookups (TRK-13).
+          required: [projectId, descriptionMd, parent, children, allowedTransitions, createdAt]
           properties:
             projectId: { type: string, format: uuid }
             descriptionMd: { type: [string, 'null'] }

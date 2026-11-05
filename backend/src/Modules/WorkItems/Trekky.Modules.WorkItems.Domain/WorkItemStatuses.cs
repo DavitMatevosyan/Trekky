@@ -1,6 +1,6 @@
 namespace Trekky.Modules.WorkItems.Domain;
 
-/// <summary>The fixed workflow's statuses (US-10 AC1). Transitions between them arrive with TRK-12.</summary>
+/// <summary>The fixed workflow's statuses (US-10 AC1), in workflow order; <see cref="StatusWorkflow"/> has the transitions.</summary>
 internal static class WorkItemStatuses
 {
     public const string ToDo = "todo";
@@ -12,4 +12,6 @@ internal static class WorkItemStatuses
     public const string Done = "done";
 
     public static readonly IReadOnlyList<string> All = [ToDo, InProgress, InReview, Done];
+
+    public static bool IsKnown(string? status) => status is not null && All.Contains(status, StringComparer.Ordinal);
 }

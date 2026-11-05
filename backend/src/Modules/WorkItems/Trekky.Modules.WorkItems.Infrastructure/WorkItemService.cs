@@ -154,6 +154,47 @@ internal sealed class WorkItemService(WorkItemsDbContext db, ITenantContext tena
         return await SucceededAsync(workItemId, cancellationToken);
     }
 
+    public async Task<WorkItemResult> ChangeStatusAsync(
+        Guid workItemId, string to, string ifMatch, Guid actorId, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(to);
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+
+        // Locked until commit, so two moves of the same item cannot both pass the transition check.
+        var item = await db.FindForUpdateAsync(workItemId, cancellationToken);
+        if (item is null)
+        {
+            return WorkItemResult.NotFound;
+        }
+
+        if (!VersionedWorkItem.IfMatchAccepts(ifMatch, item.Version))
+        {
+            return new WorkItemResult(WorkItemOutcome.Stale, await GetAsync(workItemId, cancellationToken));
+        }
+
+        // US-10 AC3: a disallowed move, including to the status it already has, lists where it can go instead.
+        if (!StatusWorkflow.Allows(item.Status, to))
+        {
+            var allowed = StatusWorkflow.AllowedTransitions(item.Status);
+            return new WorkItemResult(
+                WorkItemOutcome.TransitionNotAllowed,
+                Transition: new TransitionViolation(
+                    $"{item.Key} cannot move from {StatusLabel(item.Status)} to {StatusLabel(to)}. Allowed: {string.Join(", ", allowed.Select(StatusLabel))}.",
+                    allowed));
+        }
+
+        var now = time.GetUtcNow();
+        var from = item.Status;
+        item.Status = to;
+        item.UpdatedAt = now;
+        db.AddActivityEvent(Event(WorkItemEventTypes.WorkItemStatusChanged, item, actorId, now, Change(from, to)));
+
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        return await SucceededAsync(workItemId, cancellationToken);
+    }
+
     public async Task<WorkItemPage?> ListAsync(
         Guid projectId, WorkItemFilter filter, int limit, WorkItemCursor? after, CancellationToken cancellationToken)
     {
@@ -249,6 +290,7 @@ internal sealed class WorkItemService(WorkItemsDbContext db, ITenantContext tena
             item.DescriptionMd,
             parent is null ? null : ToSummary(parent),
             children.Select(ToSummary).ToList(),
+            StatusWorkflow.AllowedTransitions(item.Status),
             item.CreatedAt);
         return new VersionedWorkItem(detail, item.Version);
     }
@@ -335,6 +377,15 @@ internal sealed class WorkItemService(WorkItemsDbContext db, ITenantContext tena
         WorkItemTypes.Bug => "Bug",
         WorkItemTypes.TechDebt => "TechDebt",
         _ => type,
+    };
+
+    private static string StatusLabel(string status) => status switch
+    {
+        WorkItemStatuses.ToDo => "To Do",
+        WorkItemStatuses.InProgress => "In Progress",
+        WorkItemStatuses.InReview => "In Review",
+        WorkItemStatuses.Done => "Done",
+        _ => status,
     };
 
     private static string WithArticle(string type) => type == WorkItemTypes.Epic ? "An Epic" : $"A {Label(type)}";

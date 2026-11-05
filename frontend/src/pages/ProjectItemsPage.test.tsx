@@ -13,7 +13,7 @@ const epic = {
   updatedAt: '2026-10-26T10:00:00Z',
 }
 const story = { ...epic, id: '0190a000-0000-7000-8000-0000000000c2', key: 'TRK-2', type: 'story', title: 'Comments on items', status: 'todo', parentKey: 'TRK-1' }
-const detail = (summary: typeof epic) => ({ ...summary, projectId: project.id, descriptionMd: null, parent: null, children: [], createdAt: summary.updatedAt })
+const detail = (summary: typeof epic) => ({ ...summary, projectId: project.id, descriptionMd: null, parent: null, children: [], allowedTransitions: ['in_progress'], createdAt: summary.updatedAt })
 
 const itemsPath = `GET /api/v1/projects/${project.id}/work-items`
 const createPath = `POST /api/v1/projects/${project.id}/work-items`

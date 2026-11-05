@@ -126,18 +126,41 @@ export function useCreateWorkItem(projectId: string) {
  */
 export function useUpdateWorkItem(current: VersionedWorkItem) {
   const { api } = useAuth()
-  const queryClient = useQueryClient()
   const { item, etag } = current
+  return useSaveWorkItem(current, async (changes: UpdateWorkItemInput) => {
+    const { data, error, response } = await api.PATCH('/api/v1/work-items/{workItemId}', {
+      params: { path: { workItemId: item.id }, header: { 'If-Match': etag } },
+      body: changes,
+      headers: { 'Content-Type': 'application/merge-patch+json' },
+    })
+    if (!data) throw new ProblemError(asProblem(error))
+    return { item: data, etag: response.headers.get('ETag') ?? '' }
+  })
+}
+
+/**
+ * Moves an item to another status with If-Match (US-10). Throws ProblemError: 412 when someone else changed it (the
+ * item is then reloaded), 422 when the workflow does not allow the move (`allowedTransitions` lists what it does).
+ */
+export function useChangeWorkItemStatus(current: VersionedWorkItem) {
+  const { api } = useAuth()
+  const { item, etag } = current
+  return useSaveWorkItem(current, async (to: string) => {
+    const { data, error, response } = await api.POST('/api/v1/work-items/{workItemId}/status', {
+      params: { path: { workItemId: item.id }, header: { 'If-Match': etag } },
+      body: { to },
+    })
+    if (!data) throw new ProblemError(asProblem(error))
+    return { item: data, etag: response.headers.get('ETag') ?? '' }
+  })
+}
+
+/** Saves a change to `current` and keeps the caches in step: the item itself, the list, and items that show it. */
+function useSaveWorkItem<TInput>(current: VersionedWorkItem, save: (input: TInput) => Promise<VersionedWorkItem>) {
+  const queryClient = useQueryClient()
+  const { item } = current
   return useMutation({
-    mutationFn: async (changes: UpdateWorkItemInput) => {
-      const { data, error, response } = await api.PATCH('/api/v1/work-items/{workItemId}', {
-        params: { path: { workItemId: item.id }, header: { 'If-Match': etag } },
-        body: changes,
-        headers: { 'Content-Type': 'application/merge-patch+json' },
-      })
-      if (!data) throw new ProblemError(asProblem(error))
-      return { item: data, etag: response.headers.get('ETag') ?? '' } satisfies VersionedWorkItem
-    },
+    mutationFn: save,
     onSuccess: (updated) => queryClient.setQueryData(workItemQueryKey(item.key), updated),
     onError: (error) => {
       if (error instanceof ProblemError && error.problem.status === 412) {

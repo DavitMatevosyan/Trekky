@@ -18,6 +18,13 @@ internal interface IWorkItemService
     Task<WorkItemResult> UpdateAsync(
         Guid workItemId, WorkItemPatch patch, string ifMatch, Guid actorId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Moves the item to <paramref name="to"/> if <paramref name="ifMatch"/> is the current ETag and the workflow allows
+    /// it, and records a <c>WorkItemStatusChanged</c> event in the same transaction (US-10). Input must be validated.
+    /// </summary>
+    Task<WorkItemResult> ChangeStatusAsync(
+        Guid workItemId, string to, string ifMatch, Guid actorId, CancellationToken cancellationToken);
+
     /// <summary>The project's items that match <paramref name="filter"/>, newest update first; <c>null</c> when the project does not exist.</summary>
     Task<WorkItemPage?> ListAsync(
         Guid projectId, WorkItemFilter filter, int limit, WorkItemCursor? after, CancellationToken cancellationToken);

@@ -8,6 +8,8 @@ export interface ProblemDetails {
   allowedParentTypes?: string[]
   /** Work item parent rules (422): children that would no longer fit a new type. */
   conflictingChildKeys?: string[]
+  /** Work item workflow (422): the statuses the item can move to now. */
+  allowedTransitions?: string[]
 }
 
 export function asProblem(value: unknown): ProblemDetails {
