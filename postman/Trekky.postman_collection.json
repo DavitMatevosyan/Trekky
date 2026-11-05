@@ -492,7 +492,7 @@
           "request": {
             "method": "GET",
             "url": "{{baseUrl}}/api/v1/work-items/{{workItemId}}",
-            "description": "With its parent and children. Saves the ETag for Edit."
+            "description": "With its parent, children and createdBy (id, displayName, email; null if they left the organization). Saves the ETag for Edit."
           }
         },
         {
@@ -570,6 +570,27 @@
             },
             "url": "{{baseUrl}}/api/v1/work-items/{{workItemId}}/status",
             "description": "Moves the item through the workflow (US-10): To Do → In Progress; In Progress → To Do or In Review; In Review → To Do, In Progress or Done; Done → In Progress. Any other target, including the current status, is a 422 with allowedTransitions; an unknown status is a 400. If-Match is required (428) and must be the latest ETag (412 otherwise). Records a WorkItemStatusChanged activity event. The item's allowedTransitions lists where it can move now."
+          }
+        },
+        {
+          "name": "Get work item history",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('history found', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('has a page of events', () => pm.expect(body.items).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/work-items/{{workItemId}}/history?limit=50",
+            "description": "The item's activity events, newest first (US-09), each with the actor's displayName, the entity key and the event payload (docs/tech/activity-events.md). limit is 1–100 (default 50); pass nextCursor as cursor for the next page, null on the last. A change can take up to a second to appear. An unknown item or another organization's is a 404."
           }
         }
       ]

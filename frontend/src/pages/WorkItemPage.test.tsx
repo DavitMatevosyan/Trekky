@@ -21,6 +21,7 @@ const item = {
   children: [summary('TRK-15', 'task', 'Edit own comments', 'todo', 'TRK-14'), summary('TRK-16', 'task', 'Delete own comments', 'done', 'TRK-14')],
   allowedTransitions: ['todo', 'in_review'],
   createdAt: '2026-10-20T10:00:00Z',
+  createdBy: { id: '0190a000-0000-7000-8000-0000000000aa', displayName: 'Davit', email: 'davit@example.com' },
 }
 
 const itemPath = 'GET /api/v1/work-items/by-key/TRK-14'

@@ -1,6 +1,7 @@
 namespace Trekky.Modules.WorkItems.Application.Contracts;
 
 /// <summary>Everything about one work item (US-09 AC1): its fields, its parent and its children (by number).</summary>
+/// <param name="CreatedBy">Who created the item; <c>null</c> when they are no longer a member of the organization.</param>
 /// <param name="AllowedTransitions">The statuses the item can move to now, in workflow order (US-10); drives the status dropdown.</param>
 public sealed record WorkItemDetail(
     Guid Id,
@@ -15,4 +16,5 @@ public sealed record WorkItemDetail(
     WorkItemSummary? Parent,
     IReadOnlyList<WorkItemSummary> Children,
     IReadOnlyList<string> AllowedTransitions,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    WorkItemUser? CreatedBy);

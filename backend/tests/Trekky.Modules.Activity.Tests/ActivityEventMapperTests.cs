@@ -47,4 +47,25 @@ public sealed class ActivityEventMapperTests
         var millis = ((long)bytes[0] << 40) | ((long)bytes[1] << 32) | ((long)bytes[2] << 24) | ((long)bytes[3] << 16) | ((long)bytes[4] << 8) | bytes[5];
         Assert.Equal(occurredAt.ToUnixTimeMilliseconds(), millis);
     }
+
+    [Fact]
+    public void A_log_row_becomes_a_history_entry_with_the_actor_name_and_payload()
+    {
+        var occurredAt = new DateTimeOffset(2026, 11, 5, 9, 41, 12, TimeSpan.Zero);
+        var (user, item) = (Guid.CreateVersion7(), Guid.CreateVersion7());
+        var row = ActivityEventMapper.FromEnvelope(ActivityEnvelope.Create(
+            "WorkItemStatusChanged", occurredAt, Guid.CreateVersion7(), EventActor.User(user),
+            new EventEntity("work_item", item, "TRK-42"), Guid.CreateVersion7(),
+            new JsonObject { ["from"] = "in_progress", ["to"] = "in_review" }));
+
+        var entry = ActivityEventMapper.ToHistoryEvent(row, "Davit");
+
+        Assert.Equal(row.EventId, entry.EventId);
+        Assert.Equal("WorkItemStatusChanged", entry.EventType);
+        Assert.Equal(1, entry.SchemaVersion);
+        Assert.Equal(occurredAt, entry.OccurredAt);
+        Assert.Equal(new("user", user, "Davit"), entry.Actor);
+        Assert.Equal(new("work_item", item, "TRK-42"), entry.Entity);
+        Assert.Equal("in_review", entry.Payload.GetProperty("to").GetString());
+    }
 }

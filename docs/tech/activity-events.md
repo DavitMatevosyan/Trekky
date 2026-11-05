@@ -91,3 +91,5 @@ Organization and user events (`OrganizationCreated`, `MemberJoined`) are added w
 ## History view (US-09)
 
 The item detail's History tab reads `activity_events` for the item's `entity_id` (comment events use the item as their entity), newest first, 50 per page, and renders each event type with a fixed sentence, e.g. *Davit changed status In Progress → In Review*.
+
+`GET /api/v1/work-items/{id}/history` (TRK-13) serves it: the activity module checks that the item exists through the work items module's public `IWorkItemDirectory`, reads the page by `event_id` (the cursor), and adds each user actor's current `displayName` through the identity module's public `IUserDirectory`. That lookup only finds members of the request's organization, so a user who has left shows with `displayName: null`; events store the actor's id, never the name.
