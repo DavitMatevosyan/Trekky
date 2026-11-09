@@ -8,7 +8,15 @@ export type WorkItemSummary = components['schemas']['WorkItemSummary']
 export type WorkItemDetail = components['schemas']['WorkItemDetail']
 export type CreateWorkItemInput = components['schemas']['CreateWorkItemRequest']
 export type UpdateWorkItemInput = components['schemas']['UpdateWorkItemRequest']
+export type Board = components['schemas']['Board']
 export type BoardColumn = components['schemas']['BoardColumn']
+export type BoardCard = components['schemas']['BoardCard']
+
+/** A card going to another column of the board. */
+export interface BoardMove {
+  card: BoardCard
+  to: string
+}
 
 /** A work item with the ETag to send back in If-Match when editing it (US-07 AC1). */
 export interface VersionedWorkItem {
@@ -67,6 +75,31 @@ export function useBoard(projectId: string, allDone: boolean, enabled = true) {
       if (!data) throw new ProblemError(asProblem(error))
       return data
     },
+  })
+}
+
+/**
+ * Moves a board card to another status with the card's ETag (US-11 AC3). Throws ProblemError: 412 when someone else
+ * changed it, 422 when the workflow does not allow the move. Stays pending until the board has been read again.
+ */
+export function useMoveBoardCard(projectId: string) {
+  const { api } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ card, to }: BoardMove) => {
+      const { data, error } = await api.POST('/api/v1/work-items/{workItemId}/status', {
+        params: { path: { workItemId: card.id }, header: { 'If-Match': card.etag } },
+        body: { to },
+      })
+      if (!data) throw new ProblemError(asProblem(error))
+      return data
+    },
+    onSettled: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: boardQueryKey(projectId) }),
+        queryClient.invalidateQueries({ queryKey: workItemsQueryKey(projectId) }),
+        queryClient.invalidateQueries({ queryKey: ['work-items', 'by-key'] }),
+      ]),
   })
 }
 

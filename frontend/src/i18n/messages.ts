@@ -74,6 +74,15 @@ export const messages = {
     showAllFailed: 'Could not load every card. Please try again.',
     tryAgain: 'Try again',
     refreshFailed: 'Could not refresh the board. The cards may be out of date.',
+    moveNotAllowed: (key: string, statuses: string) => `${key} can only move to ${statuses}.`,
+    moveStale: (key: string) => `${key} was changed by someone else. Its latest state is shown; move it again.`,
+    draggableCard: 'movable card',
+    dragInstructions:
+      'Press Enter to open this card. To move it, press Space, use the left and right arrow keys to change column, then press Space to drop it or Escape to cancel.',
+    pickedUp: (key: string) => `Picked up ${key}.`,
+    overColumn: (key: string, status: string) => `${key} is over ${status}.`,
+    droppedOn: (key: string, status: string) => `Dropped ${key} on ${status}.`,
+    dropCancelled: (key: string) => `Move of ${key} cancelled.`,
   },
   workItemTypes: { epic: 'Epic', story: 'Story', task: 'Task', subtask: 'SubTask', bug: 'Bug', tech_debt: 'TechDebt' },
   /** Labels for the API's status values; unknown values are shown as sent. */

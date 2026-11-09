@@ -843,7 +843,15 @@ components:
               count: { type: integer, minimum: 0 }
               items:
                 type: array
-                items: { $ref: '#/components/schemas/WorkItemSummary' }
+                items: { $ref: '#/components/schemas/BoardCard' }
+    BoardCard:
+      description: A WorkItemSummary plus the etag to send in If-Match when moving the card (POST /work-items/{id}/status).
+      allOf:
+        - $ref: '#/components/schemas/WorkItemSummary'
+        - type: object
+          required: [etag]
+          properties:
+            etag: { type: string }
 
     HistoryEvent:
       type: object

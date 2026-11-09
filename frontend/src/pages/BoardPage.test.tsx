@@ -11,6 +11,7 @@ const card = (number: number, status: string, type = 'task', title = `Item ${num
   status,
   parentKey: null,
   updatedAt: '2026-10-26T10:00:00Z',
+  etag: `"${number}"`,
 })
 const column = (status: string, items: ReturnType<typeof card>[], count = items.length) => ({ status, count, items })
 const board = (done = column('done', [])) => ({
@@ -58,6 +59,16 @@ describe('BoardPage', () => {
     expect(cards[0]).toHaveTextContent('Key not shown')
     expect(cards[1]).toHaveTextContent('TechDebt')
     expect(within(toDo).getByRole('link', { name: 'TRK-1' })).toHaveAttribute('href', '/TRK/items/TRK-1')
+  })
+
+  it('tells keyboard and screen-reader users how to move a card', async () => {
+    renderBoard()
+
+    const link = await screen.findByRole('link', { name: 'TRK-1' })
+    expect(link).toHaveAttribute('aria-roledescription', 'movable card')
+    expect(link).toHaveAccessibleDescription(
+      'Press Enter to open this card. To move it, press Space, use the left and right arrow keys to change column, then press Space to drop it or Escape to cancel.',
+    )
   })
 
   it('says when a column is empty', async () => {
@@ -158,7 +169,7 @@ describe('BoardPage', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'New item' }))
     await userEvent.type(screen.getByLabelText('Title'), 'Made on the board')
     await userEvent.click(screen.getByRole('button', { name: 'Create item' }))
-    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Created TRK-4 · Made on the board.'))
+    expect(await screen.findByText('Created TRK-4 · Made on the board.')).toBeInTheDocument()
   }
   const createdOnBoard = card(4, 'todo', 'task', 'Made on the board')
   const createdDetail = { ...createdOnBoard, projectId: project.id, descriptionMd: null, parent: null, children: [], allowedTransitions: ['in_progress'], createdAt: '2026-10-26T10:00:00Z', createdBy: null }

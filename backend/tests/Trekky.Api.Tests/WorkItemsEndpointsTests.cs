@@ -719,6 +719,25 @@ public sealed class WorkItemsEndpointsTests(TrekkyApiFactory factory)
     }
 
     [Fact]
+    public async Task A_board_card_carries_the_etag_that_moves_it_until_the_item_changes()
+    {
+        using var user = await AuthFlow.SignedUpUserAsync(factory);
+        var project = await CreateProjectAsync(user, "TRK");
+        var item = await CreateItemAsync(user, project, "task", "Drag me");
+
+        var card = (await GetBoardAsync(user, project, "")).Columns[0].Items.Single();
+        Assert.Equal(item.ETag, card.Etag);
+
+        var moved = await ChangeStatusAsync(user, card.Id, card.Etag, """{ "to": "in_progress" }""");
+        Assert.Equal(HttpStatusCode.OK, moved.StatusCode);
+
+        var moveAgain = await ChangeStatusAsync(user, card.Id, card.Etag, """{ "to": "in_review" }""");
+        Assert.Equal(HttpStatusCode.PreconditionFailed, moveAgain.StatusCode);
+        var fresh = (await GetBoardAsync(user, project, "")).Columns[1].Items.Single();
+        Assert.Equal(moved.Headers.ETag!.ToString(), fresh.Etag);
+    }
+
+    [Fact]
     public async Task The_board_of_a_project_with_no_items_has_empty_columns()
     {
         using var user = await AuthFlow.SignedUpUserAsync(factory);
@@ -958,7 +977,9 @@ public sealed class WorkItemsEndpointsTests(TrekkyApiFactory factory)
 
     private sealed record PageBody(List<SummaryBody> Items, string? NextCursor);
 
-    private sealed record BoardColumnBody(string Status, int Count, List<SummaryBody> Items);
+    private sealed record BoardCardBody(Guid Id, string Key, string Type, string Title, string Status, string? ParentKey, DateTimeOffset UpdatedAt, string Etag);
+
+    private sealed record BoardColumnBody(string Status, int Count, List<BoardCardBody> Items);
 
     private sealed record BoardBody(List<BoardColumnBody> Columns);
 
