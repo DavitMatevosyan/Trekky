@@ -1,15 +1,11 @@
-import { useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { RelativeTime } from '../components/RelativeTime.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { messages } from '../i18n/messages.ts'
-import { ProjectHeader } from '../projects/ProjectHeader.tsx'
 import { ProjectLoader } from '../projects/ProjectLoader.tsx'
-import { useCreateWorkItem, useWorkItems } from '../workItems/useWorkItems.ts'
-import { WorkItemForm } from '../workItems/WorkItemForm.tsx'
+import { ProjectView } from '../projects/ProjectView.tsx'
+import { useWorkItems } from '../workItems/useWorkItems.ts'
 import { statusLabel, typeLabel } from '../workItems/workItemTypes.ts'
-
-const EMPTY_ITEM = { type: 'task', title: '', descriptionMd: '', parent: null } as const
 
 /** A project's items as a list, newest update first (US-08, wireframes: List view), with "New item" (US-06). */
 export function ProjectItemsPage() {
@@ -23,63 +19,12 @@ export function ProjectItemsPage() {
 
 function ProjectItems({ projectId, projectKey, projectName }: { projectId: string; projectKey: string; projectName: string }) {
   const items = useWorkItems(projectId)
-  const createItem = useCreateWorkItem(projectId)
   const navigate = useNavigate()
-  const [creating, setCreating] = useState(false)
-  const [announcement, setAnnouncement] = useState('')
-  const newItemButton = useRef<HTMLButtonElement>(null)
 
   const rows = items.data?.pages.flatMap((page) => page.items) ?? []
 
-  function closeForm() {
-    setCreating(false)
-    createItem.reset()
-    // Return focus to where the user started (WCAG 2.4.3).
-    requestAnimationFrame(() => newItemButton.current?.focus())
-  }
-
   return (
-    <section className="grid gap-6">
-      <ProjectHeader
-        projectKey={projectKey}
-        projectName={projectName}
-        action={
-          !creating && (
-            <Button ref={newItemButton} onClick={() => setCreating(true)}>
-              <span aria-hidden="true">+</span> {messages.project.newItem}
-            </Button>
-          )
-        }
-      />
-
-      {creating && (
-        <WorkItemForm
-          heading={messages.workItemForm.newTitle}
-          projectId={projectId}
-          initial={EMPTY_ITEM}
-          submitLabel={messages.workItemForm.create}
-          submittingLabel={messages.workItemForm.creating}
-          pending={createItem.isPending}
-          error={createItem.error}
-          onCancel={closeForm}
-          onSubmit={(values) =>
-            createItem.mutate(
-              { type: values.type, title: values.title, descriptionMd: values.descriptionMd || null, parentId: values.parent?.id ?? null },
-              {
-                onSuccess: (created) => {
-                  setAnnouncement(messages.project.created(created.key, created.title))
-                  closeForm()
-                },
-              },
-            )
-          }
-        />
-      )}
-
-      <p role="status" className="sr-only">
-        {announcement}
-      </p>
-
+    <ProjectView projectId={projectId} projectKey={projectKey} projectName={projectName}>
       {items.isPending && <p className="text-muted-foreground">{messages.project.loadingItems}</p>}
       {items.isError && <p role="alert">{messages.common.unexpectedError}</p>}
       {items.isSuccess && rows.length === 0 && <p className="text-muted-foreground">{messages.project.empty}</p>}
@@ -129,6 +74,6 @@ function ProjectItems({ projectId, projectKey, projectName }: { projectId: strin
           {messages.project.loadMore}
         </Button>
       )}
-    </section>
+    </ProjectView>
   )
 }

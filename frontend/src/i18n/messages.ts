@@ -72,6 +72,8 @@ export const messages = {
     emptyColumn: 'No items',
     showAll: 'Show all',
     showAllFailed: 'Could not load every card. Please try again.',
+    tryAgain: 'Try again',
+    refreshFailed: 'Could not refresh the board. The cards may be out of date.',
   },
   workItemTypes: { epic: 'Epic', story: 'Story', task: 'Task', subtask: 'SubTask', bug: 'Bug', tech_debt: 'TechDebt' },
   /** Labels for the API's status values; unknown values are shown as sent. */

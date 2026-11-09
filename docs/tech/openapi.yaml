@@ -279,7 +279,7 @@ paths:
     get:
       tags: [WorkItems]
       operationId: getBoard
-      summary: Board columns, cards newest update first until they have a rank in TRK-17 (US-11, v1.0)
+      summary: Board columns, cards newest update first until they have a rank in TRK-17; Done is last finished first (US-11, v1.0)
       parameters:
         - name: allDone
           in: query

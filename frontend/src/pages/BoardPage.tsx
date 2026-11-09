@@ -1,13 +1,16 @@
-import { useId, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { useId, useRef } from 'react'
+import { Link, useLocation, useParams, useSearchParams } from 'react-router'
 import { Button } from '../components/ui/Button.tsx'
 import { messages } from '../i18n/messages.ts'
-import { ProjectHeader } from '../projects/ProjectHeader.tsx'
 import { ProjectLoader } from '../projects/ProjectLoader.tsx'
+import { ProjectView } from '../projects/ProjectView.tsx'
 import { useBoard, type BoardColumn as BoardColumnData } from '../workItems/useWorkItems.ts'
 import { statusLabel, typeLabel } from '../workItems/workItemTypes.ts'
 
-/** A project's board, read-only (US-11 AC1, wireframes: Board); dragging arrives with TRK-16. */
+const DONE_PARAM = 'done'
+const DONE_ALL = 'all'
+
+/** A project's board (US-11 AC1, wireframes: Board); dragging cards arrives with TRK-16. */
 export function BoardPage() {
   const { projectKey = '' } = useParams()
   return (
@@ -19,23 +22,30 @@ export function BoardPage() {
 }
 
 function Board({ projectId, projectKey, projectName }: { projectId: string; projectKey: string; projectName: string }) {
-  const [wantsAllDone, setWantsAllDone] = useState(false)
+  // In the URL, so "Show all" survives opening a card and coming back.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const { pathname, search } = useLocation()
+  const wantsAllDone = searchParams.get(DONE_PARAM) === DONE_ALL
   const latest = useBoard(projectId, false)
   // A separate query, so the board stays on screen while every Done card loads and if that fails.
   const allDone = useBoard(projectId, true, wantsAllDone)
-  const board = (wantsAllDone ? allDone.data : undefined) ?? latest.data
+  const shown = wantsAllDone && allDone.data ? allDone : latest
+  const board = shown.data
 
   function showAll() {
     if (wantsAllDone) void allDone.refetch()
-    else setWantsAllDone(true)
+    else setSearchParams({ [DONE_PARAM]: DONE_ALL }, { replace: true })
   }
 
   return (
-    <section className="grid gap-6">
-      <ProjectHeader projectKey={projectKey} projectName={projectName} />
-
-      {latest.isPending && <p className="text-muted-foreground">{messages.board.loading}</p>}
-      {latest.isError && !board && <p role="alert">{messages.common.unexpectedError}</p>}
+    <ProjectView projectId={projectId} projectKey={projectKey} projectName={projectName}>
+      {!board && latest.isPending && <p className="text-muted-foreground">{messages.board.loading}</p>}
+      {shown.isError && !board && <p role="alert">{messages.common.unexpectedError}</p>}
+      {shown.isError && board && (
+        <p role="alert" className="text-sm">
+          {messages.board.refreshFailed}
+        </p>
+      )}
 
       {board && (
         <div className="grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -44,6 +54,7 @@ function Board({ projectId, projectKey, projectName }: { projectId: string; proj
               key={column.status}
               column={column}
               projectKey={projectKey}
+              boardUrl={pathname + search}
               loadingAll={allDone.isFetching}
               showAllFailed={wantsAllDone && allDone.isError && allDone.data === undefined}
               onShowAll={column.status === 'done' ? showAll : undefined}
@@ -51,20 +62,22 @@ function Board({ projectId, projectKey, projectName }: { projectId: string; proj
           ))}
         </div>
       )}
-    </section>
+    </ProjectView>
   )
 }
 
 interface BoardColumnProps {
   column: BoardColumnData
   projectKey: string
+  /** Where the item page's breadcrumb returns to. */
+  boardUrl: string
   /** Every Done card has been asked for and is still loading. */
   loadingAll: boolean
   showAllFailed: boolean
   onShowAll: (() => void) | undefined
 }
 
-function BoardColumn({ column, projectKey, loadingAll, showAllFailed, onShowAll }: BoardColumnProps) {
+function BoardColumn({ column, projectKey, boardUrl, loadingAll, showAllFailed, onShowAll }: BoardColumnProps) {
   const headingId = useId()
   const heading = useRef<HTMLHeadingElement>(null)
   const label = statusLabel(column.status)
@@ -83,11 +96,16 @@ function BoardColumn({ column, projectKey, loadingAll, showAllFailed, onShowAll 
         {messages.board.columnHeading(label, count)}
       </h2>
 
-      {/* Under the heading, where "Show all" moves the focus and the scroll position. */}
+      {/* Under the heading, where "Show all" moves the focus and the scroll position, so retrying is one Tab away. */}
       {canShowAll && showAllFailed && (
-        <p role="alert" className="text-sm">
-          {messages.board.showAllFailed}
-        </p>
+        <>
+          <p role="alert" className="text-sm">
+            {messages.board.showAllFailed}
+          </p>
+          <Button variant="outline" size="sm" onClick={showAll} disabled={loadingAll}>
+            {messages.board.tryAgain}
+          </Button>
+        </>
       )}
 
       {column.items.length === 0 ? (
@@ -100,6 +118,7 @@ function BoardColumn({ column, projectKey, loadingAll, showAllFailed, onShowAll 
                 {/* The key is the link; it stretches over the card so the whole card opens the item, with one tab stop. */}
                 <Link
                   to={`/${projectKey}/items/${item.key}`}
+                  state={{ backTo: boardUrl }}
                   className="font-mono font-semibold underline-offset-4 after:absolute after:inset-0 hover:underline"
                 >
                   {item.key}
@@ -112,7 +131,7 @@ function BoardColumn({ column, projectKey, loadingAll, showAllFailed, onShowAll 
         </ul>
       )}
 
-      {canShowAll && (
+      {canShowAll && !showAllFailed && (
         <Button variant="outline" size="sm" onClick={showAll} disabled={loadingAll}>
           {messages.board.showAll}
         </Button>

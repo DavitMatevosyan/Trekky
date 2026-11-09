@@ -104,7 +104,7 @@ describe('BoardPage', () => {
     expect(within(screen.getByRole('list', { name: 'Done' })).getAllByRole('listitem')).toHaveLength(20)
 
     failing = false
-    await userEvent.click(screen.getByRole('button', { name: 'Show all' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }))
 
     await waitFor(() => expect(within(screen.getByRole('list', { name: 'Done' })).getAllByRole('listitem')).toHaveLength(21))
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
@@ -129,6 +129,96 @@ describe('BoardPage', () => {
 
     await screen.findByRole('list', { name: 'Done' })
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('keeps "Show all" in the URL, and the breadcrumb of a card returns to that board', async () => {
+    const latest = column('done', Array.from({ length: 20 }, (_, i) => card(30 - i, 'done')), 21)
+    const all = column('done', [...latest.items, card(10, 'done')])
+    const detail = { ...card(1, 'todo', 'bug', 'Key not shown'), projectId: project.id, descriptionMd: null, parent: null, children: [], allowedTransitions: ['in_progress'], createdAt: '2026-10-26T10:00:00Z', createdBy: null }
+    const { router } = renderBoard({
+      [boardPath]: (request) => jsonResponse(board(new URL(request.url).searchParams.get('allDone') === 'true' ? all : latest)),
+      'GET /api/v1/work-items/by-key/TRK-1': () => jsonResponse(detail),
+      [`GET /api/v1/work-items/${detail.id}/history`]: () => jsonResponse({ items: [], nextCursor: null }),
+    })
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Show all' }))
+    await waitFor(() => expect(router.state.location.search).toBe('?done=all'))
+    await waitFor(() => expect(within(screen.getByRole('list', { name: 'Done' })).getAllByRole('listitem')).toHaveLength(21))
+
+    await userEvent.click(screen.getByRole('link', { name: 'TRK-1' }))
+    await screen.findByRole('navigation', { name: 'Breadcrumb' })
+    await userEvent.click(within(screen.getByRole('navigation', { name: 'Breadcrumb' })).getByRole('link', { name: 'TRK' }))
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/TRK/board'))
+    expect(router.state.location.search).toBe('?done=all')
+    await waitFor(() => expect(within(screen.getByRole('list', { name: 'Done' })).getAllByRole('listitem')).toHaveLength(21))
+  })
+
+  async function createItemFromBoard() {
+    await userEvent.click(await screen.findByRole('button', { name: 'New item' }))
+    await userEvent.type(screen.getByLabelText('Title'), 'Made on the board')
+    await userEvent.click(screen.getByRole('button', { name: 'Create item' }))
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Created TRK-4 · Made on the board.'))
+  }
+  const createdOnBoard = card(4, 'todo', 'task', 'Made on the board')
+  const createdDetail = { ...createdOnBoard, projectId: project.id, descriptionMd: null, parent: null, children: [], allowedTransitions: ['in_progress'], createdAt: '2026-10-26T10:00:00Z', createdBy: null }
+
+  it('creates an item from the board and shows its card', async () => {
+    let created = false
+    const before = board()
+    const after = { columns: before.columns.map((c) => (c.status === 'todo' ? column('todo', [createdOnBoard, ...c.items]) : c)) }
+    renderBoard({
+      [boardPath]: () => jsonResponse(created ? after : before),
+      [`POST /api/v1/projects/${project.id}/work-items`]: () => {
+        created = true
+        return jsonResponse(createdDetail, 201)
+      },
+    })
+
+    await createItemFromBoard()
+
+    expect(await screen.findByRole('heading', { name: 'To Do (3)' })).toBeInTheDocument()
+    expect(within(screen.getByRole('list', { name: 'To Do' })).getByRole('link', { name: 'TRK-4' })).toBeInTheDocument()
+  })
+
+  it('keeps the cards and says so when a refresh fails', async () => {
+    let created = false
+    renderBoard({
+      [boardPath]: () => (created ? problemResponse(500, { title: 'Server error' }) : jsonResponse(board())),
+      [`POST /api/v1/projects/${project.id}/work-items`]: () => {
+        created = true
+        return jsonResponse(createdDetail, 201)
+      },
+    })
+
+    await createItemFromBoard()
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not refresh the board. The cards may be out of date.')
+    expect(within(screen.getByRole('list', { name: 'To Do' })).getAllByRole('listitem')).toHaveLength(2)
+  })
+
+  it('keeps every Done card and says so when refreshing the full board fails', async () => {
+    const latest = column('done', Array.from({ length: 20 }, (_, i) => card(30 - i, 'done')), 21)
+    const all = column('done', [...latest.items, card(10, 'done')])
+    let created = false
+    renderBoard({
+      [boardPath]: (request) => {
+        if (created) return problemResponse(500, { title: 'Server error' })
+        return jsonResponse(board(new URL(request.url).searchParams.get('allDone') === 'true' ? all : latest))
+      },
+      [`POST /api/v1/projects/${project.id}/work-items`]: () => {
+        created = true
+        return jsonResponse(createdDetail, 201)
+      },
+    })
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Show all' }))
+    await waitFor(() => expect(within(screen.getByRole('list', { name: 'Done' })).getAllByRole('listitem')).toHaveLength(21))
+
+    await createItemFromBoard()
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not refresh the board. The cards may be out of date.')
+    expect(within(screen.getByRole('list', { name: 'Done' })).getAllByRole('listitem')).toHaveLength(21)
   })
 
   it('offers "Show all" only when cards are held back', async () => {

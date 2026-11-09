@@ -28,6 +28,7 @@ internal sealed class WorkItemsDbContext(DbContextOptions<WorkItemsDbContext> op
             {
                 table.HasCheckConstraint("ck_work_items_type", $"type IN ({SqlList(WorkItemTypes.All)})");
                 table.HasCheckConstraint("ck_work_items_status", $"status IN ({SqlList(WorkItemStatuses.All)})");
+                table.HasCheckConstraint("ck_work_items_done_at", $"(status = '{WorkItemStatuses.Done}') = (done_at IS NOT NULL)");
                 table.HasCheckConstraint("ck_work_items_title", $"char_length(title) BETWEEN 1 AND {WorkItem.TitleMaxLength}");
                 table.HasCheckConstraint(
                     "ck_work_items_description", $"char_length(description_md) <= {WorkItem.DescriptionMaxLength}");

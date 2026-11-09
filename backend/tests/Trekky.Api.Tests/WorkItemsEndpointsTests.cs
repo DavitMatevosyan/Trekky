@@ -688,13 +688,7 @@ public sealed class WorkItemsEndpointsTests(TrekkyApiFactory factory)
     {
         using var user = await AuthFlow.SignedUpUserAsync(factory);
         var project = await CreateProjectAsync(user, "TRK");
-        for (var i = 1; i <= 22; i++)
-        {
-            var item = await CreateItemAsync(user, project, "task", $"Item {i}");
-            var inProgress = await MoveAsync(user, item, "in_progress");
-            var inReview = await MoveAsync(user, inProgress, "in_review");
-            await MoveAsync(user, inReview, "done");
-        }
+        await FinishItemsAsync(user, project, 22);
 
         var latest = (await GetBoardAsync(user, project, "")).Columns[3];
         var all = (await GetBoardAsync(user, project, "?allDone=true")).Columns[3];
@@ -703,6 +697,25 @@ public sealed class WorkItemsEndpointsTests(TrekkyApiFactory factory)
         Assert.Equal(Enumerable.Range(3, 20).Reverse().Select(n => $"TRK-{n}"), latest.Items.Select(i => i.Key));
         Assert.Equal(22, all.Count);
         Assert.Equal(Enumerable.Range(1, 22).Reverse().Select(n => $"TRK-{n}"), all.Items.Select(i => i.Key));
+    }
+
+    [Fact]
+    public async Task The_latest_done_cards_are_the_last_finished_not_the_last_edited()
+    {
+        using var user = await AuthFlow.SignedUpUserAsync(factory);
+        var project = await CreateProjectAsync(user, "TRK");
+        var done = await FinishItemsAsync(user, project, 21);
+
+        var edited = await PatchAsync(user, done[0].Id, done[0].ETag, """{ "title": "Fixed a typo" }""");
+        Assert.Equal(HttpStatusCode.OK, edited.StatusCode);
+        var afterEdit = (await GetBoardAsync(user, project, "")).Columns[3];
+        Assert.DoesNotContain(afterEdit.Items, card => card.Key == "TRK-1");
+
+        var reopened = await MoveAsync(user, done[1], "in_progress");
+        var reviewed = await MoveAsync(user, reopened, "in_review");
+        await MoveAsync(user, reviewed, "done");
+        var afterRefinish = (await GetBoardAsync(user, project, "")).Columns[3];
+        Assert.Equal("TRK-2", afterRefinish.Items[0].Key);
     }
 
     [Fact]
@@ -821,6 +834,21 @@ public sealed class WorkItemsEndpointsTests(TrekkyApiFactory factory)
         var response = await user.Client.SendAsync(request);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         return (await response.Content.ReadFromJsonAsync<PageBody>())!;
+    }
+
+    /// <summary>Creates <paramref name="count"/> tasks and moves each to Done, in key order; returns them with their ETags.</summary>
+    private static async Task<List<DetailBody>> FinishItemsAsync(SignedUpUser user, Guid projectId, int count)
+    {
+        var done = new List<DetailBody>();
+        for (var i = 1; i <= count; i++)
+        {
+            var item = await CreateItemAsync(user, projectId, "task", $"Item {i}");
+            var inProgress = await MoveAsync(user, item, "in_progress");
+            var inReview = await MoveAsync(user, inProgress, "in_review");
+            done.Add(await MoveAsync(user, inReview, "done"));
+        }
+
+        return done;
     }
 
     private static async Task<BoardBody> GetBoardAsync(SignedUpUser user, Guid projectId, string query)

@@ -58,7 +58,7 @@ export function useBoard(projectId: string, allDone: boolean, enabled = true) {
   return useQuery({
     queryKey: [...boardQueryKey(projectId), allDone] as const,
     enabled,
-    // "Show all" lasts one visit: an old full board must not paint over newer cards on the next one.
+    // Dropped when the board closes: an old full board must not paint over newer cards on the next visit.
     ...(allDone ? { gcTime: 0 } : {}),
     queryFn: async () => {
       const { data, error } = await api.GET('/api/v1/projects/{projectId}/board', {

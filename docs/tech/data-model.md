@@ -130,6 +130,7 @@ erDiagram
 | `description_md` | text | nullable, Markdown |
 | `status` | text | `todo`, `in_progress`, `in_review`, `done` (check constraint) |
 | `parent_id` | uuid | FK → `work_items.id`, same project; parent rules enforced in the domain (user stories US-06) |
+| `done_at` | timestamptz | when the item last moved to Done, cleared when it leaves; set exactly when status is `done` (check constraint); orders the board's Done column (TRK-15.1) |
 | `assignee_id` | uuid | nullable user id (v1.0; column added by TRK-20) |
 | `rank` | text | lexicographic rank for board order within a status (v1.0; column added by TRK-17) |
 | `custom` | jsonb | not null default `'{}'`, reserved for custom fields (v1.5) |
