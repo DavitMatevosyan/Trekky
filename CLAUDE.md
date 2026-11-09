@@ -5,7 +5,7 @@ Later products build on it: Trekky Docs → a context layer → an AI agent that
 So every entity must be machine-readable from day one: stable keys, structured fields, full history.
 
 - Plan, versions, contracts and the task list (TRK-1…): Notion page "Project Management - Task tracker".
-- Current stage: **POC, v0.1 Skeleton**. Build only what the current version needs (see "Scope").
+- Current stage: **POC, v1.0 Dogfood**. Build only what the current version needs (see "Scope").
 
 ## Repo layout
 
@@ -78,9 +78,9 @@ npm run e2e                                # Playwright; needs Postgres up, star
 
 | Version | Contents |
 | --- | --- |
-| v0.1 Skeleton (current) | Login (Identity + OpenIddict), org at sign-up, `org_id` + RLS |
+| v0.1 Skeleton | Login (Identity + OpenIddict), org at sign-up, `org_id` + RLS |
 | v0.2 Work items | Projects with key, work items with parent/child, fixed workflow, list, detail, activity log |
-| v1.0 Dogfood | Board with drag and drop, comments, assignee |
+| v1.0 Dogfood (current) | Board with drag and drop, comments, assignee |
 
 Deployment and backups (TRK-9) are deferred until the app is built; the host is chosen then (ADR-0004).
 

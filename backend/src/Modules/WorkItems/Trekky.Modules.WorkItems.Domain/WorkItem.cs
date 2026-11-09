@@ -45,6 +45,9 @@ internal sealed class WorkItem
 
     public DateTimeOffset UpdatedAt { get; set; }
 
+    /// <summary>When the item last moved to Done; <c>null</c> in any other status. Orders the board's Done column.</summary>
+    public DateTimeOffset? DoneAt { get; set; }
+
     /// <summary>Postgres <c>xmin</c>; sent to clients as the ETag and checked against <c>If-Match</c> on edits.</summary>
     public uint Version { get; init; }
 

@@ -30,8 +30,8 @@ internal interface IWorkItemService
         Guid projectId, WorkItemFilter filter, int limit, WorkItemCursor? after, CancellationToken cancellationToken);
 
     /// <summary>
-    /// The project's board, newest update first in each column until cards have a rank (TRK-17). Done holds the latest 20
-    /// unless <paramref name="allDone"/> is set; <c>null</c> when the project does not exist.
+    /// The project's board, newest update first in each column until cards have a rank (TRK-17). Done is last finished
+    /// first and holds the latest 20 unless <paramref name="allDone"/> is set; <c>null</c> when the project does not exist.
     /// </summary>
     Task<Board?> GetBoardAsync(Guid projectId, bool allDone, CancellationToken cancellationToken);
 

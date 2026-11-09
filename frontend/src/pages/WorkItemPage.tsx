@@ -1,5 +1,5 @@
 import { lazy, Suspense, useId, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { Link, useLocation, useParams } from 'react-router'
 import { ErrorBoundary } from '../components/ErrorBoundary.tsx'
 import { ProblemError } from '../api/problem.ts'
 import { RelativeTime } from '../components/RelativeTime.tsx'
@@ -43,6 +43,10 @@ function changesFrom(item: VersionedWorkItem['item'], values: WorkItemFormValues
 
 function WorkItemView({ projectKey, current }: { projectKey: string; current: VersionedWorkItem }) {
   const { item } = current
+  // Set by a board card, so the breadcrumb returns to the board instead of the list.
+  const backTo = (useLocation().state as { backTo?: string } | null)?.backTo
+  // Moving to a parent or child keeps the way back.
+  const itemLinkState = backTo ? { backTo } : undefined
   const update = useUpdateWorkItem(current)
   const [editing, setEditing] = useState(false)
   const [announcement, setAnnouncement] = useState('')
@@ -74,7 +78,7 @@ function WorkItemView({ projectKey, current }: { projectKey: string; current: Ve
   return (
     <article className="grid gap-6">
       <nav aria-label={messages.workItem.breadcrumb} className="text-sm text-muted-foreground">
-        <Link to={`/${projectKey}`} className="font-mono underline-offset-4 hover:underline">
+        <Link to={backTo ?? `/${projectKey}`} className="font-mono underline-offset-4 hover:underline">
           {projectKey}
         </Link>
         <span aria-hidden="true"> / </span>
@@ -148,7 +152,7 @@ function WorkItemView({ projectKey, current }: { projectKey: string; current: Ve
               <ul aria-labelledby="children-heading" className="divide-y divide-border rounded-xl border border-border text-sm">
                 {item.children.map((child) => (
                   <li key={child.id} className="flex items-center gap-3 px-3 py-2">
-                    <Link to={`/${projectKey}/items/${child.key}`} className="font-mono font-semibold underline-offset-4 hover:underline">
+                    <Link to={`/${projectKey}/items/${child.key}`} state={itemLinkState} className="font-mono font-semibold underline-offset-4 hover:underline">
                       {child.key}
                     </Link>
                     <span className="text-muted-foreground">{typeLabel(child.type)}</span>
@@ -181,7 +185,7 @@ function WorkItemView({ projectKey, current }: { projectKey: string; current: Ve
             <dt className="text-muted-foreground">{messages.workItem.parent}</dt>
             <dd>
               {item.parent ? (
-                <Link to={`/${projectKey}/items/${item.parent.key}`} className="underline-offset-4 hover:underline">
+                <Link to={`/${projectKey}/items/${item.parent.key}`} state={itemLinkState} className="underline-offset-4 hover:underline">
                   <span className="font-mono">{item.parent.key}</span> {typeLabel(item.parent.type)}
                 </Link>
               ) : (

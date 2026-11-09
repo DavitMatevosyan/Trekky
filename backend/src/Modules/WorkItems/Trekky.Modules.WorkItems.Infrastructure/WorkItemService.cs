@@ -1,3 +1,4 @@
+using System.Data;
 using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
 using Trekky.Modules.Identity.Application.Contracts;
@@ -194,6 +195,7 @@ internal sealed class WorkItemService(
         var now = time.GetUtcNow();
         var from = item.Status;
         item.Status = to;
+        item.DoneAt = to == WorkItemStatuses.Done ? now : null;
         item.UpdatedAt = now;
         db.AddActivityEvent(Event(WorkItemEventTypes.WorkItemStatusChanged, item, actorId, now, Change(from, to)));
 
@@ -270,9 +272,15 @@ internal sealed class WorkItemService(
             return null;
         }
 
+        // One snapshot across the reads, so a card moving to Done meanwhile cannot show in two columns.
+        await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead, cancellationToken);
+
         var inProject = db.WorkItems.AsNoTracking().Where(w => w.ProjectId == projectId);
         var notDone = await Summaries(NewestFirst(inProject.Where(w => w.Status != WorkItemStatuses.Done))).ToListAsync(cancellationToken);
-        var allDoneItems = NewestFirst(inProject.Where(w => w.Status == WorkItemStatuses.Done));
+        IQueryable<WorkItem> allDoneItems = inProject
+            .Where(w => w.Status == WorkItemStatuses.Done)
+            .OrderByDescending(w => w.DoneAt)
+            .ThenByDescending(w => w.Id);
         var done = await Summaries(allDone ? allDoneItems : allDoneItems.Take(DoneCardLimit)).ToListAsync(cancellationToken);
         var doneCount = allDone ? done.Count : await inProject.CountAsync(w => w.Status == WorkItemStatuses.Done, cancellationToken);
 
