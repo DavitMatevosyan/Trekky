@@ -62,6 +62,16 @@ export const messages = {
     created: (key: string, title: string) => `Created ${key} · ${title}.`,
     columns: { key: 'Key', type: 'Type', title: 'Title', status: 'Status', parent: 'Parent', updated: 'Updated' },
     noParent: '—',
+    views: 'Project views',
+    board: 'Board',
+    list: 'List',
+  },
+  board: {
+    loading: 'Loading board…',
+    columnHeading: (status: string, count: number) => `${status} (${count})`,
+    emptyColumn: 'No items',
+    showAll: 'Show all',
+    showAllFailed: 'Could not load every card. Please try again.',
   },
   workItemTypes: { epic: 'Epic', story: 'Story', task: 'Task', subtask: 'SubTask', bug: 'Bug', tech_debt: 'TechDebt' },
   /** Labels for the API's status values; unknown values are shown as sent. */

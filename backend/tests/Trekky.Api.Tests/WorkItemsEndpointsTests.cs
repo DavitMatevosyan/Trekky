@@ -660,6 +660,78 @@ public sealed class WorkItemsEndpointsTests(TrekkyApiFactory factory)
     }
 
     [Fact]
+    public async Task The_board_has_one_column_per_status_in_workflow_order_with_counts()
+    {
+        using var user = await AuthFlow.SignedUpUserAsync(factory);
+        var project = await CreateProjectAsync(user, "TRK");
+        var other = await CreateProjectAsync(user, "WEB");
+        await CreateItemAsync(user, other, "task", "On another board");
+        var epic = await CreateItemAsync(user, project, "epic", "Dogfood");
+        var older = await CreateItemAsync(user, project, "story", "Older", epic.Id);
+        var newer = await CreateItemAsync(user, project, "bug", "Newer");
+        var started = await CreateItemAsync(user, project, "task", "Started");
+        await MoveAsync(user, started, "in_progress");
+
+        var board = await GetBoardAsync(user, project, "");
+
+        Assert.Equal(["todo", "in_progress", "in_review", "done"], board.Columns.Select(c => c.Status));
+        Assert.Equal([3, 1, 0, 0], board.Columns.Select(c => c.Count));
+        Assert.Equal([newer.Key, older.Key, epic.Key], board.Columns[0].Items.Select(i => i.Key));
+        Assert.Equal(["TRK-4"], board.Columns[1].Items.Select(i => i.Key));
+        Assert.Empty(board.Columns[2].Items);
+        var card = board.Columns[0].Items[1];
+        Assert.Equal(("story", "Older", "todo", epic.Key), (card.Type, card.Title, card.Status, card.ParentKey));
+    }
+
+    [Fact]
+    public async Task The_board_shows_the_latest_20_done_cards_with_the_full_count_until_all_are_asked_for()
+    {
+        using var user = await AuthFlow.SignedUpUserAsync(factory);
+        var project = await CreateProjectAsync(user, "TRK");
+        for (var i = 1; i <= 22; i++)
+        {
+            var item = await CreateItemAsync(user, project, "task", $"Item {i}");
+            var inProgress = await MoveAsync(user, item, "in_progress");
+            var inReview = await MoveAsync(user, inProgress, "in_review");
+            await MoveAsync(user, inReview, "done");
+        }
+
+        var latest = (await GetBoardAsync(user, project, "")).Columns[3];
+        var all = (await GetBoardAsync(user, project, "?allDone=true")).Columns[3];
+
+        Assert.Equal(22, latest.Count);
+        Assert.Equal(Enumerable.Range(3, 20).Reverse().Select(n => $"TRK-{n}"), latest.Items.Select(i => i.Key));
+        Assert.Equal(22, all.Count);
+        Assert.Equal(Enumerable.Range(1, 22).Reverse().Select(n => $"TRK-{n}"), all.Items.Select(i => i.Key));
+    }
+
+    [Fact]
+    public async Task The_board_of_a_project_with_no_items_has_empty_columns()
+    {
+        using var user = await AuthFlow.SignedUpUserAsync(factory);
+        var project = await CreateProjectAsync(user, "TRK");
+
+        var board = await GetBoardAsync(user, project, "");
+
+        Assert.Equal(4, board.Columns.Count);
+        Assert.All(board.Columns, column =>
+        {
+            Assert.Equal(0, column.Count);
+            Assert.Empty(column.Items);
+        });
+    }
+
+    [Fact]
+    public async Task The_board_needs_an_access_token()
+    {
+        using var client = factory.CreateBrowserClient();
+
+        var response = await client.GetAsync(new Uri($"/api/v1/projects/{Guid.CreateVersion7()}/board", UriKind.Relative));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Another_organizations_items_are_invisible()
     {
         using var userA = await AuthFlow.SignedUpUserAsync(factory, "Org A");
@@ -673,6 +745,7 @@ public sealed class WorkItemsEndpointsTests(TrekkyApiFactory factory)
             $"/api/v1/work-items/{item.Id}",
             "/api/v1/work-items/by-key/SEC-1",
             $"/api/v1/projects/{projectA}/work-items",
+            $"/api/v1/projects/{projectA}/board",
             "/api/v1/projects/by-key/SEC",
         })
         {
@@ -748,6 +821,14 @@ public sealed class WorkItemsEndpointsTests(TrekkyApiFactory factory)
         var response = await user.Client.SendAsync(request);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         return (await response.Content.ReadFromJsonAsync<PageBody>())!;
+    }
+
+    private static async Task<BoardBody> GetBoardAsync(SignedUpUser user, Guid projectId, string query)
+    {
+        using var request = AuthFlow.WithBearer(HttpMethod.Get, $"/api/v1/projects/{projectId}/board{query}", user.Tokens.AccessToken);
+        var response = await user.Client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        return (await response.Content.ReadFromJsonAsync<BoardBody>())!;
     }
 
     private static Task<HttpResponseMessage> PatchAsync(
@@ -848,6 +929,10 @@ public sealed class WorkItemsEndpointsTests(TrekkyApiFactory factory)
     }
 
     private sealed record PageBody(List<SummaryBody> Items, string? NextCursor);
+
+    private sealed record BoardColumnBody(string Status, int Count, List<SummaryBody> Items);
+
+    private sealed record BoardBody(List<BoardColumnBody> Columns);
 
     private sealed record ActivityRow(Guid ActorId, string EntityType, string EntityKey, Guid ProjectId, string Payload);
 }

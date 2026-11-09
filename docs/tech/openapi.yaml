@@ -279,10 +279,16 @@ paths:
     get:
       tags: [WorkItems]
       operationId: getBoard
-      summary: Board columns with cards ordered by rank (US-11, v1.0)
+      summary: Board columns, cards newest update first until they have a rank in TRK-17 (US-11, v1.0)
+      parameters:
+        - name: allDone
+          in: query
+          required: false
+          description: Return every Done card instead of the latest 20.
+          schema: { type: boolean, default: false }
       responses:
         '200':
-          description: One column per status in workflow order. Done holds the latest 20 cards.
+          description: One column per status in workflow order. Done holds the latest 20 cards unless allDone is true; count is always the column's full size.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Board' }

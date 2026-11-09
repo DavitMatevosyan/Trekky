@@ -13,7 +13,7 @@ using Trekky.SharedKernel;
 
 namespace Trekky.Modules.WorkItems.Api.Endpoints;
 
-/// <summary>Create, list, get, edit and move work items, under /api/v1 (OpenAPI draft, TRK-5; US-06 to US-10).</summary>
+/// <summary>Create, list, get, edit and move work items, and read the board, under /api/v1 (OpenAPI draft, TRK-5; US-06 to US-11).</summary>
 internal static class WorkItemEndpoints
 {
     internal const string MergePatchContentType = "application/merge-patch+json";
@@ -44,6 +44,15 @@ internal static class WorkItemEndpoints
             .WithSummary("List a project's work items, newest update first (US-08)")
             .WithDescription(
                 "Optional filters (TRK-11.1, e.g. parent candidates): repeat `type` to keep only those types; `q` keeps items whose key starts with it or whose title contains it, case-insensitive; an exact key match comes first.");
+
+        endpoints.MapGet("/projects/{projectId:guid}/board", (Guid projectId, bool? allDone, IWorkItemService service, CancellationToken cancellationToken)
+                => GetBoardAsync(projectId, allDone ?? false, service, cancellationToken))
+            .WithTags("WorkItems")
+            .WithName("GetBoard")
+            .WithSummary("Get a project's board: one column per status in workflow order (US-11)")
+            .WithDescription("Done holds the latest 20 cards unless `allDone` is true; `count` is always the column's full size.")
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status404NotFound);
 
         var items = endpoints.MapGroup("/work-items")
             .WithTags("WorkItems")
@@ -147,6 +156,13 @@ internal static class WorkItemEndpoints
 
         var page = await service.ListAsync(projectId, filter, pageSize, after, cancellationToken);
         return page is null ? ProjectNotFound() : TypedResults.Ok(page);
+    }
+
+    private static async Task<Results<Ok<Board>, ProblemHttpResult>> GetBoardAsync(
+        Guid projectId, bool allDone, IWorkItemService service, CancellationToken cancellationToken)
+    {
+        var board = await service.GetBoardAsync(projectId, allDone, cancellationToken);
+        return board is null ? ProjectNotFound() : TypedResults.Ok(board);
     }
 
     private static async Task<Results<Ok<WorkItemDetail>, ProblemHttpResult>> GetAsync(

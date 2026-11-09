@@ -3,6 +3,7 @@ import { RequireAuth } from './auth/RequireAuth.tsx'
 import { CALLBACK_PATH } from './auth/oauthClient.ts'
 import { AppShell } from './components/AppShell.tsx'
 import { AuthCallbackPage } from './pages/AuthCallbackPage.tsx'
+import { BoardPage } from './pages/BoardPage.tsx'
 import { ProjectsPage } from './pages/ProjectsPage.tsx'
 import { LogInPage } from './pages/LogInPage.tsx'
 import { NotFoundPage } from './pages/NotFoundPage.tsx'
@@ -31,6 +32,7 @@ export const routes: RouteObject[] = [
             element: <AppShell />,
             children: [
               { index: true, element: <ProjectItemsPage /> },
+              { path: 'board', element: <BoardPage /> },
               { path: 'items/:itemKey', element: <WorkItemPage /> },
             ],
           },

@@ -8,6 +8,7 @@ export type WorkItemSummary = components['schemas']['WorkItemSummary']
 export type WorkItemDetail = components['schemas']['WorkItemDetail']
 export type CreateWorkItemInput = components['schemas']['CreateWorkItemRequest']
 export type UpdateWorkItemInput = components['schemas']['UpdateWorkItemRequest']
+export type BoardColumn = components['schemas']['BoardColumn']
 
 /** A work item with the ETag to send back in If-Match when editing it (US-07 AC1). */
 export interface VersionedWorkItem {
@@ -18,6 +19,7 @@ export interface VersionedWorkItem {
 export const projectByKeyQueryKey = (key: string) => ['projects', 'by-key', key] as const
 export const workItemsQueryKey = (projectId: string) => ['work-items', 'list', projectId] as const
 export const workItemQueryKey = (key: string) => ['work-items', 'by-key', key] as const
+export const boardQueryKey = (projectId: string) => ['work-items', 'board', projectId] as const
 
 /** The project behind a URL like /TRK (GET /api/v1/projects/by-key/{key}). */
 export function useProjectByKey(key: string) {
@@ -47,6 +49,24 @@ export function useWorkItems(projectId: string | undefined) {
       return data
     },
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+  })
+}
+
+/** The project's board (US-11); `allDone` asks for every Done card instead of the latest 20. */
+export function useBoard(projectId: string, allDone: boolean, enabled = true) {
+  const { api } = useAuth()
+  return useQuery({
+    queryKey: [...boardQueryKey(projectId), allDone] as const,
+    enabled,
+    // "Show all" lasts one visit: an old full board must not paint over newer cards on the next one.
+    ...(allDone ? { gcTime: 0 } : {}),
+    queryFn: async () => {
+      const { data, error } = await api.GET('/api/v1/projects/{projectId}/board', {
+        params: { path: { projectId }, query: allDone ? { allDone } : {} },
+      })
+      if (!data) throw new ProblemError(asProblem(error))
+      return data
+    },
   })
 }
 
@@ -113,6 +133,7 @@ export function useCreateWorkItem(projectId: string) {
     onSuccess: async (created) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: workItemsQueryKey(projectId) }),
+        queryClient.invalidateQueries({ queryKey: boardQueryKey(projectId) }),
         queryClient.invalidateQueries({ queryKey: projectsQueryKey }),
         created.parentKey ? queryClient.invalidateQueries({ queryKey: workItemQueryKey(created.parentKey) }) : undefined,
       ])
@@ -155,7 +176,7 @@ export function useChangeWorkItemStatus(current: VersionedWorkItem) {
   })
 }
 
-/** Saves a change to `current` and keeps the caches in step: the item itself, the list, and items that show it. */
+/** Saves a change to `current` and keeps the caches in step: the item itself, the list, the board, and items that show it. */
 function useSaveWorkItem<TInput>(current: VersionedWorkItem, save: (input: TInput) => Promise<VersionedWorkItem>) {
   const queryClient = useQueryClient()
   const { item } = current
@@ -170,6 +191,7 @@ function useSaveWorkItem<TInput>(current: VersionedWorkItem, save: (input: TInpu
     onSettled: () =>
       Promise.all([
         queryClient.invalidateQueries({ queryKey: workItemsQueryKey(item.projectId) }),
+        queryClient.invalidateQueries({ queryKey: boardQueryKey(item.projectId) }),
         // Parent and children show this item's title, type and key.
         queryClient.invalidateQueries({ queryKey: ['work-items', 'by-key'], predicate: (query) => query.queryKey[2] !== item.key }),
       ]),
