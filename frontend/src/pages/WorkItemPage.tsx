@@ -8,12 +8,13 @@ import { messages } from '../i18n/messages.ts'
 import { useUpdateWorkItem, useWorkItem, type UpdateWorkItemInput, type VersionedWorkItem } from '../workItems/useWorkItems.ts'
 import { StatusSelect } from '../workItems/StatusSelect.tsx'
 import { WorkItemForm, type WorkItemFormValues } from '../workItems/WorkItemForm.tsx'
+import { WorkItemHistory } from '../workItems/WorkItemHistory.tsx'
 import { isWorkItemType, statusLabel, typeLabel } from '../workItems/workItemTypes.ts'
 
 // The Markdown renderer is most of a bundle's weight, and only this page needs it.
 const Markdown = lazy(() => import('../components/Markdown.tsx').then((module) => ({ default: module.Markdown })))
 
-/** One item (US-09, wireframes: Item detail) at /TRK/items/TRK-42, with its status select (US-10); history arrives with TRK-14. */
+/** One item (US-09, wireframes: Item detail) at /TRK/items/TRK-42, with its status select (US-10) and history. */
 export function WorkItemPage() {
   const { projectKey = '', itemKey = '' } = useParams()
   // /TRK/items/WEB-1 names another project's item: not an address of this project.
@@ -198,6 +199,9 @@ function WorkItemView({ projectKey, current }: { projectKey: string; current: Ve
           </dl>
         </section>
       </div>
+
+      {/* Keyed so that moving to another item never shows the previous item's events while loading. */}
+      <WorkItemHistory key={item.id} workItemId={item.id} updatedAt={item.updatedAt} />
     </article>
   )
 }
