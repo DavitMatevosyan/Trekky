@@ -458,7 +458,8 @@ paths:
           description: A page of events.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ActivityEventPage' }
+              schema: { $ref: '#/components/schemas/HistoryPage' }
+        '400': { $ref: '#/components/responses/ValidationProblem' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
 
@@ -785,8 +786,7 @@ components:
       allOf:
         - $ref: '#/components/schemas/WorkItemSummary'
         - type: object
-          # createdBy arrives with user lookups (TRK-13).
-          required: [projectId, descriptionMd, parent, children, allowedTransitions, createdAt]
+          required: [projectId, descriptionMd, parent, children, allowedTransitions, createdAt, createdBy]
           properties:
             projectId: { type: string, format: uuid }
             descriptionMd: { type: [string, 'null'] }
@@ -802,7 +802,19 @@ components:
               description: Statuses this item can move to now; drives the status dropdown.
               items: { $ref: '#/components/schemas/WorkItemStatus' }
             createdAt: { type: string, format: date-time }
-            createdBy: { $ref: '#/components/schemas/UserRef' }
+            createdBy:
+              description: Who created the item; null when they are no longer a member of the organization.
+              oneOf:
+                - $ref: '#/components/schemas/WorkItemUser'
+                - type: 'null'
+    WorkItemUser:
+      type: object
+      description: A user as shown on a work item; the work items module's own shape, filled from the identity module.
+      required: [id, displayName, email]
+      properties:
+        id: { type: string, format: uuid }
+        displayName: { type: string }
+        email: { type: [string, 'null'], format: email }
     WorkItemPage:
       type: object
       required: [items, nextCursor]
@@ -827,37 +839,41 @@ components:
                 type: array
                 items: { $ref: '#/components/schemas/WorkItemSummary' }
 
-    ActivityEvent:
+    HistoryEvent:
       type: object
-      description: See docs/tech/activity-events.md.
+      description: One activity event (docs/tech/activity-events.md) with the actor's current display name.
       required: [eventId, eventType, schemaVersion, occurredAt, actor, entity, payload]
       properties:
         eventId: { type: string, format: uuid }
         eventType: { type: string, examples: [WorkItemStatusChanged] }
         schemaVersion: { type: integer, minimum: 1 }
         occurredAt: { type: string, format: date-time }
-        actor:
-          type: object
-          required: [type]
-          properties:
-            type: { type: string, enum: [user, agent, system] }
-            id: { type: [string, 'null'], format: uuid }
-            displayName: { type: [string, 'null'] }
-        entity:
-          type: object
-          required: [type, id]
-          properties:
-            type: { type: string, enum: [project, work_item, comment] }
-            id: { type: string, format: uuid }
-            key: { type: [string, 'null'] }
+        actor: { $ref: '#/components/schemas/HistoryActor' }
+        entity: { $ref: '#/components/schemas/HistoryEntity' }
         payload: { type: object }
-    ActivityEventPage:
+    HistoryActor:
+      type: object
+      required: [type, id, displayName]
+      properties:
+        type: { type: string, enum: [user, agent, system] }
+        id: { type: [string, 'null'], format: uuid }
+        displayName:
+          type: [string, 'null']
+          description: null for system, or for a user who is no longer a member of the organization.
+    HistoryEntity:
+      type: object
+      required: [type, id, key]
+      properties:
+        type: { type: string, enum: [project, work_item, comment] }
+        id: { type: string, format: uuid }
+        key: { type: [string, 'null'] }
+    HistoryPage:
       type: object
       required: [items, nextCursor]
       properties:
         items:
           type: array
-          items: { $ref: '#/components/schemas/ActivityEvent' }
+          items: { $ref: '#/components/schemas/HistoryEvent' }
         nextCursor: { type: [string, 'null'] }
 
     CommentBody:

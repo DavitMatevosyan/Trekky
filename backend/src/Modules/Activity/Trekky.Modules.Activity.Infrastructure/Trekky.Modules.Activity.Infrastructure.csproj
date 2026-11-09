@@ -8,6 +8,9 @@
     <ProjectReference Include="..\..\..\Trekky.SharedKernel\Trekky.SharedKernel.csproj" />
     <ProjectReference Include="..\Trekky.Modules.Activity.Application\Trekky.Modules.Activity.Application.csproj" />
     <ProjectReference Include="..\Trekky.Modules.Activity.Persistence\Trekky.Modules.Activity.Persistence.csproj" />
+    <!-- Other modules' public contracts only (ADR-0009): the work item lookup and the user lookup for actor names. -->
+    <ProjectReference Include="..\..\WorkItems\Trekky.Modules.WorkItems.Application\Trekky.Modules.WorkItems.Application.csproj" />
+    <ProjectReference Include="..\..\Identity\Trekky.Modules.Identity.Application\Trekky.Modules.Identity.Application.csproj" />
   </ItemGroup>
 
 </Project>

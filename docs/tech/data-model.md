@@ -16,7 +16,7 @@ Postgres 17, one schema per module (ADR-0001), `org_id` + RLS on every tenant ta
 | --- | --- | --- | --- |
 | Identity | `identity` | users (+ ASP.NET Identity tables), organizations, memberships, OpenIddict tables | TRK-7 |
 | Projects | `projects` | projects, outbox | TRK-10 |
-| Work items | `work_items` | work_items, item_counters, comments, outbox | TRK-11, TRK-18 |
+| Work items | `work_items` | work_items, item_counters, work_item_revisions (proposed, ADR-0014), comments, outbox | TRK-11, TRK-18 |
 | Activity | `activity` | activity_events | TRK-10 |
 
 ## Diagram
@@ -133,6 +133,7 @@ erDiagram
 | `assignee_id` | uuid | nullable user id (v1.0; column added by TRK-20) |
 | `rank` | text | lexicographic rank for board order within a status (v1.0; column added by TRK-17) |
 | `custom` | jsonb | not null default `'{}'`, reserved for custom fields (v1.5) |
+| `current_revision` | int | not null; the latest revision number (proposed, ADR-0014; existing items start at 1) |
 | `created_by`, `created_at`, `updated_at` | | |
 
 Indexes: `(org_id, project_id, updated_at desc, id desc)` for the list; `(org_id, project_id, status, rank)` for the board (TRK-17); `(parent_id)`.
@@ -149,6 +150,20 @@ RETURNING next_number - 1;   -- the new item's number
 
 The row lock serializes concurrent creates in a project; a rolled-back create returns its number.
 
+`work_item_revisions` (proposed, ADR-0014; needs its own TRK) is the full history of every item. There is one row per revision: revision 1 on create, then one per change that records an activity event. Each row holds a JSONB snapshot of the item, including its description text. It is written in the same transaction as the change and its event. Revision numbers come from `work_items.current_revision`, which is incremented under the edit's row lock. Existing items get a baseline revision 1 (with `event_id` null) and `current_revision = 1`. The table is append-only: the migration revokes `UPDATE`, `DELETE` and `TRUNCATE` from `trekky_app`, so a purge runs as `trekky_owner`. It has no foreign key to `work_items`.
+
+| Column | Type | Rules |
+| --- | --- | --- |
+| `work_item_id`, `revision` | uuid, int | PK; revisions count up from 1 per item |
+| `org_id` | uuid | not null, RLS; index `(org_id, work_item_id, revision desc)` |
+| `event_id` | uuid | the activity event for this change; null only for the backfilled baseline of an existing item |
+| `actor_type`, `actor_id` | text, uuid | copied from the event's actor; `actor_id` null for `system` |
+| `changed_at` | timestamptz | |
+| `snapshot_version` | int | shape of `snapshot`, starts at 1 |
+| `snapshot` | jsonb | every stored field except `rank` and `xmin` |
+
+Events answer what changed. Revisions answer what the item was. A revision number is not the ETag (`xmin`).
+
 `comments` (v1.0): soft delete via `deleted_at`; edits set `updated_at`.
 
 ## Database roles
@@ -156,4 +171,4 @@ The row lock serializes concurrent creates in a project; a rolled-back create re
 | Role | Used by | Rights |
 | --- | --- | --- |
 | `trekky_owner` | migrations | owns all schemas and tables |
-| `trekky_app` | API at runtime | `SELECT, INSERT, UPDATE, DELETE` on module tables; `INSERT, SELECT` only on `activity.activity_events`; no `BYPASSRLS` |
+| `trekky_app` | API at runtime | `SELECT, INSERT, UPDATE, DELETE` on module tables; `INSERT, SELECT` only on `activity.activity_events` (and on `work_items.work_item_revisions` once it exists, ADR-0014); no `BYPASSRLS` |

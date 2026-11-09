@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using OpenIddict.Validation.AspNetCore;
 using Trekky.Modules.Identity.Application.Accounts;
+using Trekky.Modules.Identity.Application.Contracts;
 using Trekky.Modules.Identity.Domain;
 using Trekky.Modules.Identity.Persistence;
 using static OpenIddict.Abstractions.OpenIddictConstants;
@@ -148,6 +149,7 @@ internal static class IdentityServiceCollectionExtensions
             });
 
         services.AddScoped<IAccountService, AccountService>();
+        services.AddScoped<IUserDirectory, UserDirectory>();
         services.AddScoped<SessionRevoker>();
         services.AddScoped<ConnectHandlers>();
         services.AddHostedService<WebClientRegistration>();

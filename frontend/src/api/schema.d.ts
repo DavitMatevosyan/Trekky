@@ -38,6 +38,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/work-items/{workItemId}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * An item's activity events, newest first (US-09)
+         * @description Every recorded change to the item, with the actor's display name. A change can take up to a second to appear (the outbox dispatcher).
+         */
+        get: operations["GetWorkItemHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/sign-up": {
         parameters: {
             query?: never;
@@ -241,6 +261,34 @@ export interface components {
         HealthResponse: {
             status: string;
         };
+        HistoryActor: {
+            type: string;
+            /** Format: uuid */
+            id: null | string;
+            displayName: null | string;
+        };
+        HistoryEntity: {
+            type: string;
+            /** Format: uuid */
+            id: string;
+            key: null | string;
+        };
+        HistoryEvent: {
+            /** Format: uuid */
+            eventId: string;
+            eventType: string;
+            /** Format: int32 */
+            schemaVersion: number | string;
+            /** Format: date-time */
+            occurredAt: string;
+            actor: components["schemas"]["HistoryActor"];
+            entity: components["schemas"]["HistoryEntity"];
+            payload: components["schemas"]["JsonElement"];
+        };
+        HistoryPage: {
+            items: components["schemas"]["HistoryEvent"][];
+            nextCursor: null | string;
+        };
         HttpValidationProblemDetails: {
             type?: null | string;
             title?: null | string;
@@ -252,6 +300,7 @@ export interface components {
                 [key: string]: string[];
             };
         };
+        JsonElement: unknown;
         LoginRequest: {
             email: null | string;
             password: null | string;
@@ -325,6 +374,7 @@ export interface components {
             allowedTransitions: string[];
             /** Format: date-time */
             createdAt: string;
+            createdBy: null | components["schemas"]["WorkItemUser"];
         };
         WorkItemPage: {
             items: components["schemas"]["WorkItemSummary"][];
@@ -340,6 +390,12 @@ export interface components {
             parentKey: null | string;
             /** Format: date-time */
             updatedAt: string;
+        };
+        WorkItemUser: {
+            /** Format: uuid */
+            id: string;
+            displayName: string;
+            email: null | string;
         };
     };
     responses: never;
@@ -386,6 +442,58 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Me"];
+                };
+            };
+        };
+    };
+    GetWorkItemHistory: {
+        parameters: {
+            query?: {
+                limit?: number | string;
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                workItemId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HistoryPage"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
         };
