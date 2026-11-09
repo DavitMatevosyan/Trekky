@@ -1,10 +1,11 @@
 import { useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
-import { ProblemError } from '../api/problem.ts'
 import { RelativeTime } from '../components/RelativeTime.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { messages } from '../i18n/messages.ts'
-import { useCreateWorkItem, useProjectByKey, useWorkItems } from '../workItems/useWorkItems.ts'
+import { ProjectHeader } from '../projects/ProjectHeader.tsx'
+import { ProjectLoader } from '../projects/ProjectLoader.tsx'
+import { useCreateWorkItem, useWorkItems } from '../workItems/useWorkItems.ts'
 import { WorkItemForm } from '../workItems/WorkItemForm.tsx'
 import { statusLabel, typeLabel } from '../workItems/workItemTypes.ts'
 
@@ -13,15 +14,11 @@ const EMPTY_ITEM = { type: 'task', title: '', descriptionMd: '', parent: null } 
 /** A project's items as a list, newest update first (US-08, wireframes: List view), with "New item" (US-06). */
 export function ProjectItemsPage() {
   const { projectKey = '' } = useParams()
-  const project = useProjectByKey(projectKey)
-
-  if (project.isPending) return <p className="text-muted-foreground">{messages.project.loading}</p>
-  if (project.isError) {
-    const notFound = project.error instanceof ProblemError && project.error.problem.status === 404
-    return <p role="alert">{notFound ? messages.project.notFound : messages.common.unexpectedError}</p>
-  }
-
-  return <ProjectItems projectId={project.data.id} projectKey={project.data.key} projectName={project.data.name} />
+  return (
+    <ProjectLoader projectKey={projectKey}>
+      {(project) => <ProjectItems projectId={project.id} projectKey={project.key} projectName={project.name} />}
+    </ProjectLoader>
+  )
 }
 
 function ProjectItems({ projectId, projectKey, projectName }: { projectId: string; projectKey: string; projectName: string }) {
@@ -43,21 +40,17 @@ function ProjectItems({ projectId, projectKey, projectName }: { projectId: strin
 
   return (
     <section className="grid gap-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="grid gap-1">
-          <Link to="/" className="text-sm text-muted-foreground underline-offset-4 hover:underline">
-            {messages.project.backToProjects}
-          </Link>
-          <h1 className="text-2xl font-semibold">
-            <span className="font-mono">{projectKey}</span> · {projectName}
-          </h1>
-        </div>
-        {!creating && (
-          <Button ref={newItemButton} onClick={() => setCreating(true)}>
-            <span aria-hidden="true">+</span> {messages.project.newItem}
-          </Button>
-        )}
-      </div>
+      <ProjectHeader
+        projectKey={projectKey}
+        projectName={projectName}
+        action={
+          !creating && (
+            <Button ref={newItemButton} onClick={() => setCreating(true)}>
+              <span aria-hidden="true">+</span> {messages.project.newItem}
+            </Button>
+          )
+        }
+      />
 
       {creating && (
         <WorkItemForm

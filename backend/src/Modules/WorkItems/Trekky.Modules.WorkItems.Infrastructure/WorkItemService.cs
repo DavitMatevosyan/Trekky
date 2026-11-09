@@ -20,6 +20,8 @@ internal sealed class WorkItemService(
     IUserDirectory users)
     : IWorkItemService
 {
+    private const int DoneCardLimit = 20;
+
     public async Task<WorkItemResult> CreateAsync(
         Guid projectId, CreateWorkItemRequest request, Guid actorId, CancellationToken cancellationToken)
     {
@@ -261,6 +263,28 @@ internal sealed class WorkItemService(
         return new WorkItemPage((exact is null ? page : page.Prepend(exact)).Select(ToSummary).ToList(), next);
     }
 
+    public async Task<Board?> GetBoardAsync(Guid projectId, bool allDone, CancellationToken cancellationToken)
+    {
+        if (await projects.FindAsync(projectId, cancellationToken) is null)
+        {
+            return null;
+        }
+
+        var inProject = db.WorkItems.AsNoTracking().Where(w => w.ProjectId == projectId);
+        var notDone = await Summaries(NewestFirst(inProject.Where(w => w.Status != WorkItemStatuses.Done))).ToListAsync(cancellationToken);
+        var allDoneItems = NewestFirst(inProject.Where(w => w.Status == WorkItemStatuses.Done));
+        var done = await Summaries(allDone ? allDoneItems : allDoneItems.Take(DoneCardLimit)).ToListAsync(cancellationToken);
+        var doneCount = allDone ? done.Count : await inProject.CountAsync(w => w.Status == WorkItemStatuses.Done, cancellationToken);
+
+        var cards = notDone.Concat(done).ToLookup(row => row.Item.Status, ToSummary);
+        return new Board(WorkItemStatuses.All
+            .Select(status => new BoardColumn(
+                status,
+                status == WorkItemStatuses.Done ? doneCount : cards[status].Count(),
+                cards[status].ToList()))
+            .ToList());
+    }
+
     public Task<VersionedWorkItem?> GetAsync(Guid workItemId, CancellationToken cancellationToken)
         => GetDetailAsync(db.WorkItems.Where(w => w.Id == workItemId), cancellationToken);
 
@@ -304,6 +328,9 @@ internal sealed class WorkItemService(
             creator);
         return new VersionedWorkItem(detail, item.Version);
     }
+
+    private static IQueryable<WorkItem> NewestFirst(IQueryable<WorkItem> items)
+        => items.OrderByDescending(w => w.UpdatedAt).ThenByDescending(w => w.Id);
 
     /// <summary>Items with their parent's key. Parents are always in the same project, so the parent's number is enough.</summary>
     private IQueryable<SummaryRow> Summaries(IQueryable<WorkItem> items)

@@ -473,6 +473,46 @@
           }
         },
         {
+          "name": "Get board",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('board found', () => pm.response.to.have.status(200));",
+                  "pm.test('one column per status in workflow order', () => pm.expect(pm.response.json().columns.map((c) => c.status)).to.eql(['todo', 'in_progress', 'in_review', 'done']));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/projects/{{projectId}}/board",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "projects",
+                "{{projectId}}",
+                "board"
+              ],
+              "query": [
+                {
+                  "key": "allDone",
+                  "value": "true",
+                  "disabled": true,
+                  "description": "Every Done card instead of the latest 20"
+                }
+              ]
+            },
+            "description": "One column per status in workflow order. count is the column's full size; Done holds the latest 20 cards unless allDone=true."
+          }
+        },
+        {
           "name": "Get work item",
           "event": [
             {

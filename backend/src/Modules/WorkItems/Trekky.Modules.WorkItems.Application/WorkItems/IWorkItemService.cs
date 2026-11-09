@@ -29,6 +29,12 @@ internal interface IWorkItemService
     Task<WorkItemPage?> ListAsync(
         Guid projectId, WorkItemFilter filter, int limit, WorkItemCursor? after, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// The project's board, newest update first in each column until cards have a rank (TRK-17). Done holds the latest 20
+    /// unless <paramref name="allDone"/> is set; <c>null</c> when the project does not exist.
+    /// </summary>
+    Task<Board?> GetBoardAsync(Guid projectId, bool allDone, CancellationToken cancellationToken);
+
     /// <summary>The item, or <c>null</c> when it does not exist or belongs to another organization.</summary>
     Task<VersionedWorkItem?> GetAsync(Guid workItemId, CancellationToken cancellationToken);
 
