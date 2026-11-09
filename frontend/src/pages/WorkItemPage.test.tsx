@@ -33,8 +33,28 @@ function withETag(body: unknown, etag: string, status = 200) {
   return response
 }
 
+const historyPath = `GET /api/v1/work-items/${item.id}/history`
+
+function historyEvent(n: number, eventType: string, payload: unknown, occurredAt = item.updatedAt, displayName: string | null = 'Davit') {
+  return {
+    eventId: `0190a000-0000-7000-8000-00000000e${String(n).padStart(3, '0')}`,
+    eventType,
+    schemaVersion: 1,
+    occurredAt,
+    actor: { type: 'user', id: '0190a000-0000-7000-8000-0000000000aa', displayName },
+    entity: { type: 'work_item', id: item.id, key: item.key },
+    payload,
+  }
+}
+
+const createdEvent = historyEvent(1, 'WorkItemCreated', { type: 'story', title: 'Comments on items', status: 'todo' })
+
 function renderItem(handlers: Parameters<typeof fakeApi>[0] = {}, path = '/TRK/items/TRK-14') {
-  const fetchFn = fakeApi({ [itemPath]: () => withETag(item, '"7"'), ...handlers })
+  const fetchFn = fakeApi({
+    [itemPath]: () => withETag(item, '"7"'),
+    [historyPath]: () => jsonResponse({ items: [createdEvent], nextCursor: null }),
+    ...handlers,
+  })
   return { ...renderApp({ path, tokens: validTokens, fetchFn }), fetchFn }
 }
 
@@ -224,6 +244,149 @@ describe('WorkItemPage', () => {
       expect(await statusSelect()).toBeDisabled()
       await userEvent.click(within(screen.getByRole('form', { name: 'Edit item' })).getByRole('button', { name: 'Cancel' }))
       expect(await statusSelect()).toBeEnabled()
+    })
+  })
+
+  describe('history', () => {
+    const historyRows = async () => within(await screen.findByRole('list', { name: 'History' })).getAllByRole('listitem')
+
+    it('shows who changed what and when, newest first', async () => {
+      renderItem({
+        [historyPath]: () =>
+          jsonResponse({
+            items: [historyEvent(2, 'WorkItemStatusChanged', { from: 'todo', to: 'in_progress' }, item.updatedAt, null), createdEvent],
+            nextCursor: null,
+          }),
+      })
+
+      const rows = await historyRows()
+
+      expect(rows).toHaveLength(2)
+      expect(rows[0]).toHaveTextContent('A former member changed status To Do → In Progress')
+      expect(rows[1]).toHaveTextContent('Davit created this Story')
+      expect(rows[1]?.querySelector('time')).toHaveAttribute('datetime', item.updatedAt)
+    })
+
+    it('loads older events with the cursor', async () => {
+      const older = historyEvent(0, 'WorkItemUpdated', { changes: { title: { from: 'A', to: 'B' } } })
+      const { fetchFn } = renderItem({
+        [historyPath]: (request) =>
+          new URL(request.url).searchParams.get('cursor') === 'page-2'
+            ? jsonResponse({ items: [older], nextCursor: null })
+            : jsonResponse({ items: [createdEvent], nextCursor: 'page-2' }),
+      })
+
+      await userEvent.click(await screen.findByRole('button', { name: 'Load more' }))
+
+      await waitFor(async () => expect(await historyRows()).toHaveLength(2))
+      expect((await historyRows())[1]).toHaveTextContent('Davit changed title “A” → “B”')
+      expect(screen.queryByRole('button', { name: 'Load more' })).not.toBeInTheDocument()
+      expect(requestsTo(fetchFn, historyPath)).toHaveLength(2)
+    })
+
+    it('shows a new change once its event has arrived', async () => {
+      const movedAt = '2026-10-26T11:00:00Z'
+      const moved = { ...item, status: 'in_review', updatedAt: movedAt, allowedTransitions: ['todo', 'in_progress', 'done'] }
+      const statusChanged = historyEvent(2, 'WorkItemStatusChanged', { from: 'in_progress', to: 'in_review' }, movedAt)
+      let moves = 0
+      let readsAfterMove = 0
+      renderItem({
+        [`POST /api/v1/work-items/${item.id}/status`]: () => {
+          moves += 1
+          return withETag(moved, '"8"')
+        },
+        [historyPath]: () => {
+          if (moves > 0) readsAfterMove += 1
+          // The first read after the move is too early: the event is still in the outbox.
+          return jsonResponse({ items: readsAfterMove > 1 ? [statusChanged, createdEvent] : [createdEvent], nextCursor: null })
+        },
+      })
+
+      await userEvent.selectOptions(await screen.findByRole('combobox', { name: 'Status' }), 'in_review')
+
+      await waitFor(async () => expect((await historyRows())[0]).toHaveTextContent('Davit changed status In Progress → In Review'), { timeout: 3000 })
+      expect(await historyRows()).toHaveLength(2)
+    })
+
+    it('goes back to the newest events after a change', async () => {
+      const movedAt = '2026-10-26T11:00:00Z'
+      const older = historyEvent(0, 'WorkItemUpdated', { changes: { title: { from: 'A', to: 'B' } } })
+      const statusChanged = historyEvent(2, 'WorkItemStatusChanged', { from: 'in_progress', to: 'in_review' }, movedAt)
+      let moved = false
+      renderItem({
+        [`POST /api/v1/work-items/${item.id}/status`]: () => {
+          moved = true
+          return withETag({ ...item, status: 'in_review', updatedAt: movedAt, allowedTransitions: ['todo', 'in_progress', 'done'] }, '"8"')
+        },
+        [historyPath]: (request) => {
+          if (moved) return jsonResponse({ items: [statusChanged, createdEvent], nextCursor: 'page-2' })
+          return new URL(request.url).searchParams.get('cursor') === 'page-2'
+            ? jsonResponse({ items: [older], nextCursor: null })
+            : jsonResponse({ items: [createdEvent], nextCursor: 'page-2' })
+        },
+      })
+      await userEvent.click(await screen.findByRole('button', { name: 'Load more' }))
+      await waitFor(async () => expect((await historyRows())[1]).toHaveTextContent('changed title'))
+
+      await userEvent.selectOptions(await screen.findByRole('combobox', { name: 'Status' }), 'in_review')
+
+      await waitFor(async () => expect((await historyRows())[0]).toHaveTextContent('changed status In Progress → In Review'))
+      expect((await historyRows()).map((row) => row.textContent)).not.toContainEqual(expect.stringContaining('changed title'))
+    })
+
+    it('recovers by itself when a read fails', async () => {
+      let reads = 0
+      renderItem({
+        [historyPath]: () => {
+          reads += 1
+          return reads === 1 ? problemResponse(500, { title: 'Server error' }) : jsonResponse({ items: [createdEvent], nextCursor: null })
+        },
+      })
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('Could not load the history. Please try again.')
+
+      await waitFor(async () => expect((await historyRows())[0]).toHaveTextContent('Davit created this Story'), { timeout: 3000 })
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    })
+
+    it('keeps one steady alert while every read fails, then stops', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true })
+      try {
+        const { fetchFn } = renderItem({ [historyPath]: () => problemResponse(500, { title: 'Server error' }) })
+        const alert = await screen.findByRole('alert')
+
+        for (let tick = 0; tick < 40; tick += 1) {
+          await vi.advanceTimersByTimeAsync(250)
+          expect(screen.getByRole('alert')).toBe(alert)
+          expect(screen.queryByText('Loading history…')).not.toBeInTheDocument()
+          expect(screen.queryByRole('list', { name: 'History' })).not.toBeInTheDocument()
+        }
+
+        expect(requestsTo(fetchFn, historyPath)).toHaveLength(10)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('stops checking when a change never gets an event', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true })
+      try {
+        const { fetchFn } = renderItem({ [historyPath]: () => jsonResponse({ items: [], nextCursor: null }) })
+        expect(await screen.findByText('No history yet.')).toBeInTheDocument()
+
+        await vi.advanceTimersByTimeAsync(20_000)
+
+        expect(requestsTo(fetchFn, historyPath)).toHaveLength(10)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('keeps the rest of the page when the history cannot load', async () => {
+      renderItem({ [historyPath]: () => problemResponse(500, { title: 'Server error' }) })
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('Could not load the history. Please try again.')
+      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Comments on items')
     })
   })
 
