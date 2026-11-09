@@ -509,7 +509,7 @@
                 }
               ]
             },
-            "description": "One column per status in workflow order. count is the column's full size; Done holds the latest 20 cards unless allDone=true."
+            "description": "One column per status in workflow order. count is the column's full size; Done holds the latest 20 cards unless allDone=true. Each card has an etag to send as If-Match to Change work item status."
           }
         },
         {

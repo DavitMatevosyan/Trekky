@@ -284,7 +284,7 @@ internal sealed class WorkItemService(
         var done = await Summaries(allDone ? allDoneItems : allDoneItems.Take(DoneCardLimit)).ToListAsync(cancellationToken);
         var doneCount = allDone ? done.Count : await inProject.CountAsync(w => w.Status == WorkItemStatuses.Done, cancellationToken);
 
-        var cards = notDone.Concat(done).ToLookup(row => row.Item.Status, ToSummary);
+        var cards = notDone.Concat(done).ToLookup(row => row.Item.Status, ToBoardCard);
         return new Board(WorkItemStatuses.All
             .Select(status => new BoardColumn(
                 status,
@@ -446,6 +446,17 @@ internal sealed class WorkItemService(
             row.Item.Status,
             row.ParentKey,
             row.Item.UpdatedAt);
+
+    private static BoardCard ToBoardCard(SummaryRow row)
+        => new(
+            row.Item.Id,
+            row.Item.Key,
+            row.Item.Type,
+            row.Item.Title,
+            row.Item.Status,
+            row.ParentKey,
+            row.Item.UpdatedAt,
+            VersionedWorkItem.ETagFor(row.Item.Version));
 
     private sealed record SummaryRow(WorkItem Item, int? ParentNumber)
     {

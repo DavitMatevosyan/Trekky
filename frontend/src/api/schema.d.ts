@@ -267,11 +267,23 @@ export interface components {
         Board: {
             columns: components["schemas"]["BoardColumn"][];
         };
+        BoardCard: {
+            /** Format: uuid */
+            id: string;
+            key: string;
+            type: string;
+            title: string;
+            status: string;
+            parentKey: null | string;
+            /** Format: date-time */
+            updatedAt: string;
+            etag: string;
+        };
         BoardColumn: {
             status: string;
             /** Format: int32 */
             count: number | string;
-            items: components["schemas"]["WorkItemSummary"][];
+            items: components["schemas"]["BoardCard"][];
         };
         ChangeStatusRequest: {
             to: null | string;
