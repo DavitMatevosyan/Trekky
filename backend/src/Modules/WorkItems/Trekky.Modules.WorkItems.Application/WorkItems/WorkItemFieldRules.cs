@@ -32,5 +32,5 @@ internal static class WorkItemFieldRules
         => string.IsNullOrWhiteSpace(description) ? null : description;
 
     // Postgres text cannot hold NUL; without this check it would fail the insert with a 500.
-    private static bool NoNullCharacter(string? value) => value is null || !value.Contains('\0', StringComparison.Ordinal);
+    public static bool NoNullCharacter(string? value) => value is null || !value.Contains('\0', StringComparison.Ordinal);
 }

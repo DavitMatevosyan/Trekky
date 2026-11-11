@@ -1,20 +1,23 @@
-import { lazy, Suspense, useId, useRef, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router'
-import { ErrorBoundary } from '../components/ErrorBoundary.tsx'
 import { ProblemError } from '../api/problem.ts'
+import { MarkdownText } from '../components/MarkdownText.tsx'
 import { RelativeTime } from '../components/RelativeTime.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { messages } from '../i18n/messages.ts'
 import { useUpdateWorkItem, useWorkItem, type UpdateWorkItemInput, type VersionedWorkItem } from '../workItems/useWorkItems.ts'
 import { StatusSelect } from '../workItems/StatusSelect.tsx'
+import { WorkItemComments } from '../workItems/WorkItemComments.tsx'
 import { WorkItemForm, type WorkItemFormValues } from '../workItems/WorkItemForm.tsx'
 import { WorkItemHistory } from '../workItems/WorkItemHistory.tsx'
 import { isWorkItemType, statusLabel, typeLabel } from '../workItems/workItemTypes.ts'
 
-// The Markdown renderer is most of a bundle's weight, and only this page needs it.
-const Markdown = lazy(() => import('../components/Markdown.tsx').then((module) => ({ default: module.Markdown })))
+/** The later of two ISO times. */
+function later(a: string, b: string | null): string {
+  return b !== null && Date.parse(b) > Date.parse(a) ? b : a
+}
 
-/** One item (US-09, wireframes: Item detail) at /TRK/items/TRK-42, with its status select (US-10) and history. */
+/** One item (US-09, wireframes: Item detail) at /TRK/items/TRK-42, with its status select (US-10), comments (US-12) and history. */
 export function WorkItemPage() {
   const { projectKey = '', itemKey = '' } = useParams()
   // /TRK/items/WEB-1 names another project's item: not an address of this project.
@@ -50,6 +53,8 @@ function WorkItemView({ projectKey, current }: { projectKey: string; current: Ve
   const update = useUpdateWorkItem(current)
   const [editing, setEditing] = useState(false)
   const [announcement, setAnnouncement] = useState('')
+  // A comment is not an edit of the item, but its event joins the history: the history waits for it like for an edit.
+  const [lastCommentAt, setLastCommentAt] = useState<string | null>(null)
   const editButton = useRef<HTMLButtonElement>(null)
   const statusLabelId = useId()
 
@@ -133,12 +138,7 @@ function WorkItemView({ projectKey, current }: { projectKey: string; current: Ve
               {messages.workItem.description}
             </h2>
             {item.descriptionMd ? (
-              // Until the renderer loads, or if it fails to load, the description shows as plain text.
-              <ErrorBoundary fallback={<p className="text-sm whitespace-pre-wrap">{item.descriptionMd}</p>}>
-                <Suspense fallback={<p className="text-sm whitespace-pre-wrap">{item.descriptionMd}</p>}>
-                  <Markdown>{item.descriptionMd}</Markdown>
-                </Suspense>
-              </ErrorBoundary>
+              <MarkdownText>{item.descriptionMd}</MarkdownText>
             ) : <p className="text-sm text-muted-foreground">{messages.workItem.noDescription}</p>}
           </section>
 
@@ -204,8 +204,18 @@ function WorkItemView({ projectKey, current }: { projectKey: string; current: Ve
         </section>
       </div>
 
-      {/* Keyed so that moving to another item never shows the previous item's events while loading. */}
-      <WorkItemHistory key={item.id} workItemId={item.id} updatedAt={item.updatedAt} />
+      {/* Keyed so that moving to another item never shows the previous item's comments or events while loading. */}
+      <WorkItemComments
+        key={`comments-${item.id}`}
+        workItemId={item.id}
+        onPosted={(createdAt) => {
+          setLastCommentAt(createdAt)
+          // Cleared first, so a second comment in a row is announced again.
+          setAnnouncement('')
+          window.setTimeout(() => setAnnouncement(messages.comments.posted), 50)
+        }}
+      />
+      <WorkItemHistory key={item.id} workItemId={item.id} updatedAt={later(item.updatedAt, lastCommentAt)} />
     </article>
   )
 }

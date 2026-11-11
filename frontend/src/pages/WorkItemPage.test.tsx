@@ -34,6 +34,7 @@ function withETag(body: unknown, etag: string, status = 200) {
 }
 
 const historyPath = `GET /api/v1/work-items/${item.id}/history`
+const commentsPath = `GET /api/v1/work-items/${item.id}/comments`
 
 function historyEvent(n: number, eventType: string, payload: unknown, occurredAt = item.updatedAt, displayName: string | null = 'Davit') {
   return {
@@ -53,6 +54,7 @@ function renderItem(handlers: Parameters<typeof fakeApi>[0] = {}, path = '/TRK/i
   const fetchFn = fakeApi({
     [itemPath]: () => withETag(item, '"7"'),
     [historyPath]: () => jsonResponse({ items: [createdEvent], nextCursor: null }),
+    [commentsPath]: () => jsonResponse({ items: [], nextCursor: null }),
     ...handlers,
   })
   return { ...renderApp({ path, tokens: validTokens, fetchFn }), fetchFn }
@@ -386,6 +388,120 @@ describe('WorkItemPage', () => {
       renderItem({ [historyPath]: () => problemResponse(500, { title: 'Server error' }) })
 
       expect(await screen.findByRole('alert')).toHaveTextContent('Could not load the history. Please try again.')
+      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Comments on items')
+    })
+  })
+
+  describe('comments', () => {
+    const postPath = `POST /api/v1/work-items/${item.id}/comments`
+    const comment = (n: number, bodyMd: string, author: { id: string; displayName: string; email: string | null } | null = item.createdBy) => ({
+      id: `0190a000-0000-7000-8000-00000000c${String(n).padStart(3, '0')}`,
+      workItemId: item.id,
+      authorId: '0190a000-0000-7000-8000-0000000000aa',
+      author,
+      bodyMd,
+      createdAt: `2026-10-2${n}T10:00:00Z`,
+      edited: false,
+    })
+    const commentRows = async () => within(await screen.findByRole('list', { name: 'Comments' })).getAllByRole('listitem')
+
+    it('shows the comments oldest first with author, time and Markdown', async () => {
+      renderItem({
+        [commentsPath]: () =>
+          jsonResponse({ items: [comment(1, 'Keep it **flat**.'), comment(2, 'Agreed.', null)], nextCursor: null }),
+      })
+
+      const rows = await commentRows()
+      expect(rows).toHaveLength(2)
+      expect(rows[0]).toHaveTextContent('Davit')
+      const first = rows[0]
+      if (!first) throw new Error('The first comment is missing.')
+      expect(within(first).getByText('flat').tagName).toBe('STRONG')
+      expect(within(first).getByRole('time')).toBeInTheDocument()
+      expect(rows[1]).toHaveTextContent('A former member')
+      expect(rows[1]).toHaveTextContent('Agreed.')
+    })
+
+    it('says when there are no comments yet', async () => {
+      renderItem()
+      expect(await screen.findByText('No comments yet.')).toBeInTheDocument()
+    })
+
+    it('loads more comments after the first page', async () => {
+      renderItem({
+        [commentsPath]: (request) =>
+          new URL(request.url).searchParams.get('cursor') === 'next'
+            ? jsonResponse({ items: [comment(3, 'Third')], nextCursor: null })
+            : jsonResponse({ items: [comment(1, 'First'), comment(2, 'Second')], nextCursor: 'next' }),
+      })
+      expect(await commentRows()).toHaveLength(2)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Show more comments' }))
+
+      await waitFor(async () => expect(await commentRows()).toHaveLength(3))
+      expect((await commentRows())[2]).toHaveTextContent('Third')
+      expect(screen.queryByRole('button', { name: 'Show more comments' })).not.toBeInTheDocument()
+    })
+
+    it('posts a comment, clears the box, shows it and announces it', async () => {
+      let posted: ReturnType<typeof comment> | null = null
+      const { fetchFn } = renderItem({
+        [commentsPath]: () => jsonResponse({ items: posted ? [posted] : [], nextCursor: null }),
+        [postPath]: () => {
+          posted = comment(5, 'Ship it.')
+          return jsonResponse(posted, 201)
+        },
+      })
+      const box = await screen.findByLabelText('Add a comment')
+      expect(box).toHaveAccessibleDescription('Markdown is supported.')
+
+      await userEvent.type(box, 'Ship it.')
+      await userEvent.click(screen.getByRole('button', { name: 'Post comment' }))
+
+      expect(await commentRows()).toHaveLength(1)
+      expect(box).toHaveValue('')
+      await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Comment posted.'))
+      expect(await requestsTo(fetchFn, postPath)[0]?.json()).toEqual({ bodyMd: 'Ship it.' })
+    })
+
+    it('asks for some text without sending an empty comment', async () => {
+      const { fetchFn } = renderItem()
+      const box = await screen.findByLabelText('Add a comment')
+
+      await userEvent.type(box, '   ')
+      await userEvent.click(screen.getByRole('button', { name: 'Post comment' }))
+
+      expect(box).toHaveAccessibleDescription('Markdown is supported. Write something to comment.')
+      expect(box).toHaveFocus()
+      expect(requestsTo(fetchFn, postPath)).toHaveLength(0)
+    })
+
+    it('shows the field error the API sends, and keeps the text', async () => {
+      renderItem({ [postPath]: () => problemResponse(400, { title: 'Invalid', errors: { bodyMd: ['A comment can be at most 20,000 characters.'] } }) })
+      const box = await screen.findByLabelText('Add a comment')
+
+      await userEvent.type(box, 'Too long, says the server')
+      await userEvent.click(screen.getByRole('button', { name: 'Post comment' }))
+
+      await waitFor(() => expect(box).toHaveAccessibleDescription('Markdown is supported. A comment can be at most 20,000 characters.'))
+      expect(box).toHaveValue('Too long, says the server')
+    })
+
+    it('says so when posting fails, and keeps the text', async () => {
+      renderItem({ [postPath]: () => problemResponse(500, { title: 'Server error' }) })
+      const box = await screen.findByLabelText('Add a comment')
+
+      await userEvent.type(box, 'Hello')
+      await userEvent.click(screen.getByRole('button', { name: 'Post comment' }))
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('Could not post the comment. Please try again.')
+      expect(box).toHaveValue('Hello')
+    })
+
+    it('keeps the rest of the page when the comments cannot load', async () => {
+      renderItem({ [commentsPath]: () => problemResponse(500, { title: 'Server error' }) })
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('Could not load the comments. Please try again.')
       expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Comments on items')
     })
   })

@@ -52,6 +52,10 @@
     {
       "key": "workItemEtag",
       "value": ""
+    },
+    {
+      "key": "commentId",
+      "value": ""
     }
   ],
   "auth": {
@@ -666,6 +670,96 @@
             "method": "GET",
             "url": "{{baseUrl}}/api/v1/work-items/{{workItemId}}/history?limit=50",
             "description": "The item's activity events, newest first (US-09), each with the actor's displayName, the entity key and the event payload (docs/tech/activity-events.md). limit is 1–100 (default 50); pass nextCursor as cursor for the next page, null on the last. A change can take up to a second to appear. An unknown item or another organization's is a 404."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Comments",
+      "item": [
+        {
+          "name": "Add comment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('comment added', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "if (body.id) pm.collectionVariables.set('commentId', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bodyMd\": \"Let's keep comments **flat**, no threads in v1.0.\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/work-items/{{workItemId}}/comments",
+            "description": "Markdown, 1 to 20,000 characters and not only whitespace (400 otherwise). Records a CommentAdded activity event on the item (payload: commentId and the first 200 characters), so the comment shows in its history; the item itself is not changed. 404 for an unknown item or another organization's. Returns the comment with its author; Location is the comment."
+          }
+        },
+        {
+          "name": "List comments",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('comments found', () => pm.response.to.have.status(200));",
+                  "pm.test('has a page of comments', () => pm.expect(pm.response.json().items).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/work-items/{{workItemId}}/comments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "work-items",
+                "{{workItemId}}",
+                "comments"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "disabled": true,
+                  "description": "1 to 100, default 50"
+                },
+                {
+                  "key": "cursor",
+                  "value": "",
+                  "disabled": true,
+                  "description": "nextCursor from the previous page"
+                }
+              ]
+            },
+            "description": "Oldest first, 50 per page, with each author (null if they left the organization), createdAt and edited."
+          }
+        },
+        {
+          "name": "Get comment",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/comments/{{commentId}}",
+            "description": "One comment; 404 when it does not exist or belongs to another organization."
           }
         }
       ]

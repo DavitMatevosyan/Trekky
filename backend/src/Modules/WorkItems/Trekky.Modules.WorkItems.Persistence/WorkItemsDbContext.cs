@@ -4,7 +4,7 @@ using Trekky.Persistence.Outbox;
 
 namespace Trekky.Modules.WorkItems.Persistence;
 
-/// <summary>The work_items schema: <c>work_items</c>, <c>item_counters</c> and the module's <c>outbox</c> (docs/tech/data-model.md).</summary>
+/// <summary>The work_items schema: <c>work_items</c>, <c>item_counters</c>, <c>comments</c> and the module's <c>outbox</c> (docs/tech/data-model.md).</summary>
 internal sealed class WorkItemsDbContext(DbContextOptions<WorkItemsDbContext> options) : DbContext(options)
 {
     public const string Schema = "work_items";
@@ -13,9 +13,13 @@ internal sealed class WorkItemsDbContext(DbContextOptions<WorkItemsDbContext> op
 
     public const string ItemCountersTable = "item_counters";
 
+    public const string CommentsTable = "comments";
+
     public DbSet<WorkItem> WorkItems => Set<WorkItem>();
 
     public DbSet<ItemCounter> ItemCounters => Set<ItemCounter>();
+
+    public DbSet<WorkItemComment> Comments => Set<WorkItemComment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -63,6 +67,19 @@ internal sealed class WorkItemsDbContext(DbContextOptions<WorkItemsDbContext> op
                 .HasDatabaseName("ux_work_items_org_project_status_rank")
                 .IsUnique();
             item.HasIndex(w => w.ParentId).HasDatabaseName("ix_work_items_parent");
+        });
+
+        modelBuilder.Entity<WorkItemComment>(comment =>
+        {
+            comment.ToTable(CommentsTable, table => table.HasCheckConstraint(
+                "ck_comments_body", $"char_length(body_md) BETWEEN 1 AND {WorkItemComment.BodyMaxLength} AND char_length(btrim(body_md)) > 0"));
+            comment.HasKey(c => c.Id);
+            comment.Property(c => c.Id).ValueGeneratedNever();
+            comment.Property(c => c.BodyMd).HasMaxLength(WorkItemComment.BodyMaxLength).IsRequired();
+            comment.HasOne<WorkItem>().WithMany().HasForeignKey(c => c.WorkItemId).OnDelete(DeleteBehavior.Restrict);
+            // An item's comments, oldest first (keyset pagination, US-12 AC1).
+            comment.HasIndex(c => new { c.WorkItemId, c.CreatedAt, c.Id }).HasDatabaseName("ix_comments_item_created");
+            comment.HasIndex(c => c.OrgId).HasDatabaseName("ix_comments_org");
         });
 
         modelBuilder.Entity<ItemCounter>(counter =>

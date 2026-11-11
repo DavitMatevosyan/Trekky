@@ -141,6 +141,21 @@ export const messages = {
     statusStale: 'This item was changed by someone else. Its latest status is shown; change it again.',
     statusNotAllowed: (statuses: string) => `This item can only move to ${statuses}.`,
   },
+  comments: {
+    title: 'Comments',
+    loading: 'Loading comments…',
+    loadFailed: 'Could not load the comments. Please try again.',
+    empty: 'No comments yet.',
+    loadMore: 'Show more comments',
+    formerMember: 'A former member',
+    label: 'Add a comment',
+    hint: 'Markdown is supported.',
+    required: 'Write something to comment.',
+    post: 'Post comment',
+    posting: 'Posting…',
+    posted: 'Comment posted.',
+    postFailed: 'Could not post the comment. Please try again.',
+  },
   /** History sentences follow the actor's name: "Davit" + "changed status To Do → In Progress". */
   workItemHistory: {
     title: 'History',
@@ -160,6 +175,7 @@ export const messages = {
     typeChange: (change: string) => `type ${change}`,
     parentChange: (change: string) => `parent ${change}`,
     descriptionChange: 'description',
+    commented: (excerpt: string) => `commented ${excerpt}`,
     unknownChange: 'made a change',
   },
   notFound: {

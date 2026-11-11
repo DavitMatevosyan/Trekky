@@ -495,12 +495,16 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/CommentPage' }
+        '400': { $ref: '#/components/responses/ValidationProblem' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
     post:
       tags: [Comments]
       operationId: addComment
       summary: Add a comment (US-12, v1.0)
+      description: >-
+        Markdown, 1–20,000 characters and not only whitespace. Records `CommentAdded` on the item (TRK-18); the item
+        itself is not changed, so its `updatedAt` and ETag stay.
       requestBody:
         required: true
         content:
@@ -524,6 +528,18 @@ paths:
         in: path
         required: true
         schema: { type: string, format: uuid }
+    get:
+      tags: [Comments]
+      operationId: getComment
+      summary: One comment, the target of addComment's Location (US-12, v1.0)
+      responses:
+        '200':
+          description: The comment.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Comment' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
     patch:
       tags: [Comments]
       operationId: editComment
@@ -907,11 +923,16 @@ components:
         bodyMd: { type: string, minLength: 1, maxLength: 20000 }
     Comment:
       type: object
-      required: [id, workItemId, author, bodyMd, createdAt, edited]
+      required: [id, workItemId, authorId, author, bodyMd, createdAt, edited]
       properties:
         id: { type: string, format: uuid }
         workItemId: { type: string, format: uuid }
-        author: { $ref: '#/components/schemas/UserRef' }
+        authorId: { type: string, format: uuid }
+        author:
+          description: null when the author is no longer a member of the organization (TRK-18).
+          oneOf:
+            - $ref: '#/components/schemas/UserRef'
+            - type: 'null'
         bodyMd: { type: string }
         createdAt: { type: string, format: date-time }
         edited: { type: boolean }
