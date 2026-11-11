@@ -414,8 +414,10 @@ describe('WorkItemPage', () => {
       const rows = await commentRows()
       expect(rows).toHaveLength(2)
       expect(rows[0]).toHaveTextContent('Davit')
-      expect(within(rows[0]!).getByText('flat').tagName).toBe('STRONG')
-      expect(within(rows[0]!).getByRole('time')).toBeInTheDocument()
+      const first = rows[0]
+      if (!first) throw new Error('The first comment is missing.')
+      expect(within(first).getByText('flat').tagName).toBe('STRONG')
+      expect(within(first).getByRole('time')).toBeInTheDocument()
       expect(rows[1]).toHaveTextContent('A former member')
       expect(rows[1]).toHaveTextContent('Agreed.')
     })
