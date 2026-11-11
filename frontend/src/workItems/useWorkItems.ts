@@ -12,10 +12,12 @@ export type Board = components['schemas']['Board']
 export type BoardColumn = components['schemas']['BoardColumn']
 export type BoardCard = components['schemas']['BoardCard']
 
-/** A card going to another column of the board. */
+/** A card dropped on the board: its column, and the cards directly above and below it there (null at either end). */
 export interface BoardMove {
   card: BoardCard
   to: string
+  afterId: string | null
+  beforeId: string | null
 }
 
 /** A work item with the ETag to send back in If-Match when editing it (US-07 AC1). */
@@ -79,17 +81,18 @@ export function useBoard(projectId: string, allDone: boolean, enabled = true) {
 }
 
 /**
- * Moves a board card to another status with the card's ETag (US-11 AC3). Throws ProblemError: 412 when someone else
- * changed it, 422 when the workflow does not allow the move. Stays pending until the board has been read again.
+ * Puts a board card in a column between two cards with the card's ETag (US-11 AC3, AC4). Throws ProblemError: 409 when
+ * those cards are no longer next to each other, 412 when someone else changed it, 422 when the workflow does not allow
+ * the move. Stays pending until the board has been read again.
  */
 export function useMoveBoardCard(projectId: string) {
   const { api } = useAuth()
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ card, to }: BoardMove) => {
-      const { data, error } = await api.POST('/api/v1/work-items/{workItemId}/status', {
+    mutationFn: async ({ card, to, afterId, beforeId }: BoardMove) => {
+      const { data, error } = await api.POST('/api/v1/work-items/{workItemId}/move', {
         params: { path: { workItemId: card.id }, header: { 'If-Match': card.etag } },
-        body: { to },
+        body: { status: to, afterId, beforeId },
       })
       if (!data) throw new ProblemError(asProblem(error))
       return data

@@ -19,6 +19,7 @@ public sealed class WorkItemsModule : IModule
         services.AddSingleton<IValidator<WorkItemPatch>, WorkItemPatchValidator>();
         services.AddSingleton<IValidator<WorkItemFilter>, WorkItemFilterValidator>();
         services.AddSingleton<IValidator<ChangeStatusRequest>, ChangeStatusRequestValidator>();
+        services.AddSingleton<IValidator<MoveWorkItemRequest>, MoveWorkItemRequestValidator>();
         services.AddWorkItemsInfrastructure(configuration);
     }
 

@@ -100,6 +100,12 @@ namespace Trekky.Modules.WorkItems.Persistence.Migrations
                         .HasColumnType("character varying(10)")
                         .HasColumnName("project_key");
 
+                    b.Property<string>("Rank")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("rank")
+                        .UseCollation("C");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(16)
@@ -142,6 +148,10 @@ namespace Trekky.Modules.WorkItems.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("ux_work_items_org_key");
 
+                    b.HasIndex("OrgId", "ProjectId", "Status", "Rank")
+                        .IsUnique()
+                        .HasDatabaseName("ux_work_items_org_project_status_rank");
+
                     b.HasIndex("OrgId", "ProjectId", "UpdatedAt", "Id")
                         .IsDescending(false, false, true, true)
                         .HasDatabaseName("ix_work_items_org_project_updated");
@@ -155,6 +165,8 @@ namespace Trekky.Modules.WorkItems.Persistence.Migrations
                             t.HasCheckConstraint("ck_work_items_done_at", "(status = 'done') = (done_at IS NOT NULL)");
 
                             t.HasCheckConstraint("ck_work_items_number", "number > 0");
+
+                            t.HasCheckConstraint("ck_work_items_rank", "rank <> ''");
 
                             t.HasCheckConstraint("ck_work_items_status", "status IN ('todo', 'in_progress', 'in_review', 'done')");
 

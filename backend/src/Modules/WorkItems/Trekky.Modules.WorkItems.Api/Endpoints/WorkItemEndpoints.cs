@@ -13,12 +13,14 @@ using Trekky.SharedKernel;
 
 namespace Trekky.Modules.WorkItems.Api.Endpoints;
 
-/// <summary>Create, list, get, edit and move work items, and read the board, under /api/v1 (OpenAPI draft, TRK-5; US-06 to US-11).</summary>
+/// <summary>Create, list, get, edit and move work items, and read and rearrange the board, under /api/v1 (OpenAPI draft, TRK-5; US-06 to US-11).</summary>
 internal static class WorkItemEndpoints
 {
     internal const string MergePatchContentType = "application/merge-patch+json";
 
     internal const string StaleMessage = "This item was changed by someone else.";
+
+    internal const string BoardChangedMessage = "The cards around this place have moved. Reload the board and drop the card again.";
 
     private static readonly JsonDocumentOptions NoDuplicateFields = new() { AllowDuplicateProperties = false };
 
@@ -90,6 +92,19 @@ internal static class WorkItemEndpoints
             .WithName("ChangeWorkItemStatus")
             .WithSummary("Move an item through the workflow (US-10)")
             .WithDescription("Only allowed moves succeed; otherwise 422 lists allowedTransitions. Needs If-Match.")
+            .ProducesProblem(StatusCodes.Status412PreconditionFailed)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+            .ProducesProblem(StatusCodes.Status428PreconditionRequired);
+
+        items.MapPost("/{workItemId:guid}/move", (Guid workItemId, [FromHeader(Name = "If-Match")] string? ifMatch,
+                    MoveWorkItemRequest request, IValidator<MoveWorkItemRequest> validator, IWorkItemService service,
+                    ClaimsPrincipal principal, HttpResponse response, CancellationToken cancellationToken)
+                => MoveAsync(workItemId, ifMatch, request, validator, service, principal, response, cancellationToken))
+            .WithName("MoveWorkItemOnBoard")
+            .WithSummary("Drop a card on the board: a place in a column, and a new status when the column is another one (US-11)")
+            .WithDescription(
+                "afterId and beforeId are the cards directly above and below the drop (null at the top or bottom); 409 when they are no longer neighbours. Done is always last finished first, so it takes no position. A new status follows the workflow (422 lists allowedTransitions) and is recorded in history; a reorder alone is not. Needs If-Match.")
+            .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status412PreconditionFailed)
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
             .ProducesProblem(StatusCodes.Status428PreconditionRequired);
@@ -286,6 +301,37 @@ internal static class WorkItemEndpoints
         return Saved(result, response);
     }
 
+    private static async Task<Results<Ok<WorkItemDetail>, ValidationProblem, ProblemHttpResult, UnauthorizedHttpResult>> MoveAsync(
+        Guid workItemId,
+        string? ifMatch,
+        MoveWorkItemRequest request,
+        IValidator<MoveWorkItemRequest> validator,
+        IWorkItemService service,
+        ClaimsPrincipal principal,
+        HttpResponse response,
+        CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(principal.FindFirstValue(TrekkyClaimTypes.Subject), out var actorId))
+        {
+            return TypedResults.Unauthorized();
+        }
+
+        var validation = await validator.ValidateAsync(MoveWorkItemRequestValidator.ContextFor(request, workItemId), cancellationToken);
+        if (!validation.IsValid)
+        {
+            return TypedResults.ValidationProblem(validation.ToDictionary());
+        }
+
+        if (string.IsNullOrEmpty(ifMatch))
+        {
+            return IfMatchRequired();
+        }
+
+        var result = await service.MoveAsync(
+            workItemId, request.Status!, request.AfterId, request.BeforeId, ifMatch, actorId, cancellationToken);
+        return Saved(result, response);
+    }
+
     private static Results<Ok<WorkItemDetail>, ProblemHttpResult> Found(VersionedWorkItem? item, HttpResponse response)
     {
         // Another organization's item is invisible under RLS, so it is "not found" too.
@@ -305,6 +351,10 @@ internal static class WorkItemEndpoints
             title: "Changed by someone else",
             detail: StaleMessage,
             statusCode: StatusCodes.Status412PreconditionFailed),
+        WorkItemOutcome.BoardChanged => TypedResults.Problem(
+            title: "Board changed",
+            detail: BoardChangedMessage,
+            statusCode: StatusCodes.Status409Conflict),
         WorkItemOutcome.ParentNotAllowed or WorkItemOutcome.ChildrenNotAllowed when result.Violation is { } violation
             => TypedResults.Problem(
                 title: result.Outcome == WorkItemOutcome.ParentNotAllowed ? "Parent not allowed" : "Children do not fit the new type",

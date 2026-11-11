@@ -16,6 +16,9 @@ internal enum WorkItemOutcome
     /// <summary>The workflow does not allow moving from the current status to the requested one (US-10 AC2, AC3).</summary>
     TransitionNotAllowed,
 
+    /// <summary>The neighbours a board move names are no longer next to each other in that column (US-11 AC4).</summary>
+    BoardChanged,
+
     /// <summary><c>If-Match</c> does not match the current version (US-07 AC1).</summary>
     Stale,
 }

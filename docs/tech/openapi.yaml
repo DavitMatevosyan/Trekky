@@ -279,7 +279,7 @@ paths:
     get:
       tags: [WorkItems]
       operationId: getBoard
-      summary: Board columns, cards newest update first until they have a rank in TRK-17; Done is last finished first (US-11, v1.0)
+      summary: Board columns, each in rank order (TRK-17); Done is last finished first (US-11, v1.0)
       parameters:
         - name: allDone
           in: query
@@ -417,7 +417,11 @@ paths:
       tags: [WorkItems]
       operationId: moveWorkItemOnBoard
       summary: Drop a card on the board — optional status change plus new position (US-11, v1.0)
-      description: Position is given by neighbours in the target column; the server computes the rank. A status change follows the same rules as `/status`.
+      description: >-
+        Position is given by neighbours in the target column; the server computes the rank (TRK-17). A status change
+        follows the same rules as `/status` and records `WorkItemStatusChanged`; a reorder alone records no event and
+        keeps `updatedAt`. Done is last finished first, so it takes no position. Dropping a card where it already is
+        changes nothing, ETag included.
       parameters:
         - $ref: '#/components/parameters/IfMatch'
       requestBody:
@@ -429,8 +433,8 @@ paths:
               required: [status]
               properties:
                 status: { $ref: '#/components/schemas/WorkItemStatus' }
-                afterId: { type: [string, 'null'], format: uuid, description: Card directly above; null for the top. }
-                beforeId: { type: [string, 'null'], format: uuid, description: Card directly below; null for the bottom. }
+                afterId: { type: [string, 'null'], format: uuid, description: Card directly above; null for the top. Must be null for Done. }
+                beforeId: { type: [string, 'null'], format: uuid, description: Card directly below; null for the bottom. Must be null for Done. }
       responses:
         '200':
           description: Moved.
@@ -438,9 +442,15 @@ paths:
             ETag: { $ref: '#/components/headers/ETag' }
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/WorkItemSummary' }
+              schema: { $ref: '#/components/schemas/WorkItemDetail' }
+        '400': { $ref: '#/components/responses/ValidationProblem' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: afterId and beforeId are no longer next to each other in that column; reload the board and drop again.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
         '412': { $ref: '#/components/responses/PreconditionFailed' }
         '422':
           description: Transition not allowed.

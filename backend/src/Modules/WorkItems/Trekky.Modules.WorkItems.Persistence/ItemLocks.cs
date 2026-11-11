@@ -27,4 +27,14 @@ internal static class ItemLocks
                 .AsNoTracking()
                 .ToListAsync(cancellationToken))
             .SingleOrDefault();
+
+    /// <summary>
+    /// Serializes board placement in a project (US-11 AC4): every write of a rank, and so of a status, takes the
+    /// project's counter row first, so two cards can never be given the same place. The counter exists once the project
+    /// has an item, which any card being placed is. Lock order: the item first, then this.
+    /// </summary>
+    public static Task LockBoardAsync(this WorkItemsDbContext db, Guid projectId, CancellationToken cancellationToken)
+        => db.Database
+            .SqlQuery<int>($"SELECT 1 AS \"Value\" FROM work_items.item_counters WHERE project_id = {projectId} FOR UPDATE")
+            .ToListAsync(cancellationToken);
 }
