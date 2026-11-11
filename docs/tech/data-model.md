@@ -132,12 +132,12 @@ erDiagram
 | `parent_id` | uuid | FK → `work_items.id`, same project; parent rules enforced in the domain (user stories US-06) |
 | `done_at` | timestamptz | when the item last moved to Done, cleared when it leaves; set exactly when status is `done` (check constraint); orders the board's Done column (TRK-15.1) |
 | `assignee_id` | uuid | nullable user id (v1.0; column added by TRK-20) |
-| `rank` | text | lexicographic rank for board order within a status (v1.0; column added by TRK-17) |
+| `rank` | text collate "C" | board order within a status (TRK-17): a fractional index (`BoardRank`), compared byte by byte; a move writes only the moved card's rank. Unique per `(org_id, project_id, status)`; every rank or status write first locks the project's `item_counters` row, so two cards never get the same place. New items go on top of To Do, a status change on top of the new column. Existing items were ranked in the order the board showed them. Known limit: drops between the same two cards add about one character per six moves and nothing rebalances a column yet; ~16,000 such drops would pass Postgres's index entry size, so add rebalancing before that can happen |
 | `custom` | jsonb | not null default `'{}'`, reserved for custom fields (v1.5) |
 | `current_revision` | int | not null; the latest revision number (proposed, ADR-0014; existing items start at 1) |
 | `created_by`, `created_at`, `updated_at` | | |
 
-Indexes: `(org_id, project_id, updated_at desc, id desc)` for the list; `(org_id, project_id, status, rank)` for the board (TRK-17); `(parent_id)`.
+Indexes: `(org_id, project_id, updated_at desc, id desc)` for the list; `(org_id, project_id, status, rank)` unique, for the board (TRK-17); `(parent_id)`.
 
 The work items module checks that a project exists, and reads its key, through the projects module's public `IProjectDirectory`. The projects list shows item counts through `IProjectItemCounts`, which projects defines and work items implements, so the two modules depend on each other in one direction only and never read each other's tables.
 

@@ -76,12 +76,16 @@ export const messages = {
     refreshFailed: 'Could not refresh the board. The cards may be out of date.',
     moveNotAllowed: (key: string, statuses: string) => `${key} can only move to ${statuses}.`,
     moveStale: (key: string) => `${key} was changed by someone else. Its latest state is shown; move it again.`,
+    moveConflict: (key: string) => `The cards around ${key} were moved by someone else. The board is up to date now; move it again.`,
     draggableCard: 'movable card',
     dragInstructions:
-      'Press Enter to open this card. To move it, press Space, use the left and right arrow keys to change column, then press Space to drop it or Escape to cancel.',
+      'Press Enter to open this card. To move it, press Space, use the left and right arrow keys to change column and the up and down arrow keys to change its place, then press Space to drop it or Escape to cancel.',
     pickedUp: (key: string) => `Picked up ${key}.`,
     overColumn: (key: string, status: string) => `${key} is over ${status}.`,
+    overPlace: (key: string, status: string, position: number, total: number) => `${key} is over ${status}, place ${position} of ${total}.`,
     droppedOn: (key: string, status: string) => `Dropped ${key} on ${status}.`,
+    droppedAt: (key: string, status: string, position: number, total: number) =>
+      `Dropped ${key} on ${status}, place ${position} of ${total}.`,
     dropCancelled: (key: string) => `Move of ${key} cancelled.`,
   },
   workItemTypes: { epic: 'Epic', story: 'Story', task: 'Task', subtask: 'SubTask', bug: 'Bug', tech_debt: 'TechDebt' },

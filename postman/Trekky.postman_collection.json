@@ -509,7 +509,7 @@
                 }
               ]
             },
-            "description": "One column per status in workflow order. count is the column's full size; Done holds the latest 20 cards unless allDone=true. Each card has an etag to send as If-Match to Change work item status."
+            "description": "One column per status in workflow order. count is the column's full size; Done holds the latest 20 cards unless allDone=true. Each column is in board order (rank); Done is last finished first. Each card has an etag to send as If-Match to Move card on board or Change work item status."
           }
         },
         {
@@ -609,7 +609,42 @@
               "raw": "{\n  \"to\": \"in_progress\"\n}"
             },
             "url": "{{baseUrl}}/api/v1/work-items/{{workItemId}}/status",
-            "description": "Moves the item through the workflow (US-10): To Do → In Progress; In Progress → To Do or In Review; In Review → To Do, In Progress or Done; Done → In Progress. Any other target, including the current status, is a 422 with allowedTransitions; an unknown status is a 400. If-Match is required (428) and must be the latest ETag (412 otherwise). Records a WorkItemStatusChanged activity event. The item's allowedTransitions lists where it can move now."
+            "description": "Moves the item through the workflow (US-10): To Do → In Progress; In Progress → To Do or In Review; In Review → To Do, In Progress or Done; Done → In Progress. Any other target, including the current status, is a 422 with allowedTransitions; an unknown status is a 400. If-Match is required (428) and must be the latest ETag (412 otherwise). Records a WorkItemStatusChanged activity event and puts the card on top of its new board column. The item's allowedTransitions lists where it can move now."
+          }
+        },
+        {
+          "name": "Move card on board",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('card moved', () => pm.response.to.have.status(200));",
+                  "const etag = pm.response.headers.get('ETag');",
+                  "if (etag) pm.collectionVariables.set('workItemEtag', etag);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "If-Match",
+                "value": "{{workItemEtag}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"in_progress\",\n  \"afterId\": null,\n  \"beforeId\": null\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/work-items/{{workItemId}}/move",
+            "description": "A card dropped on the board (US-11 AC3, AC4). status is the column: the current one to reorder, or one the workflow allows (422 with allowedTransitions otherwise; recorded as WorkItemStatusChanged). afterId and beforeId are the cards directly above and below the drop in that column, null at the top or bottom; both null for an empty column. 409 when they are no longer next to each other. Done is last finished first, so afterId and beforeId must be null there (400). A neighbour that is the moved card itself, or afterId equal to beforeId, is also a 400. A reorder alone is not in history and does not change updatedAt; dropping a card where it already is changes nothing. If-Match is required (428) and must be the latest ETag (412 otherwise)."
           }
         },
         {

@@ -58,6 +58,8 @@ internal sealed class WorkItemService(
             Title = WorkItemFieldRules.NormalizeTitle(request.Title!),
             DescriptionMd = WorkItemFieldRules.NormalizeDescription(request.DescriptionMd),
             Status = WorkItemStatuses.ToDo, // US-06 AC3
+            // On top of To Do. TakeNextAsync holds the counter row, which is also the board's lock (ItemLocks).
+            Rank = await TopRankAsync(project.Id, WorkItemStatuses.ToDo, cancellationToken),
             ParentId = parent?.Id,
             CreatedBy = actorId,
             CreatedAt = now,
@@ -184,20 +186,94 @@ internal sealed class WorkItemService(
         // US-10 AC3: a disallowed move, including to the status it already has, lists where it can go instead.
         if (!StatusWorkflow.Allows(item.Status, to))
         {
-            var allowed = StatusWorkflow.AllowedTransitions(item.Status);
-            return new WorkItemResult(
-                WorkItemOutcome.TransitionNotAllowed,
-                Transition: new TransitionViolation(
-                    $"{item.Key} cannot move from {StatusLabel(item.Status)} to {StatusLabel(to)}. Allowed: {string.Join(", ", allowed.Select(StatusLabel))}.",
-                    allowed));
+            return TransitionRefused(item, to);
         }
 
-        var now = time.GetUtcNow();
-        var from = item.Status;
-        item.Status = to;
-        item.DoneAt = to == WorkItemStatuses.Done ? now : null;
-        item.UpdatedAt = now;
-        db.AddActivityEvent(Event(WorkItemEventTypes.WorkItemStatusChanged, item, actorId, now, Change(from, to)));
+        await db.LockBoardAsync(item.ProjectId, cancellationToken);
+        SetStatus(item, to, await TopRankAsync(item.ProjectId, to, cancellationToken), actorId);
+
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        return await SucceededAsync(workItemId, cancellationToken);
+    }
+
+    public async Task<WorkItemResult> MoveAsync(
+        Guid workItemId, string status, Guid? afterId, Guid? beforeId, string ifMatch, Guid actorId, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(status);
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+
+        // Locked until commit, so two moves of the same item cannot both pass the transition check.
+        var item = await db.FindForUpdateAsync(workItemId, cancellationToken);
+        if (item is null)
+        {
+            return WorkItemResult.NotFound;
+        }
+
+        if (!VersionedWorkItem.IfMatchAccepts(ifMatch, item.Version))
+        {
+            return new WorkItemResult(WorkItemOutcome.Stale, await GetAsync(workItemId, cancellationToken));
+        }
+
+        var statusChanges = status != item.Status;
+        if (statusChanges && !StatusWorkflow.Allows(item.Status, status))
+        {
+            return TransitionRefused(item, status);
+        }
+
+        // From here the column cannot change under us: every rank and status write takes this lock.
+        await db.LockBoardAsync(item.ProjectId, cancellationToken);
+
+        string rank;
+        if (status == WorkItemStatuses.Done)
+        {
+            // Done is last finished first; a card already there has nowhere else to go.
+            if (!statusChanges)
+            {
+                return await SucceededAsync(workItemId, cancellationToken);
+            }
+
+            rank = await TopRankAsync(item.ProjectId, status, cancellationToken);
+        }
+        else
+        {
+            // Columns other than Done are shown whole on the board, so reading one costs no more than the board itself.
+            var column = await db.WorkItems.AsNoTracking()
+                .Where(w => w.ProjectId == item.ProjectId && w.Status == status && w.Id != item.Id)
+                .OrderBy(w => w.Rank)
+                .Select(w => new RankedCard(w.Id, w.Rank))
+                .ToListAsync(cancellationToken);
+
+            // The neighbours the client saw must still be next to each other, or the card would land somewhere else.
+            var above = afterId is null ? -1 : column.FindIndex(card => card.Id == afterId);
+            var below = above + 1 < column.Count ? column[above + 1] : null;
+            if ((afterId is not null && above == -1) || below?.Id != beforeId)
+            {
+                return new WorkItemResult(WorkItemOutcome.BoardChanged);
+            }
+
+            var aboveRank = above == -1 ? null : column[above].Rank;
+            if (!statusChanges
+                && (aboveRank is null || string.CompareOrdinal(aboveRank, item.Rank) < 0)
+                && (below is null || string.CompareOrdinal(item.Rank, below.Rank) < 0))
+            {
+                // Dropped where it already was: no write, and the ETag stays valid.
+                return await SucceededAsync(workItemId, cancellationToken);
+            }
+
+            rank = BoardRank.Between(aboveRank, below?.Rank);
+        }
+
+        if (statusChanges)
+        {
+            SetStatus(item, status, rank, actorId);
+        }
+        else
+        {
+            // A reorder is not an activity event and not an edit: history and the list's order stay as they were.
+            item.Rank = rank;
+        }
 
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
@@ -276,7 +352,11 @@ internal sealed class WorkItemService(
         await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead, cancellationToken);
 
         var inProject = db.WorkItems.AsNoTracking().Where(w => w.ProjectId == projectId);
-        var notDone = await Summaries(NewestFirst(inProject.Where(w => w.Status != WorkItemStatuses.Done))).ToListAsync(cancellationToken);
+        var notDone = await Summaries(inProject
+                .Where(w => w.Status != WorkItemStatuses.Done)
+                .OrderBy(w => w.Rank)
+                .ThenBy(w => w.Id))
+            .ToListAsync(cancellationToken);
         IQueryable<WorkItem> allDoneItems = inProject
             .Where(w => w.Status == WorkItemStatuses.Done)
             .OrderByDescending(w => w.DoneAt)
@@ -337,8 +417,38 @@ internal sealed class WorkItemService(
         return new VersionedWorkItem(detail, item.Version);
     }
 
-    private static IQueryable<WorkItem> NewestFirst(IQueryable<WorkItem> items)
-        => items.OrderByDescending(w => w.UpdatedAt).ThenByDescending(w => w.Id);
+    /// <summary>A rank above every card in the column; the caller holds the board lock.</summary>
+    private async Task<string> TopRankAsync(Guid projectId, string status, CancellationToken cancellationToken)
+    {
+        var top = await db.WorkItems.AsNoTracking()
+            .Where(w => w.ProjectId == projectId && w.Status == status)
+            .OrderBy(w => w.Rank)
+            .Select(w => w.Rank)
+            .FirstOrDefaultAsync(cancellationToken);
+        return BoardRank.Between(null, top);
+    }
+
+    /// <summary>Moves the tracked item to <paramref name="to"/> at <paramref name="rank"/> and records the status change.</summary>
+    private void SetStatus(WorkItem item, string to, string rank, Guid actorId)
+    {
+        var now = time.GetUtcNow();
+        var from = item.Status;
+        item.Status = to;
+        item.Rank = rank;
+        item.DoneAt = to == WorkItemStatuses.Done ? now : null;
+        item.UpdatedAt = now;
+        db.AddActivityEvent(Event(WorkItemEventTypes.WorkItemStatusChanged, item, actorId, now, Change(from, to)));
+    }
+
+    private static WorkItemResult TransitionRefused(WorkItem item, string to)
+    {
+        var allowed = StatusWorkflow.AllowedTransitions(item.Status);
+        return new WorkItemResult(
+            WorkItemOutcome.TransitionNotAllowed,
+            Transition: new TransitionViolation(
+                $"{item.Key} cannot move from {StatusLabel(item.Status)} to {StatusLabel(to)}. Allowed: {string.Join(", ", allowed.Select(StatusLabel))}.",
+                allowed));
+    }
 
     /// <summary>Items with their parent's key. Parents are always in the same project, so the parent's number is enough.</summary>
     private IQueryable<SummaryRow> Summaries(IQueryable<WorkItem> items)
@@ -457,6 +567,8 @@ internal sealed class WorkItemService(
             row.ParentKey,
             row.Item.UpdatedAt,
             VersionedWorkItem.ETagFor(row.Item.Version));
+
+    private sealed record RankedCard(Guid Id, string Rank);
 
     private sealed record SummaryRow(WorkItem Item, int? ParentNumber)
     {

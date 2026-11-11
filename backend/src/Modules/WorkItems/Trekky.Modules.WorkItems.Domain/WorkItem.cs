@@ -35,6 +35,12 @@ internal sealed class WorkItem
     /// <summary>An item in the same project; <see cref="ParentRules"/> decides which types may be parents.</summary>
     public Guid? ParentId { get; set; }
 
+    /// <summary>
+    /// Position within its status column on the board (US-11 AC4), a <see cref="BoardRank"/>; unique per project and
+    /// status. Changing it alone is not an activity event (docs/tech/activity-events.md).
+    /// </summary>
+    public required string Rank { get; set; }
+
     /// <summary>Reserved for custom fields (v1.5): a JSON object, <c>{}</c> until then.</summary>
     public string Custom { get; init; } = "{}";
 

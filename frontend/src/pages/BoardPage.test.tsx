@@ -67,7 +67,7 @@ describe('BoardPage', () => {
     const link = await screen.findByRole('link', { name: 'TRK-1' })
     expect(link).toHaveAttribute('aria-roledescription', 'movable card')
     expect(link).toHaveAccessibleDescription(
-      'Press Enter to open this card. To move it, press Space, use the left and right arrow keys to change column, then press Space to drop it or Escape to cancel.',
+      'Press Enter to open this card. To move it, press Space, use the left and right arrow keys to change column and the up and down arrow keys to change its place, then press Space to drop it or Escape to cancel.',
     )
   })
 

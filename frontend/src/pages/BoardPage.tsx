@@ -1,18 +1,24 @@
 import {
+  closestCorners,
   DndContext,
   DragOverlay,
   KeyboardSensor,
   MouseSensor,
+  pointerWithin,
+  rectIntersection,
   TouchSensor,
-  useDraggable,
   useDroppable,
   useSensor,
   useSensors,
+  type Active,
   type Announcements,
+  type CollisionDetection,
   type DragEndEvent,
   type DragStartEvent,
+  type Over,
   type UniqueIdentifier,
 } from '@dnd-kit/core'
+import { SortableContext, useSortable, verticalListSortingStrategy, type SortingStrategy } from '@dnd-kit/sortable'
 import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { Link, useLocation, useParams, useSearchParams } from 'react-router'
 import { Button } from '../components/ui/Button.tsx'
@@ -20,14 +26,37 @@ import { messages } from '../i18n/messages.ts'
 import { cn } from '../lib/cn.ts'
 import { ProjectLoader } from '../projects/ProjectLoader.tsx'
 import { ProjectView } from '../projects/ProjectView.tsx'
-import { applyMove, columnKeyboardCoordinates, moveErrorMessage } from '../workItems/boardMoves.ts'
-import { useBoard, useMoveBoardCard, type BoardCard as BoardCardData, type BoardColumn as BoardColumnData } from '../workItems/useWorkItems.ts'
-import { statusLabel, typeLabel } from '../workItems/workItemTypes.ts'
+import { applyMove, boardKeyboardCoordinates, DONE, dropTarget, isBelow, moveErrorMessage } from '../workItems/boardMoves.ts'
+import {
+  useBoard,
+  useMoveBoardCard,
+  type Board as BoardData,
+  type BoardCard as BoardCardData,
+  type BoardColumn as BoardColumnData,
+} from '../workItems/useWorkItems.ts'
+import { statusLabel, typeLabel, WORK_ITEM_STATUSES } from '../workItems/workItemTypes.ts'
 
 const DONE_PARAM = 'done'
 const DONE_ALL = 'all'
 
-/** A project's board (US-11, wireframes: Board): cards move between columns by mouse, touch or keyboard. */
+const isColumn = (id: UniqueIdentifier) => WORK_ITEM_STATUSES.includes(String(id))
+
+/**
+ * A pointer drop goes to the card under the pointer, else the column; a keyboard move to the nearest card or column,
+ * like the sortable list's own arrow keys.
+ */
+const collisionDetection: CollisionDetection = (args) => {
+  if (!args.pointerCoordinates) return closestCorners(args)
+  const within = pointerWithin(args)
+  const card = within.find((hit) => !isColumn(hit.id))
+  if (card) return [card]
+  return within.length > 0 ? within : rectIntersection(args)
+}
+
+/** Done is last finished first: its cards make no room for a card dragged over them. */
+const keepInPlace: SortingStrategy = () => null
+
+/** A project's board (US-11, wireframes: Board): cards move between columns and within one by mouse, touch or keyboard. */
 export function BoardPage() {
   const { projectKey = '' } = useParams()
   return (
@@ -67,16 +96,34 @@ function Board({ projectId, projectKey, projectName }: { projectId: string; proj
     // Space picks up, because Enter on the card's link must still open it. Mid-drag, Enter and Tab drop as usual.
     useSensor(KeyboardSensor, {
       keyboardCodes: { start: ['Space'], cancel: ['Escape'], end: ['Space', 'Enter', 'Tab'] },
-      coordinateGetter: columnKeyboardCoordinates,
+      coordinateGetter: boardKeyboardCoordinates,
     }),
   )
 
   const keyOf = (id: UniqueIdentifier) => cards.get(String(id))?.key ?? ''
+  /** What a drop here would do, and the column's name, for screen readers (US-11 AC5). */
+  const placeOf = (active: Active, over: Over) => {
+    const card = cards.get(String(active.id))
+    const target = board && card ? targetOf(board, card, active, over) : null
+    const column = target?.to ?? (isColumn(over.id) ? String(over.id) : cards.get(String(over.id))?.status) ?? ''
+    return { key: keyOf(active.id), status: statusLabel(column), target }
+  }
   const announcements: Announcements = {
     onDragStart: ({ active }) => messages.board.pickedUp(keyOf(active.id)),
-    onDragOver: ({ active, over }) => (over ? messages.board.overColumn(keyOf(active.id), statusLabel(String(over.id))) : undefined),
-    onDragEnd: ({ active, over }) =>
-      over ? messages.board.droppedOn(keyOf(active.id), statusLabel(String(over.id))) : messages.board.dropCancelled(keyOf(active.id)),
+    onDragOver: ({ active, over }) => {
+      if (!over) return undefined
+      const { key, status, target } = placeOf(active, over)
+      return target && target.to !== DONE && target.total > 1
+        ? messages.board.overPlace(key, status, target.position, target.total)
+        : messages.board.overColumn(key, status)
+    },
+    onDragEnd: ({ active, over }) => {
+      if (!over) return messages.board.dropCancelled(keyOf(active.id))
+      const { key, status, target } = placeOf(active, over)
+      return target && target.to !== DONE && target.total > 1
+        ? messages.board.droppedAt(key, status, target.position, target.total)
+        : messages.board.droppedOn(key, status)
+    },
     onDragCancel: ({ active }) => messages.board.dropCancelled(keyOf(active.id)),
   }
 
@@ -88,9 +135,10 @@ function Board({ projectId, projectKey, projectName }: { projectId: string; proj
   function drop({ active, over, activatorEvent }: DragEndEvent) {
     setDraggingId(null)
     const card = cards.get(String(active.id))
-    if (!card || !over || over.id === card.status) return
+    const target = board && card && over ? targetOf(board, card, active, over) : null
+    if (!card || !target) return
     if (activatorEvent instanceof KeyboardEvent) focusAfterMove.current = card.id
-    move.mutate({ card, to: String(over.id) })
+    move.mutate({ card, to: target.to, afterId: target.afterId, beforeId: target.beforeId })
   }
 
   function showAll() {
@@ -116,6 +164,7 @@ function Board({ projectId, projectKey, projectName }: { projectId: string; proj
       {board && (
         <DndContext
           sensors={sensors}
+          collisionDetection={collisionDetection}
           accessibility={{ announcements, screenReaderInstructions: { draggable: messages.board.dragInstructions } }}
           onDragStart={startDrag}
           onDragEnd={drop}
@@ -204,11 +253,13 @@ function BoardColumn({ column, projectKey, boardUrl, moving, focusAfterMove, loa
       {column.items.length === 0 ? (
         <p className="text-sm text-muted-foreground">{messages.board.emptyColumn}</p>
       ) : (
-        <ul aria-label={label} className="grid gap-2">
-          {column.items.map((item) => (
-            <BoardCard key={item.id} card={item} projectKey={projectKey} boardUrl={boardUrl} moving={moving} focusAfterMove={focusAfterMove} />
-          ))}
-        </ul>
+        <SortableContext items={column.items.map((item) => item.id)} strategy={column.status === DONE ? keepInPlace : verticalListSortingStrategy}>
+          <ul aria-label={label} className="grid gap-2">
+            {column.items.map((item) => (
+              <BoardCard key={item.id} card={item} projectKey={projectKey} boardUrl={boardUrl} moving={moving} focusAfterMove={focusAfterMove} />
+            ))}
+          </ul>
+        </SortableContext>
       )}
 
       {canShowAll && !showAllFailed && (
@@ -229,7 +280,13 @@ interface BoardCardProps {
 }
 
 function BoardCard({ card, projectKey, boardUrl, moving, focusAfterMove }: BoardCardProps) {
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, isDragging } = useDraggable({ id: card.id, disabled: moving })
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, isDragging, transform, transition } = useSortable({
+    id: card.id,
+    // The column, for the arrow keys that change column.
+    data: { status: card.status },
+    // Done is last finished first, so its cards are no drop places of their own: a card dropped there goes to the column.
+    disabled: { draggable: moving, droppable: card.status === DONE },
+  })
   const link = useRef<HTMLAnchorElement | null>(null)
   useEffect(() => {
     // Only when the card's own remount dropped the focus: not if the user has moved on while it saved.
@@ -240,6 +297,7 @@ function BoardCard({ card, projectKey, boardUrl, moving, focusAfterMove }: Board
     <li
       ref={setNodeRef}
       {...listeners}
+      style={{ transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined, transition }}
       className={cn(
         'relative grid cursor-grab touch-manipulation gap-1 rounded-lg border border-border p-2 text-sm select-none [-webkit-touch-callout:none] hover:bg-muted',
         isDragging && 'opacity-40',
@@ -268,6 +326,11 @@ function BoardCard({ card, projectKey, boardUrl, moving, focusAfterMove }: Board
       <p className="line-clamp-3 break-words">{card.title}</p>
     </li>
   )
+}
+
+/** Where a drop over `over` puts the card: below the card it is over when its middle is past that card's middle. */
+function targetOf(board: BoardData, card: BoardCardData, active: Active, over: Over) {
+  return dropTarget(board, card, over.id, isBelow(active.rect.current.translated, over.rect))
 }
 
 function CardHeader({ keyLabel, type }: { keyLabel: ReactNode; type: string }) {

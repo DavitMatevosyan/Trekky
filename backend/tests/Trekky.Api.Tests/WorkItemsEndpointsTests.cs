@@ -738,6 +738,213 @@ public sealed class WorkItemsEndpointsTests(TrekkyApiFactory factory)
     }
 
     [Fact]
+    public async Task Dragging_within_a_column_reorders_it_for_everyone_without_history_or_an_edit()
+    {
+        using var user = await AuthFlow.SignedUpUserAsync(factory);
+        var project = await CreateProjectAsync(user, "TRK");
+        var first = await CreateItemAsync(user, project, "task", "First");
+        var second = await CreateItemAsync(user, project, "task", "Second");
+        var third = await CreateItemAsync(user, project, "task", "Third");
+        Assert.Equal(["TRK-3", "TRK-2", "TRK-1"], await ColumnKeysAsync(user, project, 0));
+
+        var response = await BoardMoveAsync(user, first.Id, first.ETag, "todo", afterId: third.Id, beforeId: second.Id);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var moved = (await response.Content.ReadFromJsonAsync<DetailBody>())!;
+        Assert.Equal("todo", moved.Status);
+        Assert.Equal(first.UpdatedAt, moved.UpdatedAt);
+        Assert.NotEqual(first.ETag, response.Headers.ETag?.ToString());
+        Assert.Equal(["TRK-3", "TRK-1", "TRK-2"], await ColumnKeysAsync(user, project, 0));
+
+        // The order is stored, not kept by the client; the list still sorts by the last real edit.
+        Assert.Equal(["TRK-3", "TRK-2", "TRK-1"], (await ListAsync(user, project, "")).Items.Select(i => i.Key));
+        Assert.Equal(1L, await OutboxCountAsync(first.Id));
+    }
+
+    [Fact]
+    public async Task A_card_can_go_to_the_top_or_the_bottom_of_its_column()
+    {
+        using var user = await AuthFlow.SignedUpUserAsync(factory);
+        var project = await CreateProjectAsync(user, "TRK");
+        var first = await CreateItemAsync(user, project, "task", "First");
+        var second = await CreateItemAsync(user, project, "task", "Second");
+        var third = await CreateItemAsync(user, project, "task", "Third");
+
+        Assert.Equal(HttpStatusCode.OK, (await BoardMoveAsync(user, first.Id, first.ETag, "todo", afterId: null, beforeId: third.Id)).StatusCode);
+        Assert.Equal(["TRK-1", "TRK-3", "TRK-2"], await ColumnKeysAsync(user, project, 0));
+
+        var latest = await GetAsync(user, $"/api/v1/work-items/{third.Id}");
+        Assert.Equal(HttpStatusCode.OK, (await BoardMoveAsync(user, third.Id, latest.ETag, "todo", afterId: second.Id, beforeId: null)).StatusCode);
+        Assert.Equal(["TRK-1", "TRK-2", "TRK-3"], await ColumnKeysAsync(user, project, 0));
+    }
+
+    [Fact]
+    public async Task Dropping_a_card_in_another_column_changes_its_status_at_that_place()
+    {
+        using var user = await AuthFlow.SignedUpUserAsync(factory);
+        var project = await CreateProjectAsync(user, "TRK");
+        var lower = await MoveAsync(user, await CreateItemAsync(user, project, "task", "Lower"), "in_progress");
+        var upper = await MoveAsync(user, await CreateItemAsync(user, project, "task", "Upper"), "in_progress");
+        var card = await CreateItemAsync(user, project, "task", "Card");
+        Assert.Equal(["TRK-2", "TRK-1"], await ColumnKeysAsync(user, project, 1));
+
+        var response = await BoardMoveAsync(user, card.Id, card.ETag, "in_progress", afterId: upper.Id, beforeId: lower.Id);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var moved = (await response.Content.ReadFromJsonAsync<DetailBody>())!;
+        Assert.Equal("in_progress", moved.Status);
+        Assert.True(moved.UpdatedAt > card.UpdatedAt);
+        Assert.Equal(["TRK-2", "TRK-3", "TRK-1"], await ColumnKeysAsync(user, project, 1));
+        using var payload = JsonDocument.Parse((await WaitForActivityAsync(card.Id, "WorkItemStatusChanged")).Payload);
+        Assert.Equal("in_progress", payload.RootElement.GetProperty("to").GetString());
+    }
+
+    [Fact]
+    public async Task A_status_change_from_the_item_page_puts_the_card_on_top_of_its_new_column()
+    {
+        using var user = await AuthFlow.SignedUpUserAsync(factory);
+        var project = await CreateProjectAsync(user, "TRK");
+        var older = await MoveAsync(user, await CreateItemAsync(user, project, "task", "Older"), "in_progress");
+        var newer = await MoveAsync(user, await CreateItemAsync(user, project, "task", "Newer"), "in_progress");
+        Assert.Equal(HttpStatusCode.OK, (await BoardMoveAsync(user, newer.Id, newer.ETag, "in_progress", older.Id, null)).StatusCode);
+        Assert.Equal(["TRK-1", "TRK-2"], await ColumnKeysAsync(user, project, 1));
+
+        var third = await MoveAsync(user, await CreateItemAsync(user, project, "task", "Third"), "in_progress");
+
+        Assert.Equal("in_progress", third.Status);
+        Assert.Equal(["TRK-3", "TRK-1", "TRK-2"], await ColumnKeysAsync(user, project, 1));
+    }
+
+    [Fact]
+    public async Task Neighbours_that_are_no_longer_next_to_each_other_are_a_conflict_and_nothing_moves()
+    {
+        using var user = await AuthFlow.SignedUpUserAsync(factory);
+        var project = await CreateProjectAsync(user, "TRK");
+        var first = await CreateItemAsync(user, project, "task", "First");
+        var second = await CreateItemAsync(user, project, "task", "Second");
+        var third = await CreateItemAsync(user, project, "task", "Third");
+        var elsewhere = await MoveAsync(user, await CreateItemAsync(user, project, "task", "Elsewhere"), "in_progress");
+
+        // Around TRK-1, the column is TRK-3, TRK-2: TRK-3 is not at the bottom; TRK-4 is in another column; the column is not empty; TRK-2 is not on top.
+        foreach (var (afterId, beforeId) in new (Guid?, Guid?)[]
+                 {
+                     (third.Id, null), (elsewhere.Id, null), (null, elsewhere.Id), (null, null), (null, second.Id),
+                 })
+        {
+            var response = await BoardMoveAsync(user, first.Id, first.ETag, "todo", afterId, beforeId);
+            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+            using var problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            Assert.Equal("Board changed", problem.RootElement.GetProperty("title").GetString());
+        }
+
+        Assert.Equal(["TRK-3", "TRK-2", "TRK-1"], await ColumnKeysAsync(user, project, 0));
+        Assert.Equal(first.ETag, (await GetAsync(user, $"/api/v1/work-items/{first.Id}")).ETag);
+    }
+
+    [Fact]
+    public async Task Dropping_a_card_where_it_already_is_changes_nothing()
+    {
+        using var user = await AuthFlow.SignedUpUserAsync(factory);
+        var project = await CreateProjectAsync(user, "TRK");
+        var first = await CreateItemAsync(user, project, "task", "First");
+        var second = await CreateItemAsync(user, project, "task", "Second");
+
+        var response = await BoardMoveAsync(user, first.Id, first.ETag, "todo", afterId: second.Id, beforeId: null);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(first.ETag, response.Headers.ETag?.ToString());
+    }
+
+    [Fact]
+    public async Task A_board_move_follows_the_workflow_and_needs_the_current_etag()
+    {
+        using var user = await AuthFlow.SignedUpUserAsync(factory);
+        var project = await CreateProjectAsync(user, "TRK");
+        var item = await CreateItemAsync(user, project, "task", "Workflow");
+
+        var refused = await BoardMoveAsync(user, item.Id, item.ETag, "done", null, null);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, refused.StatusCode);
+        using (var problem = JsonDocument.Parse(await refused.Content.ReadAsStringAsync()))
+        {
+            Assert.Equal(["in_progress"], problem.RootElement.GetProperty("allowedTransitions").EnumerateArray().Select(s => s.GetString()));
+        }
+
+        Assert.Equal((HttpStatusCode)428, (await BoardMoveAsync(user, item.Id, null, "in_progress", null, null)).StatusCode);
+        var moved = await MoveAsync(user, item, "in_progress");
+        var stale = await BoardMoveAsync(user, item.Id, item.ETag, "todo", null, null);
+        Assert.Equal(HttpStatusCode.PreconditionFailed, stale.StatusCode);
+        Assert.Equal(moved.ETag, stale.Headers.ETag?.ToString());
+        Assert.Equal(
+            HttpStatusCode.NotFound, (await BoardMoveAsync(user, Guid.CreateVersion7(), item.ETag, "todo", null, null)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Done_takes_no_position_and_a_done_card_dropped_on_done_stays()
+    {
+        using var user = await AuthFlow.SignedUpUserAsync(factory);
+        var project = await CreateProjectAsync(user, "TRK");
+        var done = await FinishItemsAsync(user, project, 2);
+
+        await AssertFieldErrorAsync(await BoardMoveAsync(user, done[0].Id, done[0].ETag, "done", done[1].Id, null), "afterId");
+        await AssertFieldErrorAsync(await BoardMoveAsync(user, done[0].Id, done[0].ETag, "done", null, done[1].Id), "beforeId");
+
+        var response = await BoardMoveAsync(user, done[0].Id, done[0].ETag, "done", null, null);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(done[0].ETag, response.Headers.ETag?.ToString());
+        Assert.Equal(["TRK-2", "TRK-1"], await ColumnKeysAsync(user, project, 3));
+    }
+
+    [Theory]
+    [InlineData("""{ }""", "status")]
+    [InlineData("""{ "status": "blocked" }""", "status")]
+    [InlineData("""{ "status": "todo", "afterId": "0190f5c4-0000-7000-8000-000000000001", "beforeId": "0190f5c4-0000-7000-8000-000000000001" }""", "beforeId")]
+    public async Task An_invalid_board_move_is_a_validation_problem(string body, string field)
+    {
+        using var user = await AuthFlow.SignedUpUserAsync(factory);
+        var project = await CreateProjectAsync(user, "TRK");
+        var item = await CreateItemAsync(user, project, "task", "Workflow");
+
+        using var request = AuthFlow.WithBearer(HttpMethod.Post, $"/api/v1/work-items/{item.Id}/move", user.Tokens.AccessToken);
+        request.Content = new StringContent(body, Encoding.UTF8, "application/json");
+        request.Headers.TryAddWithoutValidation("If-Match", item.ETag);
+
+        await AssertFieldErrorAsync(await user.Client.SendAsync(request), field);
+    }
+
+    [Fact]
+    public async Task A_card_cannot_be_its_own_neighbour()
+    {
+        using var user = await AuthFlow.SignedUpUserAsync(factory);
+        var project = await CreateProjectAsync(user, "TRK");
+        var item = await CreateItemAsync(user, project, "task", "Self");
+
+        await AssertFieldErrorAsync(await BoardMoveAsync(user, item.Id, item.ETag, "todo", item.Id, null), "afterId");
+        await AssertFieldErrorAsync(await BoardMoveAsync(user, item.Id, item.ETag, "todo", null, item.Id), "beforeId");
+    }
+
+    [Fact]
+    public async Task Concurrent_drops_on_the_same_place_never_share_a_rank()
+    {
+        using var user = await AuthFlow.SignedUpUserAsync(factory);
+        var project = await CreateProjectAsync(user, "TRK");
+        var cards = new List<DetailBody>();
+        for (var i = 1; i <= 6; i++)
+        {
+            cards.Add(await CreateItemAsync(user, project, "task", $"Card {i}"));
+        }
+
+        // Column: TRK-6 .. TRK-1. TRK-1, TRK-2 and TRK-3 all go between TRK-6 and TRK-5 at once.
+        var responses = await Task.WhenAll(cards.Take(3).Select(card =>
+            BoardMoveAsync(user, card.Id, card.ETag, "todo", afterId: cards[5].Id, beforeId: cards[4].Id)));
+
+        Assert.All(responses, r => Assert.Contains(r.StatusCode, new[] { HttpStatusCode.OK, HttpStatusCode.Conflict }));
+        var winner = Assert.Single(responses.Zip(cards.Take(3)), pair => pair.First.StatusCode == HttpStatusCode.OK).Second;
+        // A shared rank would break the unique index (500) instead; the one that won sits between TRK-6 and TRK-5.
+        var keys = await ColumnKeysAsync(user, project, 0);
+        Assert.Equal(["TRK-6", winner.Key, "TRK-5"], keys.Take(3));
+    }
+
+    [Fact]
     public async Task The_board_of_a_project_with_no_items_has_empty_columns()
     {
         using var user = await AuthFlow.SignedUpUserAsync(factory);
@@ -789,6 +996,7 @@ public sealed class WorkItemsEndpointsTests(TrekkyApiFactory factory)
         Assert.Equal(HttpStatusCode.NotFound, (await PatchAsync(userB, item.Id, item.ETag, """{ "title": "Hacked" }""")).StatusCode);
         Assert.Equal(
             HttpStatusCode.NotFound, (await ChangeStatusAsync(userB, item.Id, item.ETag, """{ "to": "in_progress" }""")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await BoardMoveAsync(userB, item.Id, item.ETag, "in_progress", null, null)).StatusCode);
 
         // Another organization's item cannot become a parent either.
         await AssertRuleViolationAsync(await CreateAsync(userB, projectB, new { type = "story", title = "Story", parentId = item.Id }), ["epic"]);
@@ -910,6 +1118,31 @@ public sealed class WorkItemsEndpointsTests(TrekkyApiFactory factory)
         var response = await ChangeStatusAsync(user, item.Id, item.ETag, $$"""{ "to": "{{to}}" }""");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         return (await response.Content.ReadFromJsonAsync<DetailBody>())! with { ETag = response.Headers.ETag!.ToString() };
+    }
+
+    private static Task<HttpResponseMessage> BoardMoveAsync(
+        SignedUpUser user, Guid id, string? ifMatch, string status, Guid? afterId, Guid? beforeId)
+    {
+        var request = AuthFlow.WithBearer(HttpMethod.Post, $"/api/v1/work-items/{id}/move", user.Tokens.AccessToken);
+        request.Content = JsonContent.Create(new { status, afterId, beforeId });
+        if (ifMatch is not null)
+        {
+            request.Headers.TryAddWithoutValidation("If-Match", ifMatch);
+        }
+
+        return user.Client.SendAsync(request);
+    }
+
+    private static async Task<List<string>> ColumnKeysAsync(SignedUpUser user, Guid projectId, int column)
+        => (await GetBoardAsync(user, projectId, "")).Columns[column].Items.Select(i => i.Key).ToList();
+
+    private async Task<long> OutboxCountAsync(Guid entityId)
+    {
+        await using var connection = new NpgsqlConnection(factory.SuperuserConnectionString);
+        await connection.OpenAsync();
+        await using var count = new NpgsqlCommand("SELECT count(*) FROM work_items.outbox WHERE envelope->'entity'->>'id' = @id", connection);
+        count.Parameters.AddWithValue("id", entityId.ToString());
+        return (long)(await count.ExecuteScalarAsync())!;
     }
 
     private static async Task AssertFieldErrorAsync(HttpResponseMessage response, string field)
