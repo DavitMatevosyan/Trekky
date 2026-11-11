@@ -24,6 +24,13 @@ describe('historySentence', () => {
     expect(sentence('WorkItemUpdated', payload)).toBe('changed title “Comments” → “Comments on items”, type Task → Bug, parent — → TRK-2, description')
   })
 
+  it('quotes the start of a comment', () => {
+    expect(historySentence({ eventType: 'CommentAdded', schemaVersion: 1, payload: { commentId: 'c1', excerpt: 'Ship it.' } })).toBe(
+      'commented “Ship it.”',
+    )
+    expect(historySentence({ eventType: 'CommentAdded', schemaVersion: 1, payload: { commentId: 'c1' } })).toBe('made a change')
+  })
+
   it('shows a removed parent', () => {
     const payload = { changes: { parent: { from: { id: '0190a000-0000-7000-8000-000000000002', key: 'TRK-2' }, to: null } } }
 

@@ -176,6 +176,53 @@ namespace Trekky.Modules.WorkItems.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Trekky.Modules.WorkItems.Domain.WorkItemComment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AuthorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("author_id");
+
+                    b.Property<string>("BodyMd")
+                        .IsRequired()
+                        .HasMaxLength(20000)
+                        .HasColumnType("character varying(20000)")
+                        .HasColumnName("body_md");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("OrgId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("org_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("WorkItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("work_item_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_comments");
+
+                    b.HasIndex("OrgId")
+                        .HasDatabaseName("ix_comments_org");
+
+                    b.HasIndex("WorkItemId", "CreatedAt", "Id")
+                        .HasDatabaseName("ix_comments_item_created");
+
+                    b.ToTable("comments", "work_items", t =>
+                        {
+                            t.HasCheckConstraint("ck_comments_body", "char_length(body_md) BETWEEN 1 AND 20000 AND char_length(btrim(body_md)) > 0");
+                        });
+                });
+
             modelBuilder.Entity("Trekky.Persistence.Outbox.OutboxMessage", b =>
                 {
                     b.Property<Guid>("Id")
@@ -225,6 +272,16 @@ namespace Trekky.Modules.WorkItems.Persistence.Migrations
                         .HasForeignKey("ParentId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_work_items_work_items_parent_id");
+                });
+
+            modelBuilder.Entity("Trekky.Modules.WorkItems.Domain.WorkItemComment", b =>
+                {
+                    b.HasOne("Trekky.Modules.WorkItems.Domain.WorkItem", null)
+                        .WithMany()
+                        .HasForeignKey("WorkItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_comments_work_items_work_item_id");
                 });
 #pragma warning restore 612, 618
         }

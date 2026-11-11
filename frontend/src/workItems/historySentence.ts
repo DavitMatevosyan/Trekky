@@ -67,6 +67,10 @@ export function historySentence(event: Pick<HistoryEvent, 'eventType' | 'schemaV
       const fields = isRecord(payload.changes) ? updatedFields(payload.changes) : []
       return fields.length === 0 ? text.unknownChange : text.updated(fields.join(text.fieldSeparator))
     }
+    case 'CommentAdded': {
+      const excerpt = asText(payload.excerpt)
+      return excerpt === null ? text.unknownChange : text.commented(text.quoted(excerpt))
+    }
     default:
       return text.unknownChange
   }
