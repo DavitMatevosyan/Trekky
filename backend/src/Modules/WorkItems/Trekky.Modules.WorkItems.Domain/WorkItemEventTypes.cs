@@ -14,4 +14,10 @@ internal static class WorkItemEventTypes
 
     /// <summary>Entity: the work item. Payload: <c>{ "commentId", "excerpt" }</c>, the excerpt being the body's first 200 characters.</summary>
     public const string CommentAdded = "CommentAdded";
+
+    /// <summary>Entity: the work item. Payload: <c>{ "commentId", "excerpt" }</c>, the excerpt being the new body's first 200 characters.</summary>
+    public const string CommentEdited = "CommentEdited";
+
+    /// <summary>Entity: the work item. Payload: <c>{ "commentId" }</c>.</summary>
+    public const string CommentDeleted = "CommentDeleted";
 }

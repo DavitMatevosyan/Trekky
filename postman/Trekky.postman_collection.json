@@ -56,6 +56,10 @@
     {
       "key": "commentId",
       "value": ""
+    },
+    {
+      "key": "commentEtag",
+      "value": ""
     }
   ],
   "auth": {
@@ -687,7 +691,8 @@
                 "exec": [
                   "pm.test('comment added', () => pm.response.to.have.status(201));",
                   "const body = pm.response.json();",
-                  "if (body.id) pm.collectionVariables.set('commentId', body.id);"
+                  "if (body.id) pm.collectionVariables.set('commentId', body.id);",
+                  "if (body.etag) pm.collectionVariables.set('commentEtag', body.etag);"
                 ]
               }
             }
@@ -759,7 +764,76 @@
           "request": {
             "method": "GET",
             "url": "{{baseUrl}}/api/v1/comments/{{commentId}}",
-            "description": "One comment; 404 when it does not exist or belongs to another organization."
+            "description": "One comment with its ETag (saved for Edit comment); 404 when it does not exist, was deleted or belongs to another organization."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('comment found', () => pm.response.to.have.status(200));",
+                  "const etag = pm.response.headers.get('ETag');",
+                  "if (etag) pm.collectionVariables.set('commentEtag', etag);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Edit comment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('comment edited', () => pm.response.to.have.status(200));",
+                  "pm.test('shown as edited', () => pm.expect(pm.response.json().edited).to.be.true);",
+                  "const etag = pm.response.headers.get('ETag');",
+                  "if (etag) pm.collectionVariables.set('commentEtag', etag);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/merge-patch+json"
+              },
+              {
+                "key": "If-Match",
+                "value": "{{commentEtag}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bodyMd\": \"Let's keep comments **flat**: no threads in v1.0.\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/comments/{{commentId}}",
+            "description": "Only the author may edit (403). Same body rules as a new comment (400). If-Match is required (428) and must be the comment's latest etag (412, with the latest ETag). Records CommentEdited on the item; an unchanged body changes nothing."
+          }
+        },
+        {
+          "name": "Delete comment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('comment deleted', () => pm.response.to.have.status(200));",
+                  "pm.test('says when', () => pm.expect(pm.response.json().deletedAt).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/v1/comments/{{commentId}}",
+            "description": "Only the author may delete (403). Soft delete: the comment is no longer listed or readable (404 afterwards). Records CommentDeleted on the item; answers { id, deletedAt }, deletedAt being the event's time."
           }
         }
       ]

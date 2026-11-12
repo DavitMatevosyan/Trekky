@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { fakeApi, jsonResponse, problemResponse, renderApp, requestsTo, validTokens } from '../test/renderApp.tsx'
+import { fakeApi, jsonResponse, me, problemResponse, renderApp, requestsTo, validTokens } from '../test/renderApp.tsx'
 
 const summary = (key: string, type: string, title: string, status = 'todo', parentKey: string | null = null) => ({
   id: `0190a000-0000-7000-8000-00000000${key.replace('TRK-', '').padStart(4, '0')}`,
@@ -401,8 +401,17 @@ describe('WorkItemPage', () => {
       author,
       bodyMd,
       createdAt: `2026-10-2${n}T10:00:00Z`,
+      updatedAt: `2026-10-2${n}T10:00:00Z`,
       edited: false,
+      etag: `"c${n}"`,
     })
+    // Written by the signed-in user (renderApp's me), so it has Edit and Delete.
+    const mine = (n: number, bodyMd: string, edited = false) => ({
+      ...comment(n, bodyMd, { id: me.user.id, displayName: me.user.displayName, email: me.user.email }),
+      authorId: me.user.id,
+      edited,
+    })
+    const commentPath = (n: number) => `/api/v1/comments/0190a000-0000-7000-8000-00000000c${String(n).padStart(3, '0')}`
     const commentRows = async () => within(await screen.findByRole('list', { name: 'Comments' })).getAllByRole('listitem')
 
     it('shows the comments oldest first with author, time and Markdown', async () => {
@@ -496,6 +505,136 @@ describe('WorkItemPage', () => {
 
       expect(await screen.findByRole('alert')).toHaveTextContent('Could not post the comment. Please try again.')
       expect(box).toHaveValue('Hello')
+    })
+
+    it('offers Edit and Delete only on your own comments, and marks edited ones', async () => {
+      renderItem({ [commentsPath]: () => jsonResponse({ items: [comment(1, 'Theirs'), mine(2, 'Mine', true)], nextCursor: null }) })
+
+      const [theirs, own] = await commentRows()
+      if (!theirs || !own) throw new Error('Two comments expected.')
+      expect(within(theirs).queryByRole('button')).not.toBeInTheDocument()
+      expect(theirs).not.toHaveTextContent('edited')
+      expect(within(own).getByRole('button', { name: 'Edit' })).toHaveAccessibleDescription(/ada@example.com/)
+      expect(within(own).getByRole('button', { name: 'Delete' })).toBeInTheDocument()
+      expect(own).toHaveTextContent('edited')
+    })
+
+    it('edits your own comment with If-Match, shows it edited and announces it', async () => {
+      let current = mine(1, 'Frist')
+      const { fetchFn } = renderItem({
+        [commentsPath]: () => jsonResponse({ items: [current], nextCursor: null }),
+        [`PATCH ${commentPath(1)}`]: () => {
+          current = { ...mine(1, 'First', true), etag: '"c1b"' }
+          return jsonResponse(current)
+        },
+      })
+      const [row] = await commentRows()
+      if (!row) throw new Error('A comment expected.')
+
+      await userEvent.click(within(row).getByRole('button', { name: 'Edit' }))
+      const box = within(row).getByLabelText('Edit comment')
+      expect(box).toHaveFocus()
+      expect(box).toHaveValue('Frist')
+      await userEvent.clear(box)
+      await userEvent.type(box, 'First')
+      await userEvent.click(within(row).getByRole('button', { name: 'Save' }))
+
+      await waitFor(async () => expect((await commentRows())[0]).toHaveTextContent(/edited.*First/))
+      await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Comment saved.'))
+      const [saved] = await commentRows()
+      if (!saved) throw new Error('A comment expected.')
+      expect(within(saved).getByRole('button', { name: 'Edit' })).toHaveFocus()
+      const [patch] = requestsTo(fetchFn, `PATCH ${commentPath(1)}`)
+      expect(patch?.headers.get('If-Match')).toBe('"c1"')
+      expect(patch?.headers.get('Content-Type')).toBe('application/merge-patch+json')
+      expect(await patch?.json()).toEqual({ bodyMd: 'First' })
+    })
+
+    it('cancels an edit without a request and returns focus to Edit', async () => {
+      const { fetchFn } = renderItem({ [commentsPath]: () => jsonResponse({ items: [mine(1, 'Stay')], nextCursor: null }) })
+      const [row] = await commentRows()
+      if (!row) throw new Error('A comment expected.')
+
+      await userEvent.click(within(row).getByRole('button', { name: 'Edit' }))
+      await userEvent.type(within(row).getByLabelText('Edit comment'), ' changed')
+      await userEvent.click(within(row).getByRole('button', { name: 'Cancel' }))
+
+      expect(row).toHaveTextContent('Stay')
+      expect(within(row).getByRole('button', { name: 'Edit' })).toHaveFocus()
+      expect(requestsTo(fetchFn, `PATCH ${commentPath(1)}`)).toHaveLength(0)
+    })
+
+    it('keeps the draft when the comment was changed elsewhere, so Save again overwrites it', async () => {
+      renderItem({
+        [commentsPath]: () => jsonResponse({ items: [mine(1, 'Old')], nextCursor: null }),
+        [`PATCH ${commentPath(1)}`]: () => problemResponse(412, { title: 'Changed elsewhere' }),
+      })
+      const [row] = await commentRows()
+      if (!row) throw new Error('A comment expected.')
+
+      await userEvent.click(within(row).getByRole('button', { name: 'Edit' }))
+      await userEvent.type(within(row).getByLabelText('Edit comment'), ' and new')
+      await userEvent.click(within(row).getByRole('button', { name: 'Save' }))
+
+      expect(await within(row).findByRole('alert')).toHaveTextContent(
+        'This comment was changed elsewhere. Save again to replace it with your text, or cancel to see the latest version.',
+      )
+      expect(within(row).getByLabelText('Edit comment')).toHaveValue('Old and new')
+    })
+
+    it('asks before deleting your own comment, and Keep it changes nothing', async () => {
+      const { fetchFn } = renderItem({ [commentsPath]: () => jsonResponse({ items: [mine(1, 'Keep me')], nextCursor: null }) })
+      const [row] = await commentRows()
+      if (!row) throw new Error('A comment expected.')
+
+      await userEvent.click(within(row).getByRole('button', { name: 'Delete' }))
+      const confirm = within(row).getByRole('group', { name: 'Delete this comment?' })
+      expect(within(confirm).getByRole('button', { name: 'Keep it' })).toHaveFocus()
+      await userEvent.click(within(confirm).getByRole('button', { name: 'Keep it' }))
+
+      expect(within(row).getByRole('button', { name: 'Delete' })).toHaveFocus()
+      expect(requestsTo(fetchFn, `DELETE ${commentPath(1)}`)).toHaveLength(0)
+    })
+
+    it('deletes your own comment, announces it and keeps focus in the comments', async () => {
+      let deleted = false
+      const { fetchFn } = renderItem({
+        [commentsPath]: () => jsonResponse({ items: deleted ? [] : [mine(1, 'Oops')], nextCursor: null }),
+        [`DELETE ${commentPath(1)}`]: () => {
+          deleted = true
+          return jsonResponse({ id: mine(1, '').id, deletedAt: '2026-10-21T11:00:00Z' })
+        },
+      })
+      const [row] = await commentRows()
+      if (!row) throw new Error('A comment expected.')
+
+      await userEvent.click(within(row).getByRole('button', { name: 'Delete' }))
+      await userEvent.click(within(row).getByRole('button', { name: 'Delete comment' }))
+
+      expect(await screen.findByText('No comments yet.')).toBeInTheDocument()
+      await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Comment deleted.'))
+      expect(screen.getByRole('heading', { name: 'Comments' })).toHaveFocus()
+      expect(requestsTo(fetchFn, `DELETE ${commentPath(1)}`)).toHaveLength(1)
+    })
+
+    it('treats a comment deleted meanwhile as deleted', async () => {
+      let deleted = false
+      renderItem({
+        [commentsPath]: () => jsonResponse({ items: deleted ? [] : [mine(1, 'Gone elsewhere')], nextCursor: null }),
+        [`DELETE ${commentPath(1)}`]: () => {
+          deleted = true
+          return problemResponse(404, { title: 'Comment not found' })
+        },
+      })
+      const [row] = await commentRows()
+      if (!row) throw new Error('A comment expected.')
+
+      await userEvent.click(within(row).getByRole('button', { name: 'Delete' }))
+      await userEvent.click(within(row).getByRole('button', { name: 'Delete comment' }))
+
+      expect(await screen.findByText('No comments yet.')).toBeInTheDocument()
+      await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Comment deleted.'))
+      expect(screen.getByRole('heading', { name: 'Comments' })).toHaveFocus()
     })
 
     it('keeps the rest of the page when the comments cannot load', async () => {

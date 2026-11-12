@@ -85,8 +85,10 @@ Indexes: `(org_id, entity_id, event_id desc)` for item history, `(org_id, projec
 | `WorkItemStatusChanged` | Work items (TRK-12) | Status changes | `{ "from": "in_progress", "to": "in_review" }` |
 | `WorkItemAssigned` | Work items (TRK-20) | Assignee changes, including to nobody | `{ "from": "…" \| null, "to": "…" \| null }` |
 | `CommentAdded` | Work items (TRK-18) | A comment is posted (entity = the work item) | `{ "commentId": "…", "excerpt": "first 200 characters" }` |
+| `CommentEdited` | Work items (TRK-19) | The author changes a comment's body (entity = the work item); an edit that changes nothing records no event | `{ "commentId": "…", "excerpt": "first 200 characters of the new body" }` |
+| `CommentDeleted` | Work items (TRK-19) | The author deletes a comment (soft delete; entity = the work item) | `{ "commentId": "…" }` |
 
-Organization and user events (`OrganizationCreated`, `MemberJoined`) are added with invites in v1.1. `CommentEdited` and `CommentDeleted` arrive with TRK-19.
+Organization and user events (`OrganizationCreated`, `MemberJoined`) are added with invites in v1.1.
 
 ## History view (US-09)
 

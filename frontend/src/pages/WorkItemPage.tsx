@@ -53,7 +53,7 @@ function WorkItemView({ projectKey, current }: { projectKey: string; current: Ve
   const update = useUpdateWorkItem(current)
   const [editing, setEditing] = useState(false)
   const [announcement, setAnnouncement] = useState('')
-  // A comment is not an edit of the item, but its event joins the history: the history waits for it like for an edit.
+  // A comment change is not an edit of the item, but its event joins the history: the history waits for it like for an edit.
   const [lastCommentAt, setLastCommentAt] = useState<string | null>(null)
   const editButton = useRef<HTMLButtonElement>(null)
   const statusLabelId = useId()
@@ -208,11 +208,12 @@ function WorkItemView({ projectKey, current }: { projectKey: string; current: Ve
       <WorkItemComments
         key={`comments-${item.id}`}
         workItemId={item.id}
-        onPosted={(createdAt) => {
-          setLastCommentAt(createdAt)
-          // Cleared first, so a second comment in a row is announced again.
+        onChanged={(message, at) => {
+          // Only forward: an older time would stop the history waiting for a newer change it has not shown yet.
+          setLastCommentAt((previous) => later(at, previous))
+          // Cleared first, so the same message twice in a row is announced again.
           setAnnouncement('')
-          window.setTimeout(() => setAnnouncement(messages.comments.posted), 50)
+          window.setTimeout(() => setAnnouncement(message), 50)
         }}
       />
       <WorkItemHistory key={item.id} workItemId={item.id} updatedAt={later(item.updatedAt, lastCommentAt)} />

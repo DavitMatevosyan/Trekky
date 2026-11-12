@@ -165,7 +165,7 @@ The row lock serializes concurrent creates in a project; a rolled-back create re
 
 Events answer what changed. Revisions answer what the item was. A revision number is not the ETag (`xmin`).
 
-`comments` (TRK-18): `id`, `org_id` (RLS), `work_item_id` FK, `author_id` (identity user, no FK across modules), `body_md` (1–20,000 characters, not only whitespace, no NUL: the validator checks Unicode whitespace; the check constraint checks the length and that `btrim` leaves something), `created_at`, `updated_at` (equal to `created_at` until edited; `edited` in the API is `updated_at > created_at`). Index `(work_item_id, created_at, id)` for the oldest-first keyset list. Soft delete via `deleted_at` comes with edit and delete in TRK-19.
+`comments` (TRK-18): `id`, `org_id` (RLS), `work_item_id` FK, `author_id` (identity user, no FK across modules), `body_md` (1–20,000 characters, not only whitespace, no NUL: the validator checks Unicode whitespace; the check constraint checks the length and that `btrim` leaves something), `created_at`, `updated_at` (equal to `created_at` until edited; `edited` in the API is `updated_at > created_at`). Index `(work_item_id, created_at, id)` for the oldest-first keyset list. Only the author edits or deletes (TRK-19): an edit sets `updated_at` and is checked against `xmin` (the comment's ETag); a delete sets `deleted_at` (soft delete), and a query filter hides deleted comments from every read, while the row stays for the history.
 
 ## Database roles
 

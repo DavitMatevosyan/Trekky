@@ -31,6 +31,13 @@ describe('historySentence', () => {
     expect(historySentence({ eventType: 'CommentAdded', schemaVersion: 1, payload: { commentId: 'c1' } })).toBe('made a change')
   })
 
+  it('says when a comment was edited or deleted', () => {
+    expect(historySentence({ eventType: 'CommentEdited', schemaVersion: 1, payload: { commentId: 'c1', excerpt: 'First' } })).toBe(
+      'edited a comment: “First”',
+    )
+    expect(historySentence({ eventType: 'CommentDeleted', schemaVersion: 1, payload: { commentId: 'c1' } })).toBe('deleted a comment')
+  })
+
   it('shows a removed parent', () => {
     const payload = { changes: { parent: { from: { id: '0190a000-0000-7000-8000-000000000002', key: 'TRK-2' }, to: null } } }
 

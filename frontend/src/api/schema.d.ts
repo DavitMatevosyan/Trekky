@@ -90,10 +90,18 @@ export interface paths {
         get: operations["GetComment"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete your own comment (US-12)
+         * @description Only the author may delete (403). The comment is no longer shown; CommentDeleted is recorded on the item. Answers with the time it was deleted.
+         */
+        delete: operations["DeleteComment"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Edit your own comment (US-12)
+         * @description JSON merge patch with the new bodyMd. Only the author may edit (403). Needs If-Match with the comment's etag (428, 412). Records CommentEdited on the item; an unchanged body changes nothing.
+         */
+        patch: operations["EditComment"];
         trace?: never;
     };
     "/api/v1/work-items/{workItemId}/history": {
@@ -360,7 +368,10 @@ export interface components {
             bodyMd: string;
             /** Format: date-time */
             createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
             edited: boolean;
+            etag: string;
         };
         CommentPage: {
             items: components["schemas"]["Comment"][];
@@ -376,6 +387,15 @@ export interface components {
             descriptionMd?: null | string;
             /** Format: uuid */
             parentId?: null | string;
+        };
+        DeletedComment: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            deletedAt: string;
+        };
+        EditCommentRequest: {
+            bodyMd: null | string;
         };
         HealthResponse: {
             status: string;
@@ -750,6 +770,137 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    DeleteComment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                commentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeletedComment"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    EditComment: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string;
+            };
+            path: {
+                commentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/merge-patch+json": components["schemas"]["EditCommentRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Comment"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Precondition Failed */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Precondition Required */
+            428: {
                 headers: {
                     [name: string]: unknown;
                 };

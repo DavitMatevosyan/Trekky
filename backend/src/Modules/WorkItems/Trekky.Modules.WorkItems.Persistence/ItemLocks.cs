@@ -28,6 +28,14 @@ internal static class ItemLocks
                 .ToListAsync(cancellationToken))
             .SingleOrDefault();
 
+    /// <summary>A comment that is not deleted, tracked and locked for an edit or delete; <c>null</c> when there is none.</summary>
+    public static async Task<WorkItemComment?> FindCommentForUpdateAsync(
+        this WorkItemsDbContext db, Guid id, CancellationToken cancellationToken)
+        => (await db.Comments
+                .FromSql($"SELECT *, xmin FROM work_items.comments WHERE id = {id} AND deleted_at IS NULL FOR UPDATE")
+                .ToListAsync(cancellationToken))
+            .SingleOrDefault();
+
     /// <summary>
     /// Serializes board placement in a project (US-11 AC4): every write of a rank, and so of a status, takes the
     /// project's counter row first, so two cards can never be given the same place. The counter exists once the project
