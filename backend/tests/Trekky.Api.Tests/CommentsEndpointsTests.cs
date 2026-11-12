@@ -2,10 +2,11 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using Npgsql;
 
 namespace Trekky.Api.Tests;
 
-/// <summary>US-12 AC1, AC3: Markdown comments on an item, oldest first with author and time, each with a CommentAdded event.</summary>
+/// <summary>US-12: Markdown comments on an item, oldest first with author and time; the author edits or deletes their own; each change is an event.</summary>
 [Collection(ApiCollection.Name)]
 public sealed class CommentsEndpointsTests(TrekkyApiFactory factory)
 {
@@ -169,6 +170,137 @@ public sealed class CommentsEndpointsTests(TrekkyApiFactory factory)
     }
 
     [Fact]
+    public async Task The_author_edits_a_comment_which_then_shows_as_edited_with_a_new_etag()
+    {
+        using var user = await AuthFlow.SignedUpUserAsync(factory);
+        var item = await CreateItemAsync(user, await CreateProjectAsync(user, "TRK"), "Edited");
+        var added = await AddCommentAsync(user, item.Id, "Frist draft");
+
+        var response = await EditAsync(user, added.Id, added.Etag, """{ "bodyMd": "First draft" }""");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var edited = (await response.Content.ReadFromJsonAsync<CommentBody>())!;
+        Assert.Equal("First draft", edited.BodyMd);
+        Assert.True(edited.Edited);
+        Assert.Equal(added.CreatedAt, edited.CreatedAt);
+        Assert.True(edited.UpdatedAt > added.UpdatedAt);
+        Assert.NotEqual(added.Etag, edited.Etag);
+        Assert.Equal(edited.Etag, response.Headers.ETag?.ToString());
+        Assert.Equal([edited], (await GetAsync<PageBody>(user, $"/api/v1/work-items/{item.Id}/comments")).Items);
+
+        var event_ = await WaitForEventAsync(user, item.Id, "CommentEdited");
+        Assert.Equal(added.Id, event_.GetProperty("payload").GetProperty("commentId").GetGuid());
+        Assert.Equal("First draft", event_.GetProperty("payload").GetProperty("excerpt").GetString());
+    }
+
+    [Fact]
+    public async Task An_edit_that_changes_nothing_keeps_the_etag_and_is_not_edited()
+    {
+        using var user = await AuthFlow.SignedUpUserAsync(factory);
+        var item = await CreateItemAsync(user, await CreateProjectAsync(user, "TRK"), "Same");
+        var added = await AddCommentAsync(user, item.Id, "Same words");
+
+        var response = await EditAsync(user, added.Id, added.Etag, """{ "bodyMd": "Same words" }""");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(added, (await response.Content.ReadFromJsonAsync<CommentBody>())!);
+    }
+
+    [Fact]
+    public async Task An_edit_needs_the_current_etag()
+    {
+        using var user = await AuthFlow.SignedUpUserAsync(factory);
+        var item = await CreateItemAsync(user, await CreateProjectAsync(user, "TRK"), "Versions");
+        var added = await AddCommentAsync(user, item.Id, "One");
+        var first = (await (await EditAsync(user, added.Id, added.Etag, """{ "bodyMd": "Two" }""")).Content.ReadFromJsonAsync<CommentBody>())!;
+
+        Assert.Equal((HttpStatusCode)428, (await EditAsync(user, added.Id, null, """{ "bodyMd": "Three" }""")).StatusCode);
+        var stale = await EditAsync(user, added.Id, added.Etag, """{ "bodyMd": "Three" }""");
+
+        Assert.Equal(HttpStatusCode.PreconditionFailed, stale.StatusCode);
+        Assert.Equal(first.Etag, stale.Headers.ETag?.ToString());
+        Assert.Equal("Two", (await GetAsync<CommentBody>(user, $"/api/v1/comments/{added.Id}")).BodyMd);
+    }
+
+    [Theory]
+    [InlineData("""{ }""")]
+    [InlineData("""{ "bodyMd": "   " }""")]
+    [InlineData("""{ "bodyMd": "hi\u0000there" }""")]
+    public async Task An_edit_follows_the_same_rules_as_a_new_comment(string json)
+    {
+        using var user = await AuthFlow.SignedUpUserAsync(factory);
+        var item = await CreateItemAsync(user, await CreateProjectAsync(user, "TRK"), "Rules");
+        var added = await AddCommentAsync(user, item.Id, "Keep me");
+
+        await AssertBodyErrorAsync(await EditAsync(user, added.Id, added.Etag, json));
+        Assert.Equal("Keep me", (await GetAsync<CommentBody>(user, $"/api/v1/comments/{added.Id}")).BodyMd);
+    }
+
+    [Fact]
+    public async Task The_author_deletes_a_comment_which_is_then_gone()
+    {
+        using var user = await AuthFlow.SignedUpUserAsync(factory);
+        var item = await CreateItemAsync(user, await CreateProjectAsync(user, "TRK"), "Deleted");
+        var kept = await AddCommentAsync(user, item.Id, "Keep");
+        var gone = await AddCommentAsync(user, item.Id, "Oops");
+
+        var response = await DeleteAsync(user, gone.Id);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var deleted = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(gone.Id, deleted.GetProperty("id").GetGuid());
+        var deletedAt = deleted.GetProperty("deletedAt").GetDateTimeOffset();
+
+        Assert.Equal([kept.Id], (await GetAsync<PageBody>(user, $"/api/v1/work-items/{item.Id}/comments")).Items.Select(c => c.Id));
+        using var single = AuthFlow.WithBearer(HttpMethod.Get, $"/api/v1/comments/{gone.Id}", user.Tokens.AccessToken);
+        Assert.Equal(HttpStatusCode.NotFound, (await user.Client.SendAsync(single)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await EditAsync(user, gone.Id, gone.Etag, """{ "bodyMd": "Back" }""")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await DeleteAsync(user, gone.Id)).StatusCode);
+
+        var event_ = await WaitForEventAsync(user, item.Id, "CommentDeleted");
+        Assert.Equal(gone.Id, event_.GetProperty("payload").GetProperty("commentId").GetGuid());
+        // The answer's time is the event's, so a client can wait for exactly that event.
+        Assert.Equal(deletedAt, event_.GetProperty("occurredAt").GetDateTimeOffset());
+    }
+
+    [Fact]
+    public async Task Only_the_author_may_edit_or_delete_a_comment()
+    {
+        using var user = await AuthFlow.SignedUpUserAsync(factory);
+        var item = await CreateItemAsync(user, await CreateProjectAsync(user, "TRK"), "Theirs");
+        var added = await AddCommentAsync(user, item.Id, "Written by someone else");
+        // Invites come in v1.1; until then another member's comment is made by changing its author.
+        await using (var connection = new NpgsqlConnection(factory.SuperuserConnectionString))
+        {
+            await connection.OpenAsync();
+            await using var command = new NpgsqlCommand("UPDATE work_items.comments SET author_id = @author WHERE id = @id", connection);
+            command.Parameters.AddWithValue("author", Guid.CreateVersion7());
+            command.Parameters.AddWithValue("id", added.Id);
+            Assert.Equal(1, await command.ExecuteNonQueryAsync());
+        }
+
+        var theirs = await GetAsync<CommentBody>(user, $"/api/v1/comments/{added.Id}");
+        var edit = await EditAsync(user, added.Id, theirs.Etag, """{ "bodyMd": "Hijacked" }""");
+        var delete = await DeleteAsync(user, added.Id);
+
+        Assert.Equal(HttpStatusCode.Forbidden, edit.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, delete.StatusCode);
+        Assert.Equal("Written by someone else", (await GetAsync<CommentBody>(user, $"/api/v1/comments/{added.Id}")).BodyMd);
+    }
+
+    [Fact]
+    public async Task Another_organizations_comment_cannot_be_edited_or_deleted()
+    {
+        using var userA = await AuthFlow.SignedUpUserAsync(factory, "Org A");
+        using var userB = await AuthFlow.SignedUpUserAsync(factory, "Org B");
+        var item = await CreateItemAsync(userA, await CreateProjectAsync(userA, "SEC"), "Secret");
+        var added = await AddCommentAsync(userA, item.Id, "Secret plan");
+
+        Assert.Equal(HttpStatusCode.NotFound, (await EditAsync(userB, added.Id, added.Etag, """{ "bodyMd": "Hacked" }""")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await DeleteAsync(userB, added.Id)).StatusCode);
+        Assert.Equal("Secret plan", (await GetAsync<CommentBody>(userA, $"/api/v1/comments/{added.Id}")).BodyMd);
+    }
+
+    [Fact]
     public async Task Comments_need_an_access_token()
     {
         using var client = factory.CreateBrowserClient();
@@ -186,6 +318,28 @@ public sealed class CommentsEndpointsTests(TrekkyApiFactory factory)
         request.Content = JsonContent.Create(new { bodyMd });
         return user.Client.SendAsync(request);
     }
+
+    private static async Task<CommentBody> AddCommentAsync(SignedUpUser user, Guid itemId, string bodyMd)
+    {
+        var response = await AddAsync(user, itemId, bodyMd);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        return (await response.Content.ReadFromJsonAsync<CommentBody>())!;
+    }
+
+    private static Task<HttpResponseMessage> EditAsync(SignedUpUser user, Guid commentId, string? ifMatch, string json)
+    {
+        var request = AuthFlow.WithBearer(HttpMethod.Patch, $"/api/v1/comments/{commentId}", user.Tokens.AccessToken);
+        request.Content = new StringContent(json, Encoding.UTF8, "application/merge-patch+json");
+        if (ifMatch is not null)
+        {
+            request.Headers.TryAddWithoutValidation("If-Match", ifMatch);
+        }
+
+        return user.Client.SendAsync(request);
+    }
+
+    private static Task<HttpResponseMessage> DeleteAsync(SignedUpUser user, Guid commentId)
+        => user.Client.SendAsync(AuthFlow.WithBearer(HttpMethod.Delete, $"/api/v1/comments/{commentId}", user.Tokens.AccessToken));
 
     private static Task<HttpResponseMessage> PostRawAsync(SignedUpUser user, Guid itemId, string json)
     {
@@ -255,7 +409,8 @@ public sealed class CommentsEndpointsTests(TrekkyApiFactory factory)
 
     private sealed record UserBody(Guid Id, string DisplayName, string? Email);
 
-    private sealed record CommentBody(Guid Id, Guid WorkItemId, Guid AuthorId, UserBody? Author, string BodyMd, DateTimeOffset CreatedAt, bool Edited);
+    private sealed record CommentBody(
+        Guid Id, Guid WorkItemId, Guid AuthorId, UserBody? Author, string BodyMd, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, bool Edited, string Etag);
 
     private sealed record PageBody(List<CommentBody> Items, string? NextCursor);
 }

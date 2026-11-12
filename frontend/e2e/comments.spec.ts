@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-test('comments are posted in Markdown, shown oldest first with author and time, and appear in the history', async ({ page }) => {
+test('comments are posted in Markdown, shown oldest first, edited and deleted by their author, and appear in the history', async ({ page }) => {
   const name = `e2e-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
   await page.goto('/sign-up')
@@ -55,4 +55,29 @@ test('comments are posted in Markdown, shown oldest first with author and time, 
   await expect(events).toHaveCount(3)
   await expect(events.first()).toContainText(`${name} commented “Agreed.”`)
   await expect(events.nth(1)).toContainText(`${name} commented “Let's keep comments **flat**, no threads in v1.0.”`)
+
+  // The author edits a comment: it shows "edited", and the edit is in the history.
+  const agreed = comments.nth(1)
+  await agreed.getByRole('button', { name: 'Edit' }).click()
+  const editBox = agreed.getByLabel('Edit comment')
+  await expect(editBox).toBeFocused()
+  await editBox.fill('Agreed, ship it.')
+  await agreed.getByRole('button', { name: 'Save' }).click()
+  await expect(page.getByRole('status')).toHaveText('Comment saved.')
+  const shipped = comments.filter({ hasText: 'Agreed, ship it.' })
+  await expect(shipped).toContainText('edited')
+  await expect(events.first()).toContainText(`${name} edited a comment: “Agreed, ship it.”`)
+
+  // Deleting asks first; the comment is then gone, and the history says so, also for an older comment.
+  const older = comments.first()
+  await older.getByRole('button', { name: 'Delete' }).click()
+  await older.getByRole('button', { name: 'Delete comment' }).click()
+  await expect(page.getByRole('status')).toHaveText('Comment deleted.')
+  await expect(comments).toHaveCount(1)
+  await expect(page.getByRole('heading', { name: 'Comments', exact: true })).toBeFocused()
+  await expect(events.first()).toContainText(`${name} deleted a comment`)
+
+  await page.reload()
+  await expect(comments).toHaveCount(1)
+  await expect(comments.first()).toContainText('Agreed, ship it.')
 })

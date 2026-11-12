@@ -21,8 +21,14 @@ internal sealed class WorkItemComment
 
     public DateTimeOffset CreatedAt { get; init; }
 
-    /// <summary>Equal to <see cref="CreatedAt"/> until the comment is edited (US-12 AC2, TRK-19).</summary>
+    /// <summary>Equal to <see cref="CreatedAt"/> until the comment is edited (US-12 AC2).</summary>
     public DateTimeOffset UpdatedAt { get; set; }
+
+    /// <summary>Set when the author deletes the comment (soft delete, US-12 AC2); a deleted comment is never shown again.</summary>
+    public DateTimeOffset? DeletedAt { get; set; }
+
+    /// <summary>Postgres <c>xmin</c>; sent to clients as the comment's ETag and checked against <c>If-Match</c> on edits.</summary>
+    public uint Version { get; init; }
 
     /// <summary>The start of <paramref name="bodyMd"/> for an event, never cutting a character in two.</summary>
     public static string Excerpt(string bodyMd)

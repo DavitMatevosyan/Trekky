@@ -76,6 +76,9 @@ internal sealed class WorkItemsDbContext(DbContextOptions<WorkItemsDbContext> op
             comment.HasKey(c => c.Id);
             comment.Property(c => c.Id).ValueGeneratedNever();
             comment.Property(c => c.BodyMd).HasMaxLength(WorkItemComment.BodyMaxLength).IsRequired();
+            comment.Property(c => c.Version).IsRowVersion();
+            // Deleted comments are gone for every read (US-12 AC2); the row stays for the history's sake.
+            comment.HasQueryFilter(c => c.DeletedAt == null);
             comment.HasOne<WorkItem>().WithMany().HasForeignKey(c => c.WorkItemId).OnDelete(DeleteBehavior.Restrict);
             // An item's comments, oldest first (keyset pagination, US-12 AC1).
             comment.HasIndex(c => new { c.WorkItemId, c.CreatedAt, c.Id }).HasDatabaseName("ix_comments_item_created");

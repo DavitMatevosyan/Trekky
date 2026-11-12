@@ -1,23 +1,23 @@
 import { useId, useRef, useState, type FormEvent } from 'react'
 import { ProblemError } from '../api/problem.ts'
-import { MarkdownText } from '../components/MarkdownText.tsx'
-import { RelativeTime } from '../components/RelativeTime.tsx'
+import { useMe } from '../auth/useMe.ts'
 import { TextAreaField } from '../components/TextAreaField.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { messages } from '../i18n/messages.ts'
+import { COMMENT_MAX_LENGTH, CommentItem } from './CommentItem.tsx'
 import { useAddComment, useComments } from './useComments.ts'
-
-/** The same limit as the API's (US-12). */
-export const COMMENT_MAX_LENGTH = 20_000
 
 const text = messages.comments
 
 /**
- * The item's comments, oldest first with author and time, and a Markdown box to add one (US-12 AC1, wireframes: Item
- * detail). `onPosted` gets each new comment's time; the page announces it in its one status region.
+ * The item's comments, oldest first with author and time, a Markdown box to add one, and the author's edit and delete
+ * (US-12, wireframes: Item detail). `onChanged` gets what to announce and when the change was saved; the page announces
+ * it in its one status region and waits for its history event.
  */
-export function WorkItemComments({ workItemId, onPosted }: { workItemId: string; onPosted: (createdAt: string) => void }) {
+export function WorkItemComments({ workItemId, onChanged }: { workItemId: string; onChanged: (message: string, at: string) => void }) {
   const headingId = useId()
+  const heading = useRef<HTMLHeadingElement>(null)
+  const me = useMe()
   const comments = useComments(workItemId)
   const add = useAddComment(workItemId)
   const [body, setBody] = useState('')
@@ -38,7 +38,7 @@ export function WorkItemComments({ workItemId, onPosted }: { workItemId: string;
     add.mutate(body, {
       onSuccess: (comment) => {
         setBody('')
-        onPosted(comment.createdAt)
+        onChanged(text.posted, comment.createdAt)
       },
       onError: (failure) => {
         const fieldError = failure instanceof ProblemError ? failure.problem.errors?.bodyMd?.[0] : undefined
@@ -52,7 +52,7 @@ export function WorkItemComments({ workItemId, onPosted }: { workItemId: string;
 
   return (
     <section aria-labelledby={headingId} className="grid gap-3">
-      <h2 id={headingId} className="font-semibold">
+      <h2 id={headingId} ref={heading} tabIndex={-1} className="font-semibold">
         {text.title}
       </h2>
 
@@ -63,15 +63,15 @@ export function WorkItemComments({ workItemId, onPosted }: { workItemId: string;
       {items.length > 0 && (
         <ul aria-labelledby={headingId} className="grid gap-3">
           {items.map((comment) => (
-            <li key={comment.id} className="grid gap-1 rounded-xl border border-border px-3 py-2">
-              <p className="flex flex-wrap items-baseline gap-x-2 text-sm">
-                <span className="font-medium">{comment.author?.displayName ?? text.formerMember}</span>
-                <span className="text-muted-foreground">
-                  <RelativeTime value={comment.createdAt} />
-                </span>
-              </p>
-              <MarkdownText>{comment.bodyMd}</MarkdownText>
-            </li>
+            <CommentItem
+              key={comment.id}
+              comment={comment}
+              workItemId={workItemId}
+              mine={comment.authorId === me.data?.user.id}
+              onChanged={onChanged}
+              // The comment and its buttons are gone; focus stays in the section (WCAG 2.4.3).
+              onGone={() => heading.current?.focus()}
+            />
           ))}
         </ul>
       )}
