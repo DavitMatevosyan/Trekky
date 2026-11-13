@@ -19,9 +19,9 @@ Run `git status`, `git diff` and `git diff --staged`. Run `git fetch Trekky` and
 5. **API contract** — routes under `/api/v1`, problem details for errors, cursor pagination for lists, matches the OpenAPI spec; new or changed endpoints are in `postman/Trekky.postman_collection.json` (ADR-0008).
 6. **Tests** — core and complex logic has unit tests; new endpoints have integration tests; tests assert behaviour, not implementation.
 7. **Scope** — nothing built ahead of the current version (see Scope in CLAUDE.md); the change matches its TRK.
-8. **Conventions** — commit message `TRK-n: descriptive message`; package versions only in `Directory.Packages.props` and free of known vulnerabilities; file-scoped namespaces, `sealed`, no `any` in TypeScript.
+8. **Conventions** — commit message `TRK-n: descriptive message` (or `TREK-n:` for work tracked in Trekky, ADR-0016); package versions only in `Directory.Packages.props` and free of known vulnerabilities; file-scoped namespaces, `sealed`, no `any` in TypeScript.
 9. **Buildability** — would this commit build and run on its own? If not, say which TRKs must be combined.
-10. **Push safety (ADR-0013)** — the branch is a `TRK-<n>-…` branch (or `ui-evidence`, ADR-0012) on remote `Trekky`, never `dev`/`staging`/`main`. No commit already on the remote has been amended or rebased: if `Trekky/<branch>` exists, `git merge-base --is-ancestor Trekky/<branch> HEAD` must succeed (skip this on the first push). No untracked local config, secrets or unreviewed files are about to be staged.
+10. **Push safety (ADR-0013)** — the branch is a `TRK-<n>-…` or `TREK-<n>-…` branch (ADR-0016) (or `ui-evidence`, ADR-0012) on remote `Trekky`, never `dev`/`staging`/`main`. No commit already on the remote has been amended or rebased: if `Trekky/<branch>` exists, `git merge-base --is-ancestor Trekky/<branch> HEAD` must succeed (skip this on the first push). No untracked local config, secrets or unreviewed files are about to be staged.
 
 ## Report
 

@@ -4,7 +4,9 @@ A lean task tracker — a simpler alternative to Jira — built by Davit with Cl
 Later products build on it: Trekky Docs → a context layer → an AI agent that completes agent-ready tasks.
 So every entity must be machine-readable from day one: stable keys, structured fields, full history.
 
-- Plan, versions, contracts and the task list (TRK-1…): Notion page "Project Management - Task tracker".
+- Plan, versions, contracts and the task list (TRK-1…): Notion page "Project Management - Task tracker". After the
+  TRK-21 switch the task list is the Trekky project `TREK` (keys `TREK-<n>`); Notion's `TRK-<n>` keys stay as history
+  (ADR-0016). Below, `TRK-<n>` stands for either key.
 - Current stage: **POC, v1.0 Dogfood**. Build only what the current version needs (see "Scope").
 
 ## Repo layout
@@ -19,6 +21,7 @@ backend/                 .NET 10 modular monolith
   tests/                 xUnit; integration tests use WebApplicationFactory<Program>
 frontend/                React 19 + TypeScript strict + Vite, React Router, TanStack Query, Tailwind + shadcn/ui; Vitest + Testing Library + Playwright (ADR-0010)
 docs/adr/                ADRs (template: 0000-template.md)
+tools/notion-import/     One-off import of the Notion task list into Trekky (TRK-21); Node, no dependencies
 postman/                 Postman collection for manual API testing (ADR-0008)
 docker-compose.yml       Postgres 17, Mailpit (local only)
 docker/postgres/init/    Creates trekky_owner / trekky_app roles (local dev, tests and production)
@@ -42,11 +45,15 @@ npm run lint && npm test && npm run build
 npm run dev                                # http://localhost:5173, proxies /api and /connect → 5080
 npm run generate:api                       # regenerate src/api/schema.d.ts from the running API (commit it)
 npm run e2e                                # Playwright; needs Postgres up, starts API + dev server if not running
+
+cd tools/notion-import
+npm test && ../../frontend/node_modules/.bin/tsc -p .   # importer tests + strict type check (CI runs both)
+node import.ts --dry-run                   # needs TREKKY_EMAIL / TREKKY_PASSWORD; see its README
 ```
 
 ## How we work (non-negotiable)
 
-- **One TRK at a time, in order.** Every change belongs to an existing TRK key from the Notion task list. Never invent a new key or jump ahead; if work is needed that has no TRK, ask Davit first.
+- **One TRK at a time, in order.** Every change belongs to an existing key from the task list (Notion `TRK-<n>`, or Trekky `TREK-<n>` after the switch, ADR-0016). Never invent a new key or jump ahead; if work is needed that has no TRK, ask Davit first.
 - **Buildable history.** Every TRK is verified locally (build, tests, lint, app starts) before it is pushed. If one TRK alone would leave the app not building or running, combine it with the TRKs it needs into one commit. A fix for a TRK goes under that same TRK key.
 - **Branches:** `TRK-42-short-description` off `dev`, squash-merged into `dev`. `dev` → `staging` → `main` are promoted by merge only.
 - **Commits:** `TRK-42: <descriptive message>` — say what changed and why, with a body when it is not obvious.

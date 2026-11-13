@@ -7,7 +7,7 @@ description: Start, implement and finish one Trekky TRK task end to end — bran
 
 ## 1. Pick the TRK
 
-- Use the key Davit gives. "Next TRK" = the lowest unchecked TRK on the Notion task list. Never skip ahead or invent a key.
+- Use the key Davit gives. "Next TRK" = the lowest unchecked TRK on the Notion task list, or after the TRK-21 switch the next item in To Do on the `TREK` board in Trekky (ADR-0016: its key `TREK-<n>` replaces `TRK-<n>` in the branch, commit and PR below). Never skip ahead or invent a key.
 - Restate the TRK's goal and acceptance criteria in two or three lines. If it is unclear or needs a decision, ask before writing code.
 - Check whether it can build and run on its own. If it depends on a later TRK to be buildable, propose combining them and wait for Davit's yes.
 
@@ -49,4 +49,4 @@ git commit -m "TRK-<n>: <what changed and why>" -m "<body: details, trade-offs, 
 - Push only if `/verify` passed and the `code-reviewer` agent reported no must-fix findings, both on the exact tree being committed. If anything could not be run, do **not** push; tell Davit what is missing.
 - `git push -u Trekky TRK-<n>-<short-description>`: TRK branches (`TRK-<n>-…`) only. Never `dev`, `staging` or `main`, never `--force`, never rewrite commits already on the remote.
 - Open the PR with `gh pr create --repo DavitMatevosyan/Trekky --base dev --head TRK-<n>-<short-description>`. If the PR already exists, the push updates it; use `gh pr edit` to update its description. The description lists what changed, the verification results, and anything Davit should check by hand. It ends with the Claude Code attribution line.
-- Davit reviews and merges. Once he confirms it is merged, tick the TRK checkbox on the Notion task list.
+- Davit reviews and merges. Once he confirms it is merged, tick the TRK checkbox on the Notion task list, or after the switch move the `TREK` item to Done in Trekky.

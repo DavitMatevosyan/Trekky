@@ -40,12 +40,17 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
+          check-latest: true
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm run lint
       - run: npm test
       - run: npm run build
+      # TRK-21: the Notion import tool, type-checked with the frontend's TypeScript and tested with node:test
+      # (Node runs the .ts files itself from 22.18; check-latest above takes the newest 22.x).
+      - name: Notion import tool (types + tests)
+        run: npx tsc -p ../tools/notion-import && node --test ../tools/notion-import/plan.test.ts
 
   images:
     name: Docker images (build)
