@@ -1,9 +1,11 @@
+import { createWebPlatform } from '../platform/webPlatform.ts'
 import { jsonResponse } from '../test/renderApp.tsx'
 import { AuthorizationError, beginAuthorization, completeAuthorization, safeReturnTo } from './oauthClient.ts'
 
 async function startFlow(options: Parameters<typeof beginAuthorization>[0] = {}) {
   const navigate = vi.fn<(url: string) => void>()
-  await beginAuthorization({ storage: sessionStorage, navigate, ...options })
+  const web = createWebPlatform()
+  await beginAuthorization({ platform: { ...web, login: { ...web.login, open: navigate } }, ...options })
   const url = new URL(navigate.mock.calls[0]?.[0] ?? '', window.location.origin)
   return { url, state: url.searchParams.get('state') ?? '' }
 }
@@ -47,7 +49,7 @@ describe('oauthClient', () => {
 
     expect(result).toEqual({ tokens: { accessToken: 'a', refreshToken: 'r', expiresAt: 901_000 }, returnTo: '/projects?x=1' })
     const [input, init] = fetchFn.mock.calls[0] ?? []
-    expect(input).toBe('/connect/token')
+    expect(input).toBe(`${window.location.origin}/connect/token`)
     expect(Object.fromEntries(new URLSearchParams(String(init?.body)))).toMatchObject({
       client_id: 'trekky-web',
       grant_type: 'authorization_code',

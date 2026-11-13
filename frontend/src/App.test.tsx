@@ -16,7 +16,7 @@ describe('App', () => {
       renderApp({ path: '/?tab=1' })
 
       expect(screen.getByRole('status')).toHaveTextContent('Signing you in…')
-      await waitFor(() => expect(beginAuthorization).toHaveBeenCalledWith({ prompt: 'none', returnTo: '/?tab=1' }))
+      await waitFor(() => expect(beginAuthorization).toHaveBeenCalledWith(expect.objectContaining({ prompt: 'none', returnTo: '/?tab=1' })))
     })
 
     it('show the organization and role of the logged-in user', async () => {
@@ -96,7 +96,7 @@ describe('App', () => {
 
       await submitLogin('ada@example.com', 'correct-horse-battery')
 
-      await waitFor(() => expect(beginAuthorization).toHaveBeenCalledWith({ returnTo: '/projects' }))
+      await waitFor(() => expect(beginAuthorization).toHaveBeenCalledWith(expect.objectContaining({ returnTo: '/projects' })))
       const request = requestAt(fetchFn, 0)
       expect(new URL(request.url).pathname).toBe('/api/v1/auth/login')
       expect(await request.json()).toEqual({ email: 'ada@example.com', password: 'correct-horse-battery' })
@@ -135,7 +135,7 @@ describe('App', () => {
 
       await submitSignUp()
 
-      await waitFor(() => expect(beginAuthorization).toHaveBeenCalledWith({ returnTo: '/' }))
+      await waitFor(() => expect(beginAuthorization).toHaveBeenCalledWith(expect.objectContaining({ returnTo: '/' })))
       expect(await requestAt(fetchFn, 0).json()).toEqual({
         email: 'ada@example.com',
         password: 'correct-horse-battery',

@@ -1,11 +1,13 @@
 import { screen, waitFor } from '@testing-library/react'
 import { beginAuthorization } from '../auth/oauthClient.ts'
+import { createWebPlatform } from '../platform/webPlatform.ts'
 import { fakeApi, jsonResponse, renderApp } from '../test/renderApp.tsx'
 
 /** Runs a real beginAuthorization to store state + verifier, and returns the state it sent. */
 async function pendingState(returnTo = '/'): Promise<string> {
   const navigate = vi.fn<(url: string) => void>()
-  await beginAuthorization({ returnTo, navigate })
+  const web = createWebPlatform()
+  await beginAuthorization({ returnTo, platform: { ...web, login: { ...web.login, open: navigate } } })
   return new URL(navigate.mock.calls[0]?.[0] ?? '', window.location.origin).searchParams.get('state') ?? ''
 }
 

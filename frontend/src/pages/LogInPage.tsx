@@ -4,6 +4,7 @@ import { Link, Navigate, useSearchParams } from 'react-router'
 import { asProblem, fieldErrors, formLevelError, ProblemError } from '../api/problem.ts'
 import { useAuth, useAuthStatus } from '../auth/AuthContext.ts'
 import { beginAuthorization, safeReturnTo } from '../auth/oauthClient.ts'
+import { usePlatform } from '../platform/PlatformContext.ts'
 import { AuthCard } from '../components/AuthCard.tsx'
 import { FormField } from '../components/FormField.tsx'
 import { FormError } from '../components/FormError.tsx'
@@ -20,6 +21,7 @@ const FIELDS = ['email', 'password']
 /** US-02: log in sets the session cookie, then the code flow turns it into tokens. */
 export function LogInPage() {
   const { api } = useAuth()
+  const platform = usePlatform()
   const isAuthenticated = useAuthStatus() === 'authenticated'
   const [searchParams] = useSearchParams()
   const returnTo = safeReturnTo(searchParams.get('returnTo'))
@@ -28,7 +30,7 @@ export function LogInPage() {
     mutationFn: async (credentials: Credentials) => {
       const { error, response } = await api.POST('/api/v1/auth/login', { body: credentials })
       if (!response.ok) throw new ProblemError(asProblem(error))
-      await beginAuthorization({ returnTo })
+      await beginAuthorization({ returnTo, platform })
     },
   })
 
