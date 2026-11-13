@@ -16,6 +16,7 @@ internal static class WorkItemPatchReader
     private const string TitleField = "title";
     private const string DescriptionField = "descriptionMd";
     private const string ParentField = "parentId";
+    private const string AssigneeField = "assigneeId";
 
     public static bool TryRead(JsonNode? body, out WorkItemPatch patch, out Dictionary<string, string[]> errors)
     {
@@ -23,6 +24,7 @@ internal static class WorkItemPatchReader
         var title = PatchValue<string?>.Unset;
         var description = PatchValue<string?>.Unset;
         var parent = PatchValue<Guid?>.Unset;
+        var assignee = PatchValue<Guid?>.Unset;
         errors = [];
 
         if (body is not JsonObject fields)
@@ -49,7 +51,10 @@ internal static class WorkItemPatchReader
                         description = ReadString(value, name, "Description", nullable: true, errors);
                         break;
                     case ParentField:
-                        parent = ReadGuid(value, name, errors);
+                        parent = ReadGuid(value, name, "Parent must be a work item id or null.", errors);
+                        break;
+                    case AssigneeField:
+                        assignee = ReadGuid(value, name, "Assignee must be a member's user id or null.", errors);
                         break;
                     default:
                         errors[name] = ["This field does not exist or cannot be changed here."];
@@ -58,7 +63,7 @@ internal static class WorkItemPatchReader
             }
         }
 
-        patch = new WorkItemPatch(type, title, description, parent);
+        patch = new WorkItemPatch(type, title, description, parent, assignee);
         return errors.Count == 0;
     }
 
@@ -84,7 +89,7 @@ internal static class WorkItemPatchReader
         return PatchValue<string?>.Set(value.GetValue<string>());
     }
 
-    private static PatchValue<Guid?> ReadGuid(JsonNode? value, string name, Dictionary<string, string[]> errors)
+    private static PatchValue<Guid?> ReadGuid(JsonNode? value, string name, string message, Dictionary<string, string[]> errors)
     {
         if (value is null)
         {
@@ -96,7 +101,7 @@ internal static class WorkItemPatchReader
             return PatchValue<Guid?>.Set(id);
         }
 
-        errors[name] = ["Parent must be a work item id or null."];
+        errors[name] = [message];
         return PatchValue<Guid?>.Unset;
     }
 }

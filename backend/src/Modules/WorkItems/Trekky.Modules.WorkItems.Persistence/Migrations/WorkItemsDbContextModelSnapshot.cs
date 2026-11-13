@@ -55,6 +55,10 @@ namespace Trekky.Modules.WorkItems.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<Guid?>("AssigneeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("assignee_id");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -139,6 +143,9 @@ namespace Trekky.Modules.WorkItems.Persistence.Migrations
 
                     b.HasIndex("ParentId")
                         .HasDatabaseName("ix_work_items_parent");
+
+                    b.HasIndex("OrgId", "AssigneeId")
+                        .HasDatabaseName("ix_work_items_org_assignee");
 
                     b.HasIndex("ProjectId", "Number")
                         .IsUnique()

@@ -67,6 +67,8 @@ internal sealed class WorkItemsDbContext(DbContextOptions<WorkItemsDbContext> op
                 .HasDatabaseName("ux_work_items_org_project_status_rank")
                 .IsUnique();
             item.HasIndex(w => w.ParentId).HasDatabaseName("ix_work_items_parent");
+            // "Assigned to me" and member removal (v1.1) look items up by assignee.
+            item.HasIndex(w => new { w.OrgId, w.AssigneeId }).HasDatabaseName("ix_work_items_org_assignee");
         });
 
         modelBuilder.Entity<WorkItemComment>(comment =>

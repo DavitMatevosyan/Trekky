@@ -12,6 +12,7 @@ const card = (number: number, status: string, type = 'task', title = `Item ${num
   parentKey: null,
   updatedAt: '2026-10-26T10:00:00Z',
   etag: `"${number}"`,
+  assignee: number === 3 ? { id: '0190a000-0000-7000-8000-0000000000aa', displayName: 'Davit', email: 'davit@example.com' } : null,
 })
 const column = (status: string, items: ReturnType<typeof card>[], count = items.length) => ({ status, count, items })
 const board = (done = column('done', [])) => ({
@@ -59,6 +60,15 @@ describe('BoardPage', () => {
     expect(cards[0]).toHaveTextContent('Key not shown')
     expect(cards[1]).toHaveTextContent('TechDebt')
     expect(within(toDo).getByRole('link', { name: 'TRK-1' })).toHaveAttribute('href', '/TRK/items/TRK-1')
+  })
+
+  it('shows who a card is assigned to, and nothing when nobody is', async () => {
+    renderBoard()
+
+    const inProgress = await screen.findByRole('list', { name: 'In Progress' })
+    expect(within(inProgress).getByRole('listitem')).toHaveTextContent('Assignee: Davit')
+    const toDo = within(await screen.findByRole('list', { name: 'To Do' })).getAllByRole('listitem')
+    expect(toDo[0]).not.toHaveTextContent('Assignee')
   })
 
   it('tells keyboard and screen-reader users how to move a card', async () => {

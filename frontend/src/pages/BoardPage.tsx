@@ -324,6 +324,14 @@ function BoardCard({ card, projectKey, boardUrl, moving, focusAfterMove }: Board
         type={card.type}
       />
       <p className="line-clamp-3 break-words">{card.title}</p>
+      {/* US-11 AC2, US-13 AC2: who owns it; nothing when nobody does, to keep cards quiet. */}
+      {card.assignee && (
+        <p className="truncate text-xs text-muted-foreground">
+          {/* Screen readers hear "Assignee: name"; sighted users see the name under the title. */}
+          <span className="sr-only">{messages.workItem.assigneeLabel(card.assignee.displayName)}</span>
+          <span aria-hidden="true">{card.assignee.displayName}</span>
+        </p>
+      )}
     </li>
   )
 }

@@ -20,6 +20,13 @@ function arrow(change: unknown, label: (value: string) => string): string | null
   return from !== null && to !== null ? text.arrow(label(from), label(to)) : null
 }
 
+/** One side of an assignment: the name then, `null` for nobody, `undefined` when it cannot be read. */
+function personName(side: unknown): string | null | undefined {
+  if (side === null) return null
+  if (!isRecord(side)) return undefined
+  return asText(side.displayName) ?? text.formerMember
+}
+
 /** A parent side of a change: `{ id, key }`, or `null` for no parent. */
 function parentKey(side: unknown): string | null {
   if (side === null) return text.noValue
@@ -66,6 +73,14 @@ export function historySentence(event: Pick<HistoryEvent, 'eventType' | 'schemaV
     case 'WorkItemUpdated': {
       const fields = isRecord(payload.changes) ? updatedFields(payload.changes) : []
       return fields.length === 0 ? text.unknownChange : text.updated(fields.join(text.fieldSeparator))
+    }
+    case 'WorkItemAssigned': {
+      const from = personName(payload.from)
+      const to = personName(payload.to)
+      if (from === undefined || to === undefined || (from === null && to === null)) return text.unknownChange
+      if (from === null) return text.assignedTo(to as string)
+      if (to === null) return text.unassignedFrom(from)
+      return text.reassigned(from, to)
     }
     case 'CommentAdded': {
       const excerpt = asText(payload.excerpt)

@@ -60,6 +60,10 @@
     {
       "key": "commentEtag",
       "value": ""
+    },
+    {
+      "key": "memberId",
+      "value": ""
     }
   ],
   "auth": {
@@ -310,6 +314,33 @@
             "method": "POST",
             "url": "{{baseUrl}}/api/v1/auth/logout",
             "description": "Revokes every token of the user and invalidates their session cookies. Authenticates with the Bearer token or, since TRK-8.1, with the session cookie alone (so logout still works after the tokens have expired)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Members",
+      "item": [
+        {
+          "name": "List members",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('members found', () => pm.response.to.have.status(200));",
+                  "const items = pm.response.json().items;",
+                  "pm.test('at least the caller', () => pm.expect(items.length).to.be.above(0));",
+                  "if (items.length) pm.collectionVariables.set('memberId', items[0].user.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/members",
+            "description": "The caller's organization's members ({ user: { id, displayName, email }, role }), by display name: who an item can be assigned to (US-13). Saves the first member's id for Assign work item."
           }
         }
       ]
@@ -583,6 +614,42 @@
             },
             "url": "{{baseUrl}}/api/v1/work-items/{{workItemId}}",
             "description": "JSON merge patch: only the fields sent change (type, title, descriptionMd, parentId); null clears descriptionMd or parentId. If-Match is required (428) and must be the latest ETag (412 otherwise). A new type or parent re-checks the parent rules for the item and its children (422). Records a WorkItemUpdated activity event when something changed."
+          }
+        },
+        {
+          "name": "Assign work item",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('work item assigned', () => pm.response.to.have.status(200));",
+                  "pm.test('assignee shown', () => pm.expect(pm.response.json().assignee.id).to.eql(pm.collectionVariables.get('memberId')));",
+                  "const etag = pm.response.headers.get('ETag');",
+                  "if (etag) pm.collectionVariables.set('workItemEtag', etag);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/merge-patch+json"
+              },
+              {
+                "key": "If-Match",
+                "value": "{{workItemEtag}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"assigneeId\": \"{{memberId}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/work-items/{{workItemId}}",
+            "description": "Same merge patch as Edit work item (US-13): assigneeId is a member's user id, or null for nobody. Someone who is not a member is a 422 (Assignee not allowed). Records WorkItemAssigned { from, to } with ids and names; the item, list and board show the assignee."
           }
         },
         {

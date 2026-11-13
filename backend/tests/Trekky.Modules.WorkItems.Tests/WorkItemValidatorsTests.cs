@@ -49,7 +49,8 @@ public sealed class WorkItemValidatorsTests
     [Fact]
     public void An_edit_checks_only_the_fields_it_sends()
     {
-        var titleOnly = new WorkItemPatch(PatchValue<string?>.Unset, PatchValue<string?>.Set("New"), PatchValue<string?>.Unset, PatchValue<Guid?>.Unset);
+        var titleOnly = new WorkItemPatch(
+            PatchValue<string?>.Unset, PatchValue<string?>.Set("New"), PatchValue<string?>.Unset, PatchValue<Guid?>.Unset, PatchValue<Guid?>.Unset);
         var badType = titleOnly with { Type = PatchValue<string?>.Set("feature") };
         var blankTitle = titleOnly with { Title = PatchValue<string?>.Set(" ") };
 

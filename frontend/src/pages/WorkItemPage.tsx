@@ -6,6 +6,7 @@ import { RelativeTime } from '../components/RelativeTime.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { messages } from '../i18n/messages.ts'
 import { useUpdateWorkItem, useWorkItem, type UpdateWorkItemInput, type VersionedWorkItem } from '../workItems/useWorkItems.ts'
+import { AssigneeSelect } from '../workItems/AssigneeSelect.tsx'
 import { StatusSelect } from '../workItems/StatusSelect.tsx'
 import { WorkItemComments } from '../workItems/WorkItemComments.tsx'
 import { WorkItemForm, type WorkItemFormValues } from '../workItems/WorkItemForm.tsx'
@@ -57,6 +58,7 @@ function WorkItemView({ projectKey, current }: { projectKey: string; current: Ve
   const [lastCommentAt, setLastCommentAt] = useState<string | null>(null)
   const editButton = useRef<HTMLButtonElement>(null)
   const statusLabelId = useId()
+  const assigneeLabelId = useId()
 
   const stale = update.error instanceof ProblemError && update.error.problem.status === 412
 
@@ -180,6 +182,20 @@ function WorkItemView({ projectKey, current }: { projectKey: string; current: Ve
                 // A move gives the item a new version, which would restart the open form and lose what was typed.
                 disabled={editing}
                 onMoved={(status) => setAnnouncement(messages.workItem.statusChanged(item.key, statusLabel(status)))}
+              />
+            </dd>
+            <dt id={assigneeLabelId} className="self-center text-muted-foreground">
+              {messages.workItem.assignee}
+            </dt>
+            <dd>
+              <AssigneeSelect
+                current={current}
+                labelledBy={assigneeLabelId}
+                // Like status: a save gives the item a new version, which would restart an open edit form.
+                disabled={editing}
+                onAssigned={(name) =>
+                  setAnnouncement(name === null ? messages.workItem.unassigned(item.key) : messages.workItem.assigned(item.key, name))
+                }
               />
             </dd>
             <dt className="text-muted-foreground">{messages.workItem.parent}</dt>

@@ -41,6 +41,9 @@ internal sealed class WorkItem
     /// </summary>
     public required string Rank { get; set; }
 
+    /// <summary>The member who owns the item (US-13), a user id from the identity module (no foreign key across modules); <c>null</c> for nobody.</summary>
+    public Guid? AssigneeId { get; set; }
+
     /// <summary>Reserved for custom fields (v1.5): a JSON object, <c>{}</c> until then.</summary>
     public string Custom { get; init; } = "{}";
 

@@ -27,13 +27,14 @@ export const emptyProjectPage = { items: [], nextCursor: null }
 type Handler = (request: Request) => Response | Promise<Response>
 
 /**
- * A fake API for a logged-in page: `"METHOD /path"` → response. GET /api/v1/me and GET /api/v1/projects answer by
- * default; anything else is a 404 so a missing handler shows up in the test.
+ * A fake API for a logged-in page: `"METHOD /path"` → response. GET /api/v1/me, /projects and /members (the signed-in
+ * user as the only member) answer by default; anything else is a 404 so a missing handler shows up in the test.
  */
 export function fakeApi(handlers: Record<string, Handler> = {}) {
   const all: Record<string, Handler> = {
     'GET /api/v1/me': () => jsonResponse(me),
     'GET /api/v1/projects': () => jsonResponse(emptyProjectPage),
+    'GET /api/v1/members': () => jsonResponse({ items: [{ user: me.user, role: me.role }] }),
     ...handlers,
   }
   return vi.fn<typeof fetch>(async (input, init) => {
