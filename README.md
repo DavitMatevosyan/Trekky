@@ -11,6 +11,7 @@ backend/    .NET 10 modular monolith (ASP.NET Core API, EF Core, Postgres)
 frontend/   React + TypeScript (Vite)
 docs/adr/   Architecture decision records
 deploy/     Production stack for the home host behind Tailscale Funnel (migrations, nightly backups) — see deploy/README.md
+tools/notion-import/   One-off import of the Notion task list into Trekky (TRK-21)
 .github/    CI workflows
 docker-compose.yml   Local infrastructure: Postgres, Mailpit
 docker/postgres/init/   Database roles created on first start
