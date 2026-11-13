@@ -1,6 +1,7 @@
 import { act, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beginAuthorization } from './auth/oauthClient.ts'
+import { createDesktopPlatform } from './platform/desktop/desktopPlatform.ts'
 import { fakeApi, jsonResponse, me, problemResponse, renderApp, requestAt, requestsTo, validTokens } from './test/renderApp.tsx'
 
 vi.mock('./auth/oauthClient.ts', async (importOriginal) => ({
@@ -17,6 +18,16 @@ describe('App', () => {
 
       expect(screen.getByRole('status')).toHaveTextContent('Signing you in…')
       await waitFor(() => expect(beginAuthorization).toHaveBeenCalledWith(expect.objectContaining({ prompt: 'none', returnTo: '/?tab=1' })))
+    })
+
+    it('in the desktop app, go to the login page instead of a silent sign-in, keeping the way back', async () => {
+      const { router } = renderApp({ path: '/?tab=1', platform: createDesktopPlatform({ url: 'https://trekky.example.com', change: vi.fn() }) })
+
+      expect(await screen.findByRole('heading', { name: 'Log in to Trekky' })).toBeInTheDocument()
+      expect(router.state.location.pathname).toBe('/login')
+      expect(new URLSearchParams(router.state.location.search).get('returnTo')).toBe('/?tab=1')
+      expect(screen.getByText('Server: trekky.example.com')).toBeInTheDocument()
+      expect(beginAuthorization).not.toHaveBeenCalled()
     })
 
     it('show the organization and role of the logged-in user', async () => {

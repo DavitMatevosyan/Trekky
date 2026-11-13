@@ -1,0 +1,20 @@
+{
+  "name": "trekky-desktop",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Trekky for Windows: a Tauri 2 shell around the web app (ADR-0018)",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "build:debug": "tauri build --debug --no-bundle",
+    "test": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "lint": "cargo fmt --manifest-path src-tauri/Cargo.toml --check && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.12.4"
+  }
+}

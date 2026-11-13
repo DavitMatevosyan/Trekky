@@ -8,6 +8,7 @@ import { usePlatform } from '../platform/PlatformContext.ts'
 import { AuthCard } from '../components/AuthCard.tsx'
 import { FormField } from '../components/FormField.tsx'
 import { FormError } from '../components/FormError.tsx'
+import { ServerNote } from '../components/ServerNote.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { messages } from '../i18n/messages.ts'
 
@@ -78,6 +79,7 @@ export function LogInPage() {
           {busy ? messages.logIn.submitting : messages.logIn.submit}
         </Button>
       </form>
+      <ServerNote />
     </AuthCard>
   )
 }
