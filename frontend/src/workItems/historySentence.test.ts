@@ -38,6 +38,17 @@ describe('historySentence', () => {
     expect(historySentence({ eventType: 'CommentDeleted', schemaVersion: 1, payload: { commentId: 'c1' } })).toBe('deleted a comment')
   })
 
+  it('says who an item was assigned to, unassigned from, or moved between', () => {
+    const davit = { id: 'u1', displayName: 'Davit' }
+    const ada = { id: 'u2', displayName: 'Ada' }
+    const sentence = (payload: unknown) => historySentence({ eventType: 'WorkItemAssigned', schemaVersion: 1, payload })
+    expect(sentence({ from: null, to: davit })).toBe('assigned this to Davit')
+    expect(sentence({ from: davit, to: null })).toBe('unassigned Davit')
+    expect(sentence({ from: davit, to: ada })).toBe('changed the assignee Davit → Ada')
+    expect(sentence({ from: null, to: { id: 'u3', displayName: null } })).toBe('assigned this to A former member')
+    expect(sentence({ from: 'u1', to: null })).toBe('made a change')
+  })
+
   it('shows a removed parent', () => {
     const payload = { changes: { parent: { from: { id: '0190a000-0000-7000-8000-000000000002', key: 'TRK-2' }, to: null } } }
 

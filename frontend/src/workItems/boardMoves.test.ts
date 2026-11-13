@@ -2,7 +2,7 @@ import type { KeyboardCoordinateGetter } from '@dnd-kit/core'
 import { ProblemError } from '../api/problem.ts'
 import { applyMove, columnKeyboardCoordinates, dropTarget, isBelow, moveErrorMessage } from './boardMoves.ts'
 
-const card = { id: 'a', key: 'TRK-1', type: 'task', title: 'One', status: 'todo', parentKey: null, updatedAt: '2026-11-09T10:00:00Z', etag: '"1"' }
+const card = { id: 'a', key: 'TRK-1', type: 'task', title: 'One', status: 'todo', parentKey: null, updatedAt: '2026-11-09T10:00:00Z', etag: '"1"', assignee: null }
 const other = { ...card, id: 'b', key: 'TRK-2', status: 'in_progress' }
 const board = {
   columns: [

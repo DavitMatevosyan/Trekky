@@ -19,6 +19,9 @@ internal enum WorkItemOutcome
     /// <summary>The neighbours a board move names are no longer next to each other in that column (US-11 AC4).</summary>
     BoardChanged,
 
+    /// <summary>The assignee is not a member of the organization (US-13 AC1).</summary>
+    AssigneeNotMember,
+
     /// <summary><c>If-Match</c> does not match the current version (US-07 AC1).</summary>
     Stale,
 }

@@ -105,6 +105,7 @@ internal sealed class WorkItemService(
         var title = patch.Title.IsSet ? WorkItemFieldRules.NormalizeTitle(patch.Title.Value!) : item.Title;
         var description = patch.DescriptionMd.IsSet ? WorkItemFieldRules.NormalizeDescription(patch.DescriptionMd.Value) : item.DescriptionMd;
         var parentId = patch.ParentId.IsSet ? patch.ParentId.Value : item.ParentId;
+        var assigneeId = patch.AssigneeId.IsSet ? patch.AssigneeId.Value : item.AssigneeId;
 
         var changes = new JsonObject();
         if (type != item.Type)
@@ -144,7 +145,23 @@ internal sealed class WorkItemService(
             }
         }
 
-        if (changes.Count == 0)
+        // US-13 AC1: one member of the organization, or nobody. Its own event, so "who owns it" is easy to follow.
+        JsonObject? assigned = null;
+        if (assigneeId != item.AssigneeId)
+        {
+            var people = await users.FindMembersAsync(
+                new[] { item.AssigneeId, assigneeId }.OfType<Guid>().ToList(), cancellationToken);
+            if (assigneeId is { } newId && !people.ContainsKey(newId))
+            {
+                return new WorkItemResult(
+                    WorkItemOutcome.AssigneeNotMember,
+                    Violation: new RuleViolation("The assignee must be a member of this organization.", [], []));
+            }
+
+            assigned = new JsonObject { ["from"] = PersonRef(item.AssigneeId, people), ["to"] = PersonRef(assigneeId, people) };
+        }
+
+        if (changes.Count == 0 && assigned is null)
         {
             // Nothing changed: no write and no event, and the ETag stays valid.
             return await SucceededAsync(workItemId, cancellationToken);
@@ -155,8 +172,17 @@ internal sealed class WorkItemService(
         item.Title = title;
         item.DescriptionMd = description;
         item.ParentId = parentId;
+        item.AssigneeId = assigneeId;
         item.UpdatedAt = now;
-        db.AddActivityEvent(Event(WorkItemEventTypes.WorkItemUpdated, item, actorId, now, new JsonObject { ["changes"] = changes }));
+        if (changes.Count > 0)
+        {
+            db.AddActivityEvent(Event(WorkItemEventTypes.WorkItemUpdated, item, actorId, now, new JsonObject { ["changes"] = changes }));
+        }
+
+        if (assigned is not null)
+        {
+            db.AddActivityEvent(Event(WorkItemEventTypes.WorkItemAssigned, item, actorId, now, assigned));
+        }
 
         // xmin is also the EF concurrency token, a second guard behind the row lock.
         await db.SaveChangesAsync(cancellationToken);
@@ -338,7 +364,9 @@ internal sealed class WorkItemService(
         var next = rows.Count <= size ? null
             : page.Count == 0 ? new WorkItemCursor(DateTimeOffset.MaxValue, Guid.AllBitsSet).Encode()
             : new WorkItemCursor(page[^1].Item.UpdatedAt, page[^1].Item.Id).Encode();
-        return new WorkItemPage((exact is null ? page : page.Prepend(exact)).Select(ToSummary).ToList(), next);
+        var shown = exact is null ? page : page.Prepend(exact).ToList();
+        var assignees = await AssigneesAsync(shown, cancellationToken);
+        return new WorkItemPage(shown.Select(row => ToSummary(row, assignees)).ToList(), next);
     }
 
     public async Task<Board?> GetBoardAsync(Guid projectId, bool allDone, CancellationToken cancellationToken)
@@ -364,7 +392,9 @@ internal sealed class WorkItemService(
         var done = await Summaries(allDone ? allDoneItems : allDoneItems.Take(DoneCardLimit)).ToListAsync(cancellationToken);
         var doneCount = allDone ? done.Count : await inProject.CountAsync(w => w.Status == WorkItemStatuses.Done, cancellationToken);
 
-        var cards = notDone.Concat(done).ToLookup(row => row.Item.Status, ToBoardCard);
+        var rows = notDone.Concat(done).ToList();
+        var assignees = await AssigneesAsync(rows, cancellationToken);
+        var cards = rows.ToLookup(row => row.Item.Status, row => ToBoardCard(row, assignees));
         return new Board(WorkItemStatuses.All
             .Select(status => new BoardColumn(
                 status,
@@ -395,9 +425,10 @@ internal sealed class WorkItemService(
             : null;
         var children = await Summaries(db.WorkItems.AsNoTracking().Where(w => w.ParentId == item.Id).OrderBy(w => w.Number))
             .ToListAsync(cancellationToken);
-        var creator = (await users.FindMembersAsync([item.CreatedBy], cancellationToken)).GetValueOrDefault(item.CreatedBy) is { } user
-            ? new WorkItemUser(user.Id, user.DisplayName, user.Email)
-            : null;
+        // One lookup for everyone the page names: the creator and every assignee shown.
+        var related = children.Prepend(row).Concat(parent is null ? [] : [parent]).ToList();
+        var people = await users.FindMembersAsync(
+            related.Select(r => r.Item.AssigneeId).OfType<Guid>().Append(item.CreatedBy).ToList(), cancellationToken);
 
         var detail = new WorkItemDetail(
             item.Id,
@@ -409,11 +440,12 @@ internal sealed class WorkItemService(
             item.UpdatedAt,
             item.ProjectId,
             item.DescriptionMd,
-            parent is null ? null : ToSummary(parent),
-            children.Select(ToSummary).ToList(),
+            parent is null ? null : ToSummary(parent, people),
+            children.Select(child => ToSummary(child, people)).ToList(),
             StatusWorkflow.AllowedTransitions(item.Status),
             item.CreatedAt,
-            creator);
+            Person(item.CreatedBy, people),
+            Person(item.AssigneeId, people));
         return new VersionedWorkItem(detail, item.Version);
     }
 
@@ -547,17 +579,21 @@ internal sealed class WorkItemService(
 
     private static string Labels(IEnumerable<string> types) => string.Join(" or ", types.Select(Label));
 
-    private static WorkItemSummary ToSummary(SummaryRow row)
-        => new(
-            row.Item.Id,
-            row.Item.Key,
-            row.Item.Type,
-            row.Item.Title,
-            row.Item.Status,
-            row.ParentKey,
-            row.Item.UpdatedAt);
+    /// <summary>The assignees of <paramref name="rows"/> who are members, by id, in one lookup.</summary>
+    private Task<IReadOnlyDictionary<Guid, UserRef>> AssigneesAsync(IEnumerable<SummaryRow> rows, CancellationToken cancellationToken)
+        => users.FindMembersAsync(rows.Select(r => r.Item.AssigneeId).OfType<Guid>().Distinct().ToList(), cancellationToken);
 
-    private static BoardCard ToBoardCard(SummaryRow row)
+    /// <summary>A member as shown on an item; <c>null</c> for nobody, or for someone who is no longer a member.</summary>
+    private static WorkItemUser? Person(Guid? id, IReadOnlyDictionary<Guid, UserRef> people)
+        => id is { } userId && people.GetValueOrDefault(userId) is { } user ? new WorkItemUser(user.Id, user.DisplayName, user.Email) : null;
+
+    /// <summary>A side of an assignment for its event: id and name as they are now, or <c>null</c> for nobody.</summary>
+    private static JsonObject? PersonRef(Guid? id, IReadOnlyDictionary<Guid, UserRef> people)
+        => id is { } userId
+            ? new JsonObject { ["id"] = userId, ["displayName"] = people.GetValueOrDefault(userId)?.DisplayName }
+            : null;
+
+    private static WorkItemSummary ToSummary(SummaryRow row, IReadOnlyDictionary<Guid, UserRef> people)
         => new(
             row.Item.Id,
             row.Item.Key,
@@ -566,7 +602,19 @@ internal sealed class WorkItemService(
             row.Item.Status,
             row.ParentKey,
             row.Item.UpdatedAt,
-            VersionedWorkItem.ETagFor(row.Item.Version));
+            Person(row.Item.AssigneeId, people));
+
+    private static BoardCard ToBoardCard(SummaryRow row, IReadOnlyDictionary<Guid, UserRef> people)
+        => new(
+            row.Item.Id,
+            row.Item.Key,
+            row.Item.Type,
+            row.Item.Title,
+            row.Item.Status,
+            row.ParentKey,
+            row.Item.UpdatedAt,
+            VersionedWorkItem.ETagFor(row.Item.Version),
+            Person(row.Item.AssigneeId, people));
 
     private sealed record RankedCard(Guid Id, string Rank);
 

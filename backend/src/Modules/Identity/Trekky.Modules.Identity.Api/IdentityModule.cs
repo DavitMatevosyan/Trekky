@@ -24,7 +24,10 @@ public sealed class IdentityModule : IModule
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
-        => endpoints.MapAuthEndpoints();
+    {
+        endpoints.MapAuthEndpoints();
+        endpoints.MapMemberEndpoints();
+    }
 
     public void MapRootEndpoints(IEndpointRouteBuilder endpoints)
         => endpoints.MapConnectEndpoints();

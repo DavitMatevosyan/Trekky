@@ -317,9 +317,10 @@ paths:
       operationId: updateWorkItem
       summary: Edit title, description, type, parent or assignee (US-07, US-13)
       description: |
-        JSON merge patch; only the fields sent change, and `null` clears `descriptionMd` or `parentId`. Unknown fields
-        (including `status`) are a 400. Status changes use `/status` (TRK-12); `assigneeId` arrives with TRK-20.
-        An edit that changes nothing records no event and keeps the ETag.
+        JSON merge patch; only the fields sent change, and `null` clears `descriptionMd`, `parentId` or `assigneeId`.
+        Unknown fields (including `status`) are a 400. Status changes use `/status` (TRK-12). `assigneeId` must be a
+        member of the organization (422 "Assignee not allowed"); a change of assignee records `WorkItemAssigned`, the
+        other fields `WorkItemUpdated` (TRK-20). An edit that changes nothing records no event and keeps the ETag.
       parameters:
         - $ref: '#/components/parameters/IfMatch'
       requestBody:
@@ -888,7 +889,7 @@ components:
                 type: array
                 items: { $ref: '#/components/schemas/BoardCard' }
     BoardCard:
-      description: A WorkItemSummary plus the etag to send in If-Match when moving the card (POST /work-items/{id}/status).
+      description: A WorkItemSummary (with its assignee, TRK-20) plus the etag to send in If-Match when moving the card (POST /work-items/{id}/move).
       allOf:
         - $ref: '#/components/schemas/WorkItemSummary'
         - type: object

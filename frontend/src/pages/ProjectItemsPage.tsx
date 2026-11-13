@@ -39,6 +39,7 @@ function ProjectItems({ projectId, projectKey, projectName }: { projectId: strin
                 <th scope="col" className="px-4 py-2 font-medium">{messages.project.columns.type}</th>
                 <th scope="col" className="px-4 py-2 font-medium">{messages.project.columns.title}</th>
                 <th scope="col" className="px-4 py-2 font-medium">{messages.project.columns.status}</th>
+                <th scope="col" className="px-4 py-2 font-medium">{messages.project.columns.assignee}</th>
                 <th scope="col" className="px-4 py-2 font-medium">{messages.project.columns.parent}</th>
                 <th scope="col" className="px-4 py-2 font-medium">{messages.project.columns.updated}</th>
               </tr>
@@ -57,6 +58,7 @@ function ProjectItems({ projectId, projectKey, projectName }: { projectId: strin
                     <td className="px-4 py-2 whitespace-nowrap">{typeLabel(item.type)}</td>
                     <td className="px-4 py-2">{item.title}</td>
                     <td className="px-4 py-2 whitespace-nowrap">{statusLabel(item.status)}</td>
+                    <td className="px-4 py-2 whitespace-nowrap">{item.assignee?.displayName ?? messages.workItem.nobody}</td>
                     <td className="px-4 py-2 font-mono whitespace-nowrap">{item.parentKey ?? messages.project.noParent}</td>
                     <td className="px-4 py-2 whitespace-nowrap text-muted-foreground">
                       <RelativeTime value={item.updatedAt} />

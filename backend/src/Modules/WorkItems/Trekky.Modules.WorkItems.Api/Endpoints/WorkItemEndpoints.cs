@@ -77,8 +77,8 @@ internal static class WorkItemEndpoints
                     CancellationToken cancellationToken)
                 => UpdateAsync(workItemId, ifMatch, request, validator, service, principal, response, cancellationToken))
             .WithName("UpdateWorkItem")
-            .WithSummary("Edit title, description, type or parent (US-07)")
-            .WithDescription("JSON merge patch: only the fields sent change; null clears descriptionMd or parentId. Needs If-Match.")
+            .WithSummary("Edit title, description, type, parent or assignee (US-07, US-13)")
+            .WithDescription("JSON merge patch: only the fields sent change; null clears descriptionMd, parentId or assigneeId. The assignee must be a member (422). Needs If-Match.")
             .Accepts<UpdateWorkItemRequest>(MergePatchContentType)
             .ProducesProblem(StatusCodes.Status412PreconditionFailed)
             .ProducesProblem(StatusCodes.Status415UnsupportedMediaType)
@@ -355,6 +355,10 @@ internal static class WorkItemEndpoints
             title: "Board changed",
             detail: BoardChangedMessage,
             statusCode: StatusCodes.Status409Conflict),
+        WorkItemOutcome.AssigneeNotMember when result.Violation is { } notMember => TypedResults.Problem(
+            title: "Assignee not allowed",
+            detail: notMember.Detail,
+            statusCode: StatusCodes.Status422UnprocessableEntity),
         WorkItemOutcome.ParentNotAllowed or WorkItemOutcome.ChildrenNotAllowed when result.Violation is { } violation
             => TypedResults.Problem(
                 title: result.Outcome == WorkItemOutcome.ParentNotAllowed ? "Parent not allowed" : "Children do not fit the new type",

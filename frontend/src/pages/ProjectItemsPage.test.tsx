@@ -12,6 +12,7 @@ const epic = {
   parentKey: null as string | null,
   updatedAt: '2026-10-26T10:00:00Z',
 }
+const epicAssigned = { id: '0190a000-0000-7000-8000-0000000000aa', displayName: 'Davit', email: 'davit@example.com' }
 const story = { ...epic, id: '0190a000-0000-7000-8000-0000000000c2', key: 'TRK-2', type: 'story', title: 'Comments on items', status: 'todo', parentKey: 'TRK-1' }
 const detail = (summary: typeof epic) => ({ ...summary, projectId: project.id, descriptionMd: null, parent: null, children: [], allowedTransitions: ['in_progress'], createdAt: summary.updatedAt, createdBy: null })
 
@@ -21,7 +22,7 @@ const createPath = `POST /api/v1/projects/${project.id}/work-items`
 function renderItems(handlers: Parameters<typeof fakeApi>[0] = {}) {
   const fetchFn = fakeApi({
     'GET /api/v1/projects/by-key/TRK': () => jsonResponse(project),
-    [itemsPath]: () => jsonResponse({ items: [story, epic], nextCursor: null }),
+    [itemsPath]: () => jsonResponse({ items: [story, { ...epic, assignee: epicAssigned }], nextCursor: null }),
     ...handlers,
   })
   const view = renderApp({ path: '/TRK', tokens: validTokens, fetchFn })
@@ -34,7 +35,7 @@ async function openForm() {
 }
 
 describe('ProjectItemsPage', () => {
-  it('lists the items with key, type, title, status, parent and updated', async () => {
+  it('lists the items with key, type, title, status, assignee, parent and updated', async () => {
     renderItems()
 
     const table = await screen.findByRole('table', { name: 'Work items' })
@@ -43,18 +44,21 @@ describe('ProjectItemsPage', () => {
       'Type',
       'Title',
       'Status',
+      'Assignee',
       'Parent',
       'Updated',
     ])
     const [, first, second] = within(table).getAllByRole('row') as [HTMLElement, HTMLElement, HTMLElement]
-    expect(within(first).getAllByRole('cell').map((td) => td.textContent).slice(0, 5)).toEqual([
+    expect(within(first).getAllByRole('cell').map((td) => td.textContent).slice(0, 6)).toEqual([
       'TRK-2',
       'Story',
       'Comments on items',
       'To Do',
+      'Nobody',
       'TRK-1',
     ])
-    expect(within(second).getAllByRole('cell')[4]).toHaveTextContent('—')
+    expect(within(second).getAllByRole('cell')[5]).toHaveTextContent('—')
+    expect(within(second).getAllByRole('cell')[4]).toHaveTextContent('Davit')
     expect(within(first).getByRole('link', { name: 'TRK-2' })).toHaveAttribute('href', '/TRK/items/TRK-2')
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('TRK · Trekky')
   })

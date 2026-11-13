@@ -174,6 +174,71 @@ describe('WorkItemPage', () => {
     expect(within(form).getByLabelText('Type')).toHaveAttribute('aria-invalid', 'true')
   })
 
+  describe('assignee', () => {
+    const assigneeSelect = () => screen.findByRole('combobox', { name: 'Assignee' })
+    const ada = { id: me.user.id, displayName: me.user.displayName, email: me.user.email }
+
+    it('offers nobody and every member, and shows the current assignee', async () => {
+      renderItem({ [itemPath]: () => withETag({ ...item, assignee: ada }, '"7"') })
+
+      const select = await assigneeSelect()
+      await waitFor(() => expect(within(select).getAllByRole('option').map((o) => o.textContent)).toEqual(['Nobody', 'ada@example.com']))
+      expect(select).toHaveValue(me.user.id)
+    })
+
+    it('still shows an assignee who is no longer a member', async () => {
+      const former = { id: '0190a000-0000-7000-8000-0000000000ff', displayName: 'Grace', email: null }
+      renderItem({ [itemPath]: () => withETag({ ...item, assignee: former }, '"7"') })
+
+      const select = await assigneeSelect()
+      await waitFor(() => expect(within(select).getAllByRole('option').map((o) => o.textContent)).toEqual(['Nobody', 'Grace', 'ada@example.com']))
+      expect(select).toHaveValue(former.id)
+    })
+
+    it('assigns with a merge patch and If-Match, and announces it', async () => {
+      const { fetchFn } = renderItem({
+        [itemPath]: () => withETag({ ...item, assignee: null }, '"7"'),
+        [patchPath]: () => withETag({ ...item, assignee: ada }, '"8"'),
+      })
+      const select = await assigneeSelect()
+      await waitFor(() => expect(select).toBeEnabled())
+
+      await userEvent.selectOptions(select, me.user.id)
+
+      await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('TRK-14 assigned to ada@example.com.'))
+      const [patch] = requestsTo(fetchFn, patchPath)
+      expect(patch?.headers.get('If-Match')).toBe('"7"')
+      expect(await patch?.json()).toEqual({ assigneeId: me.user.id })
+    })
+
+    it('assigns to nobody with null', async () => {
+      const { fetchFn } = renderItem({
+        [itemPath]: () => withETag({ ...item, assignee: ada }, '"7"'),
+        [patchPath]: () => withETag({ ...item, assignee: null }, '"8"'),
+      })
+      const select = await assigneeSelect()
+      await waitFor(() => expect(select).toBeEnabled())
+
+      await userEvent.selectOptions(select, 'Nobody')
+
+      await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('TRK-14 is assigned to nobody.'))
+      expect(await requestsTo(fetchFn, patchPath)[0]?.json()).toEqual({ assigneeId: null })
+    })
+
+    it('says so when the person is not a member', async () => {
+      renderItem({
+        [itemPath]: () => withETag({ ...item, assignee: null }, '"7"'),
+        [patchPath]: () => problemResponse(422, { title: 'Assignee not allowed' }),
+      })
+      const select = await assigneeSelect()
+      await waitFor(() => expect(select).toBeEnabled())
+
+      await userEvent.selectOptions(select, me.user.id)
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('That person is not a member of this organization.')
+    })
+  })
+
   describe('status', () => {
     const statusPath = `POST /api/v1/work-items/${item.id}/status`
     const statusSelect = () => screen.findByRole('combobox', { name: 'Status' })

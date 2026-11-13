@@ -41,8 +41,8 @@ test('a user creates work items with a parent, opens one, edits it and moves it'
 
   // US-08: newest update first, with the parent key.
   const rows = page.getByRole('table', { name: 'Work items' }).getByRole('row')
-  await expect(rows.nth(1)).toContainText('TRK-2StoryComments on itemsTo DoTRK-1')
-  await expect(rows.nth(2)).toContainText('TRK-1Epicv1.0 DogfoodTo Do—')
+  await expect(rows.nth(1)).toContainText('TRK-2StoryComments on itemsTo DoNobodyTRK-1')
+  await expect(rows.nth(2)).toContainText('TRK-1Epicv1.0 DogfoodTo DoNobody—')
   await page.reload()
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('TRK · Trekky')
 

@@ -12,6 +12,12 @@ internal static class WorkItemEventTypes
     /// <summary>Payload: <c>{ "from": "in_progress", "to": "in_review" }</c>.</summary>
     public const string WorkItemStatusChanged = "WorkItemStatusChanged";
 
+    /// <summary>
+    /// Payload: <c>{ "from": { "id", "displayName" } | null, "to": … | null }</c>; the names are as they were then, so the
+    /// history reads the same after someone renames or leaves.
+    /// </summary>
+    public const string WorkItemAssigned = "WorkItemAssigned";
+
     /// <summary>Entity: the work item. Payload: <c>{ "commentId", "excerpt" }</c>, the excerpt being the body's first 200 characters.</summary>
     public const string CommentAdded = "CommentAdded";
 

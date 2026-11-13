@@ -38,6 +38,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Members of the caller's organization, by display name (assignee picker, US-13) */
+        get: operations["ListMembers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{projectId}/board": {
         parameters: {
             query?: never;
@@ -263,8 +280,8 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Edit title, description, type or parent (US-07)
-         * @description JSON merge patch: only the fields sent change; null clears descriptionMd or parentId. Needs If-Match.
+         * Edit title, description, type, parent or assignee (US-07, US-13)
+         * @description JSON merge patch: only the fields sent change; null clears descriptionMd, parentId or assigneeId. The assignee must be a member (422). Needs If-Match.
          */
         patch: operations["UpdateWorkItem"];
         trace?: never;
@@ -347,6 +364,7 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
             etag: string;
+            assignee: null | components["schemas"]["WorkItemUser"];
         };
         BoardColumn: {
             status: string;
@@ -449,6 +467,13 @@ export interface components {
             organization: components["schemas"]["OrganizationRef"];
             role: string;
         };
+        Member: {
+            user: components["schemas"]["UserRef"];
+            role: string;
+        };
+        MemberList: {
+            items: components["schemas"]["Member"][];
+        };
         MoveWorkItemRequest: {
             status: null | string;
             /** Format: uuid */
@@ -495,6 +520,8 @@ export interface components {
             descriptionMd?: null | string;
             /** Format: uuid */
             parentId?: null | string;
+            /** Format: uuid */
+            assigneeId?: null | string;
         };
         UserRef: {
             /** Format: uuid */
@@ -521,6 +548,7 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
             createdBy: null | components["schemas"]["WorkItemUser"];
+            assignee: null | components["schemas"]["WorkItemUser"];
         };
         WorkItemPage: {
             items: components["schemas"]["WorkItemSummary"][];
@@ -536,6 +564,7 @@ export interface components {
             parentKey: null | string;
             /** Format: date-time */
             updatedAt: string;
+            assignee: null | components["schemas"]["WorkItemUser"];
         };
         WorkItemUser: {
             /** Format: uuid */
@@ -588,6 +617,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Me"];
+                };
+            };
+        };
+    };
+    ListMembers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberList"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
         };
