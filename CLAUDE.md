@@ -21,7 +21,8 @@ frontend/                React 19 + TypeScript strict + Vite, React Router, TanS
 docs/adr/                ADRs (template: 0000-template.md)
 postman/                 Postman collection for manual API testing (ADR-0008)
 docker-compose.yml       Postgres 17, Mailpit (local only)
-docker/postgres/init/    Creates trekky_owner / trekky_app roles (local dev and tests)
+docker/postgres/init/    Creates trekky_owner / trekky_app roles (local dev, tests and production)
+deploy/                  Production Compose for the home host (ADR-0015): Caddy (web), API, migrate, Postgres, backup, Tailscale Funnel (deploy/README.md)
 ```
 
 ## Commands
@@ -82,7 +83,7 @@ npm run e2e                                # Playwright; needs Postgres up, star
 | v0.2 Work items | Projects with key, work items with parent/child, fixed workflow, list, detail, activity log |
 | v1.0 Dogfood (current) | Board with drag and drop, comments, assignee |
 
-Deployment and backups (TRK-9) are deferred until the app is built; the host is chosen then (ADR-0004).
+Hosting (TRK-9, ADR-0015): the home machine behind Tailscale Funnel now, Azure Container Apps + Neon Postgres when SaaS starts (TRK-29).
 
 Not before their version: sprints, notifications, real-time, custom workflows/fields, MCP server, SSO, billing.
 

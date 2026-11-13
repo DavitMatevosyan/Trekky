@@ -47,6 +47,20 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  images:
+    name: Docker images (build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      # The production images (deploy/docker-compose.yml, ADR-0015) still build after every change.
+      - run: docker build -t trekky-api backend
+      - run: docker build -t trekky-web frontend
+      - run: docker build -t trekky-backup deploy/backup
+      - name: Compose file is valid
+        working-directory: deploy
+        run: cp .env.example .env && docker compose --profile funnel config --quiet
+
   e2e:
     name: E2E (Playwright)
     runs-on: ubuntu-latest

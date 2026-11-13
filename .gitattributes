@@ -1,6 +1,8 @@
 * text=auto
 
 *.sh text eol=lf
+# Read as shell by deploy/scripts; LF everywhere avoids stray carriage returns in passwords.
+deploy/.env.example text eol=lf
 *.cs text diff=csharp
 *.csproj text
 *.slnx text
