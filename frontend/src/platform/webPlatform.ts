@@ -48,6 +48,7 @@ export function createWebPlatform(overrides: Partial<Platform> = {}): Platform {
     login: {
       redirectUri: () => `${window.location.origin}${CALLBACK_PATH}`,
       open: (url) => window.location.assign(url),
+      silent: true,
     },
     pendingAuthorization: window.sessionStorage,
     tokens: { load: () => null, save: () => {} },
