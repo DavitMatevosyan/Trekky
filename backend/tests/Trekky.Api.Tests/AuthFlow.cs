@@ -15,6 +15,12 @@ internal static class AuthFlow
     public const string RedirectUri = "http://localhost:5173/auth/callback";
     public const string Password = "correct horse battery staple";
 
+    /// <summary>The web app's client, as registered in Development.</summary>
+    public static readonly OAuthClient Web = new(ClientId, RedirectUri);
+
+    /// <summary>The desktop app's client (TRK-24): its default <c>trekky://</c> deep link.</summary>
+    public static readonly OAuthClient Desktop = new("trekky-desktop", "trekky://auth/callback");
+
     public static string NewEmail() => $"user-{Guid.NewGuid():N}@example.com";
 
     public static Task<HttpResponseMessage> SignUpAsync(HttpClient client, string email, string organizationName = "Acme", string password = Password)
@@ -24,13 +30,15 @@ internal static class AuthFlow
         => client.PostAsJsonAsync(new Uri("/api/v1/auth/login", UriKind.Relative), new { email, password });
 
     /// <summary>Calls /connect/authorize with the session cookie; returns the redirect.</summary>
-    public static async Task<HttpResponseMessage> AuthorizeAsync(HttpClient client, string codeChallenge, string? prompt = null)
+    public static async Task<HttpResponseMessage> AuthorizeAsync(
+        HttpClient client, string codeChallenge, string? prompt = null, OAuthClient? oauthClient = null, string? redirectUri = null)
     {
+        oauthClient ??= Web;
         var query = new Dictionary<string, string?>
         {
-            ["client_id"] = ClientId,
+            ["client_id"] = oauthClient.ClientId,
             ["response_type"] = "code",
-            ["redirect_uri"] = RedirectUri,
+            ["redirect_uri"] = redirectUri ?? oauthClient.RedirectUri,
             ["scope"] = "openid email profile offline_access",
             ["state"] = "xyz",
             ["code_challenge"] = codeChallenge,
@@ -41,35 +49,51 @@ internal static class AuthFlow
     }
 
     /// <summary>Runs authorization code + PKCE for the logged-in client and returns the tokens.</summary>
-    public static async Task<TokenResponse> GetTokensAsync(HttpClient client)
+    public static async Task<TokenResponse> GetTokensAsync(HttpClient client, OAuthClient? oauthClient = null)
     {
-        var verifier = Base64Url(RandomNumberGenerator.GetBytes(32));
-        var challenge = Base64Url(SHA256.HashData(Encoding.ASCII.GetBytes(verifier)));
-
-        var authorize = await AuthorizeAsync(client, challenge);
-        Assert.Equal(HttpStatusCode.Redirect, authorize.StatusCode);
-        var redirect = authorize.Headers.Location!;
-        Assert.StartsWith(RedirectUri, redirect.ToString(), StringComparison.Ordinal);
-        var code = QueryHelpers.ParseQuery(redirect.Query)["code"].ToString();
-        Assert.False(string.IsNullOrEmpty(code), $"No code in {redirect}");
-
-        var response = await client.PostAsync(new Uri("/connect/token", UriKind.Relative), new FormUrlEncodedContent(new Dictionary<string, string>
-        {
-            ["grant_type"] = "authorization_code",
-            ["client_id"] = ClientId,
-            ["code"] = code,
-            ["redirect_uri"] = RedirectUri,
-            ["code_verifier"] = verifier,
-        }));
+        var response = await RedeemCodeAsync(client, oauthClient);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         return (await response.Content.ReadFromJsonAsync<TokenResponse>())!;
     }
 
-    public static Task<HttpResponseMessage> RefreshAsync(HttpClient client, string refreshToken)
+    /// <summary>
+    /// Runs authorization code + PKCE for the logged-in client and returns the token endpoint's raw response;
+    /// <paramref name="configure"/> can add headers (e.g. Origin) to the token request.
+    /// </summary>
+    public static async Task<HttpResponseMessage> RedeemCodeAsync(
+        HttpClient client, OAuthClient? oauthClient = null, Action<HttpRequestMessage>? configure = null)
+    {
+        oauthClient ??= Web;
+        var verifier = Base64Url(RandomNumberGenerator.GetBytes(32));
+        var challenge = Base64Url(SHA256.HashData(Encoding.ASCII.GetBytes(verifier)));
+
+        var authorize = await AuthorizeAsync(client, challenge, oauthClient: oauthClient);
+        Assert.Equal(HttpStatusCode.Redirect, authorize.StatusCode);
+        var redirect = authorize.Headers.Location!;
+        Assert.StartsWith(oauthClient.RedirectUri + "?", redirect.ToString(), StringComparison.Ordinal);
+        var code = QueryHelpers.ParseQuery(redirect.Query)["code"].ToString();
+        Assert.False(string.IsNullOrEmpty(code), $"No code in {redirect}");
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, new Uri("/connect/token", UriKind.Relative))
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["grant_type"] = "authorization_code",
+                ["client_id"] = oauthClient.ClientId,
+                ["code"] = code,
+                ["redirect_uri"] = oauthClient.RedirectUri,
+                ["code_verifier"] = verifier,
+            }),
+        };
+        configure?.Invoke(request);
+        return await client.SendAsync(request);
+    }
+
+    public static Task<HttpResponseMessage> RefreshAsync(HttpClient client, string refreshToken, OAuthClient? oauthClient = null)
         => client.PostAsync(new Uri("/connect/token", UriKind.Relative), new FormUrlEncodedContent(new Dictionary<string, string>
         {
             ["grant_type"] = "refresh_token",
-            ["client_id"] = ClientId,
+            ["client_id"] = (oauthClient ?? Web).ClientId,
             ["refresh_token"] = refreshToken,
         }));
 
@@ -108,6 +132,9 @@ internal static class AuthFlow
     private static string Base64Url(byte[] bytes)
         => Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 }
+
+/// <summary>An OAuth client the tests sign in as, with the redirect URI it uses.</summary>
+internal sealed record OAuthClient(string ClientId, string RedirectUri);
 
 internal sealed record SignedUpUser(HttpClient Client, string Email, string SessionCookie, TokenResponse Tokens) : IDisposable
 {
