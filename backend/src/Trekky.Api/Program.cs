@@ -23,6 +23,14 @@ builder.Services.AddModules(
 
 var app = builder.Build();
 
+// Outside Development, migrations are a deploy step: `Trekky.Api --migrate` applies them as trekky_owner and exits
+// (the `migrate` service in deploy/docker-compose.yml runs it before the API starts; a Container Apps job on Azure).
+if (args.Contains("--migrate", StringComparer.Ordinal))
+{
+    await app.MigrateModuleDatabasesAsync();
+    return;
+}
+
 // A request the endpoint cannot bind (e.g. ?limit=abc) throws BadHttpRequestException in Development; answer with its
 // status (400) as problem details instead of a 500.
 app.UseExceptionHandler(new ExceptionHandlerOptions

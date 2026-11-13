@@ -1,6 +1,6 @@
 # ADR-0004: POC hosting — one Oracle Cloud Always Free VM with Docker Compose
 
-- **Status:** Deferred (2026-10-30) · was Agreed
+- **Status:** Deferred (2026-10-30) · was Agreed · to be superseded by ADR-0015 (Proposed 2026-11-13) once it is Agreed
 - **Date:** 2026-10-06 (agreed in planning, 2026-10-05)
 - **Deciders:** Davit, Claude
 
