@@ -17,6 +17,15 @@ builder.Services.AddTrekkyPersistence();
 builder.Services.AddAuthorizationBuilder()
     .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
 
+// Browser origins other than the API's own that may call it (ADR-0017), e.g. the desktop app's http://tauri.localhost.
+// None by default: the web app is served from the API's origin. Bearer tokens only, so no credentials (cookies).
+var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+builder.Services.AddCors(cors => cors.AddDefaultPolicy(policy => policy
+    .WithOrigins(corsOrigins)
+    .WithMethods("GET", "POST", "PATCH", "DELETE")
+    .WithHeaders("Authorization", "Content-Type", "If-Match")
+    .WithExposedHeaders("ETag", "Location")));
+
 // Modules are added here as they are built.
 builder.Services.AddModules(
     builder.Configuration, new IdentityModule(), new ProjectsModule(), new WorkItemsModule(), new ActivityModule());
@@ -40,6 +49,9 @@ app.UseExceptionHandler(new ExceptionHandlerOptions
         : StatusCodes.Status500InternalServerError,
 });
 app.UseStatusCodePages();
+
+// Before authentication, so preflight requests (OPTIONS) are answered without a token.
+app.UseCors();
 
 app.UseAuthentication();
 app.UseTenantContext(); // after authentication: reads the org_id claim

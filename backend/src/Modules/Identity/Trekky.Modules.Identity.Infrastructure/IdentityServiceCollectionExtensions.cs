@@ -152,7 +152,7 @@ internal static class IdentityServiceCollectionExtensions
         services.AddScoped<IUserDirectory, UserDirectory>();
         services.AddScoped<SessionRevoker>();
         services.AddScoped<ConnectHandlers>();
-        services.AddHostedService<WebClientRegistration>();
+        services.AddHostedService<ClientRegistration>();
 
         return services;
     }

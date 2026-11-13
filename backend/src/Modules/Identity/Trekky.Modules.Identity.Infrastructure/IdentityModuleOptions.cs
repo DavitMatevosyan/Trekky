@@ -18,6 +18,8 @@ internal sealed class IdentityModuleOptions
     public CertificateOptions? EncryptionCertificate { get; set; }
 
     public WebClientOptions WebClient { get; set; } = new();
+
+    public DesktopClientOptions DesktopClient { get; set; } = new();
 }
 
 internal sealed class CertificateOptions
