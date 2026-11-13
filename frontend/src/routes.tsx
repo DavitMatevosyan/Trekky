@@ -1,6 +1,6 @@
 import type { RouteObject } from 'react-router'
 import { RequireAuth } from './auth/RequireAuth.tsx'
-import { CALLBACK_PATH } from './auth/oauthClient.ts'
+import { CALLBACK_PATH } from './platform/webPlatform.ts'
 import { AppShell } from './components/AppShell.tsx'
 import { AuthCallbackPage } from './pages/AuthCallbackPage.tsx'
 import { BoardPage } from './pages/BoardPage.tsx'

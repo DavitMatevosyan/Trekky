@@ -1,9 +1,8 @@
+import type { Platform } from '../platform/Platform.ts'
+import { createWebPlatform } from '../platform/webPlatform.ts'
 import { createPkcePair, randomUrlSafeString } from './pkce.ts'
 import type { Tokens } from './Tokens.ts'
 
-/** The web app's OAuth client, registered by the API (ADR-0003): public, authorization code + PKCE. */
-export const CLIENT_ID = 'trekky-web'
-export const CALLBACK_PATH = '/auth/callback'
 const SCOPE = 'openid email profile offline_access'
 const PENDING_KEY = 'trekky.auth.pending'
 
@@ -47,12 +46,8 @@ export interface BeginAuthorizationOptions {
   returnTo?: string
   /** `none` re-authenticates silently from the session cookie, or fails with login_required. */
   prompt?: 'none'
-  storage?: Storage
-  navigate?: (url: string) => void
-}
-
-function redirectUri(): string {
-  return `${window.location.origin}${CALLBACK_PATH}`
+  /** Where the flow runs (TRK-23): the API address, the redirect and where its state is kept. */
+  platform?: Platform
 }
 
 /** Keeps only same-origin paths, so the callback can never redirect to another site. */
@@ -62,28 +57,23 @@ export function safeReturnTo(path: string | null | undefined): string {
   return url.origin === window.location.origin ? url.pathname + url.search + url.hash : '/'
 }
 
-/** Starts the authorization code flow with a full-page redirect to /connect/authorize. */
-export async function beginAuthorization({
-  returnTo,
-  prompt,
-  storage = sessionStorage,
-  navigate = (url) => window.location.assign(url),
-}: BeginAuthorizationOptions = {}): Promise<void> {
+/** Starts the authorization code flow by sending the user to /connect/authorize (the web app: a full-page redirect). */
+export async function beginAuthorization({ returnTo, prompt, platform = createWebPlatform() }: BeginAuthorizationOptions = {}): Promise<void> {
   const { verifier, challenge } = await createPkcePair()
   const pending: PendingAuthorization = { state: randomUrlSafeString(16), verifier, returnTo: safeReturnTo(returnTo) }
-  storage.setItem(PENDING_KEY, JSON.stringify(pending))
+  platform.pendingAuthorization.setItem(PENDING_KEY, JSON.stringify(pending))
 
   const query = new URLSearchParams({
-    client_id: CLIENT_ID,
+    client_id: platform.clientId,
     response_type: 'code',
-    redirect_uri: redirectUri(),
+    redirect_uri: platform.login.redirectUri(),
     scope: SCOPE,
     state: pending.state,
     code_challenge: challenge,
     code_challenge_method: 'S256',
   })
   if (prompt) query.set('prompt', prompt)
-  navigate(`/connect/authorize?${query.toString()}`)
+  platform.login.open(`${platform.apiBaseUrl}/connect/authorize?${query.toString()}`)
 }
 
 export interface CompletedAuthorization {
@@ -94,10 +84,14 @@ export interface CompletedAuthorization {
 /** Handles the callback: checks state, then exchanges the code for tokens. Throws AuthorizationError. */
 export async function completeAuthorization(
   params: URLSearchParams,
-  { storage = sessionStorage, fetchFn = fetch, now = Date.now }: { storage?: Storage; fetchFn?: typeof fetch; now?: () => number } = {},
+  {
+    platform = createWebPlatform(),
+    fetchFn = fetch,
+    now = Date.now,
+  }: { platform?: Platform; fetchFn?: typeof fetch; now?: () => number } = {},
 ): Promise<CompletedAuthorization> {
-  const raw = storage.getItem(PENDING_KEY)
-  storage.removeItem(PENDING_KEY)
+  const raw = platform.pendingAuthorization.getItem(PENDING_KEY)
+  platform.pendingAuthorization.removeItem(PENDING_KEY)
   const pending = parsePending(raw)
   const returnTo = safeReturnTo(pending?.returnTo)
 
@@ -114,7 +108,8 @@ export async function completeAuthorization(
 
   try {
     const tokens = await requestTokens(
-      { grant_type: 'authorization_code', code, redirect_uri: redirectUri(), code_verifier: pending.verifier },
+      platform,
+      { grant_type: 'authorization_code', code, redirect_uri: platform.login.redirectUri(), code_verifier: pending.verifier },
       fetchFn,
       now,
     )
@@ -126,15 +121,25 @@ export async function completeAuthorization(
 }
 
 /** Redeems a refresh token; the server rotates it, so the old one must not be used again. */
-export function refreshTokens(refreshToken: string, fetchFn: typeof fetch = fetch, now: () => number = Date.now): Promise<Tokens> {
-  return requestTokens({ grant_type: 'refresh_token', refresh_token: refreshToken }, fetchFn, now)
+export function refreshTokens(
+  refreshToken: string,
+  platform: Pick<Platform, 'apiBaseUrl' | 'clientId'>,
+  fetchFn: typeof fetch = fetch,
+  now: () => number = Date.now,
+): Promise<Tokens> {
+  return requestTokens(platform, { grant_type: 'refresh_token', refresh_token: refreshToken }, fetchFn, now)
 }
 
-async function requestTokens(form: Record<string, string>, fetchFn: typeof fetch, now: () => number): Promise<Tokens> {
-  const response = await fetchFn('/connect/token', {
+async function requestTokens(
+  { apiBaseUrl, clientId }: Pick<Platform, 'apiBaseUrl' | 'clientId'>,
+  form: Record<string, string>,
+  fetchFn: typeof fetch,
+  now: () => number,
+): Promise<Tokens> {
+  const response = await fetchFn(`${apiBaseUrl}/connect/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ client_id: CLIENT_ID, ...form }),
+    body: new URLSearchParams({ client_id: clientId, ...form }),
   })
   if (!response.ok) {
     throw new AuthorizationError(`The token request failed (${response.status}).`, { loginRequired: true, status: response.status })

@@ -9,6 +9,7 @@ import { FormError } from '../components/FormError.tsx'
 import { FormField } from '../components/FormField.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { messages } from '../i18n/messages.ts'
+import { usePlatform } from '../platform/PlatformContext.ts'
 
 /** Mirrors the API's password policy (US-01 AC3); the server stays the source of truth. */
 const PASSWORD_MIN_LENGTH = 12
@@ -24,6 +25,7 @@ const FIELDS = ['email', 'password', 'organizationName']
 /** US-01: sign-up creates the user, the organization and an Owner membership, then signs the user in. */
 export function SignUpPage() {
   const { api } = useAuth()
+  const platform = usePlatform()
   const isAuthenticated = useAuthStatus() === 'authenticated'
 
   const signUp = useMutation({
@@ -31,7 +33,7 @@ export function SignUpPage() {
       const { error, response } = await api.POST('/api/v1/auth/sign-up', { body })
       if (!response.ok) throw new ProblemError(asProblem(error))
       // Sign-up also sets the session cookie, so the code flow can run straight away (US-01 AC4).
-      await beginAuthorization({ returnTo: '/' })
+      await beginAuthorization({ returnTo: '/', platform })
     },
   })
 

@@ -1,3 +1,5 @@
+import type { Platform } from '../platform/Platform.ts'
+import { createWebPlatform } from '../platform/webPlatform.ts'
 import { AuthorizationError, completeAuthorization, refreshTokens } from './oauthClient.ts'
 import type { Tokens } from './Tokens.ts'
 
@@ -12,6 +14,8 @@ export type AuthStatus = 'authenticated' | 'anonymous' | 'loggedOut'
 export interface AuthSessionOptions {
   fetchFn?: typeof fetch
   now?: () => number
+  /** Where the session runs (TRK-23): the API address for the token endpoint, and where the refresh token is kept. */
+  platform?: Platform
 }
 
 /**
@@ -29,11 +33,13 @@ export class AuthSession {
   private readonly listeners = new Set<Listener>()
   private readonly fetchFn: typeof fetch
   private readonly now: () => number
+  private readonly platform: Platform
 
   /** `fetchFn` is called as a method, so pass a wrapper rather than the bare global `fetch`. */
-  constructor({ fetchFn = (input, init) => fetch(input, init), now = Date.now }: AuthSessionOptions = {}) {
+  constructor({ fetchFn = (input, init) => fetch(input, init), now = Date.now, platform = createWebPlatform() }: AuthSessionOptions = {}) {
     this.fetchFn = fetchFn
     this.now = now
+    this.platform = platform
   }
 
   get status(): AuthStatus {
@@ -51,6 +57,8 @@ export class AuthSession {
   setTokens(tokens: Tokens): void {
     this.tokens = tokens
     this.loggedOut = false
+    // The web platform stores nothing (ADR-0003); the desktop app keeps the refresh token to start signed in.
+    this.platform.tokens.save(tokens.refreshToken)
     this.emit()
   }
 
@@ -62,6 +70,7 @@ export class AuthSession {
     this.generation++
     this.tokens = null
     this.loggedOut = loggedOut
+    this.platform.tokens.save(null)
     this.emit()
   }
 
@@ -81,7 +90,7 @@ export class AuthSession {
 
   /** Finishes the code flow on the callback page; returns the path to open next. Throws AuthorizationError. */
   async signInFromCallback(params: URLSearchParams): Promise<string> {
-    const { tokens, returnTo } = await completeAuthorization(params, { fetchFn: this.fetchFn, now: this.now })
+    const { tokens, returnTo } = await completeAuthorization(params, { platform: this.platform, fetchFn: this.fetchFn, now: this.now })
     this.setTokens(tokens)
     return returnTo
   }
@@ -122,7 +131,7 @@ export class AuthSession {
     }
     const generation = this.generation
     try {
-      const tokens = await refreshTokens(refreshToken, this.fetchFn, this.now)
+      const tokens = await refreshTokens(refreshToken, this.platform, this.fetchFn, this.now)
       if (generation !== this.generation) return null
       this.setTokens(tokens)
       return tokens

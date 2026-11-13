@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router'
 import { messages } from '../i18n/messages.ts'
+import { usePlatform } from '../platform/PlatformContext.ts'
 import { useAuthStatus } from './AuthContext.ts'
 import { beginAuthorization } from './oauthClient.ts'
 
@@ -11,6 +12,7 @@ import { beginAuthorization } from './oauthClient.ts'
  */
 export function RequireAuth() {
   const status = useAuthStatus()
+  const platform = usePlatform()
   const { pathname, search } = useLocation()
   // One redirect per anonymous spell: a second one (StrictMode, a route change) would overwrite the stored
   // state and verifier and make the callback reject the first response.
@@ -23,8 +25,8 @@ export function RequireAuth() {
     }
     if (redirecting.current) return
     redirecting.current = true
-    void beginAuthorization({ prompt: 'none', returnTo: pathname + search })
-  }, [status, pathname, search])
+    void beginAuthorization({ prompt: 'none', returnTo: pathname + search, platform })
+  }, [status, pathname, search, platform])
 
   if (status === 'loggedOut') return <Navigate to="/login" replace />
   if (status === 'anonymous') {
