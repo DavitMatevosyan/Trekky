@@ -10,12 +10,15 @@ export function AuthCallbackPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [failed, setFailed] = useState(false)
-  // A code can be redeemed once; StrictMode runs effects twice in development.
-  const started = useRef(false)
+  // A code can be redeemed once; StrictMode runs effects twice in development. Keyed by the query, so a later
+  // callback while this page is still shown (the desktop app, ADR-0019) is handled too.
+  const handled = useRef<string | null>(null)
 
   useEffect(() => {
-    if (started.current) return
-    started.current = true
+    const query = searchParams.toString()
+    if (handled.current === query) return
+    handled.current = query
+    setFailed(false)
 
     session
       .signInFromCallback(searchParams)

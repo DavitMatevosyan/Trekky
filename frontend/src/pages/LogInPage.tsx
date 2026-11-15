@@ -3,12 +3,12 @@ import type { FormEvent } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router'
 import { asProblem, fieldErrors, formLevelError, ProblemError } from '../api/problem.ts'
 import { useAuth, useAuthStatus } from '../auth/AuthContext.ts'
-import { beginAuthorization, safeReturnTo } from '../auth/oauthClient.ts'
+import { beginAuthorization, continuesAuthorization, safeReturnTo } from '../auth/oauthClient.ts'
 import { usePlatform } from '../platform/PlatformContext.ts'
 import { AuthCard } from '../components/AuthCard.tsx'
 import { FormField } from '../components/FormField.tsx'
 import { FormError } from '../components/FormError.tsx'
-import { ServerNote } from '../components/ServerNote.tsx'
+import { BrowserSignIn } from '../components/BrowserSignIn.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { messages } from '../i18n/messages.ts'
 
@@ -19,7 +19,15 @@ interface Credentials {
 
 const FIELDS = ['email', 'password']
 
-/** US-02: log in sets the session cookie, then the code flow turns it into tokens. */
+/** `path` with `returnTo` in its query, unless it is the start page. */
+function withReturnTo(path: string, returnTo: string): string {
+  return returnTo === '/' ? path : `${path}?${new URLSearchParams({ returnTo }).toString()}`
+}
+
+/**
+ * US-02: log in sets the session cookie, then the code flow turns it into tokens. In the desktop app the login form is
+ * this same page in the system browser, reached from {@link BrowserSignIn} (ADR-0019).
+ */
 export function LogInPage() {
   const { api } = useAuth()
   const platform = usePlatform()
@@ -31,11 +39,14 @@ export function LogInPage() {
     mutationFn: async (credentials: Credentials) => {
       const { error, response } = await api.POST('/api/v1/auth/login', { body: credentials })
       if (!response.ok) throw new ProblemError(asProblem(error))
-      await beginAuthorization({ returnTo, platform })
+      // Logged in for the desktop app's sign-in in this browser (ADR-0019): back to the server, which sends the code on.
+      if (continuesAuthorization(returnTo)) await platform.login.open(returnTo)
+      else await beginAuthorization({ returnTo, platform })
     },
   })
 
-  if (isAuthenticated) return <Navigate to={returnTo} replace />
+  if (isAuthenticated && !continuesAuthorization(returnTo)) return <Navigate to={returnTo} replace />
+  if (platform.login.mode === 'browser') return <BrowserSignIn screen="log-in" returnTo={returnTo} />
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -58,7 +69,7 @@ export function LogInPage() {
       footer={
         <>
           {messages.logIn.noAccount}{' '}
-          <Link to="/sign-up" className="font-medium text-primary underline underline-offset-4 hover:no-underline">
+          <Link to={withReturnTo('/sign-up', returnTo)} className="font-medium text-primary underline underline-offset-4 hover:no-underline">
             {messages.logIn.signUpLink}
           </Link>
         </>
@@ -79,7 +90,6 @@ export function LogInPage() {
           {busy ? messages.logIn.submitting : messages.logIn.submit}
         </Button>
       </form>
-      <ServerNote />
     </AuthCard>
   )
 }

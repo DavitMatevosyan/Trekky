@@ -34,7 +34,7 @@ export function RequireAuth() {
   if (status === 'anonymous' && !platform.login.silent) {
     return <Navigate to={`/login?${new URLSearchParams({ returnTo: pathname + search }).toString()}`} replace />
   }
-  if (status === 'anonymous') {
+  if (status === 'anonymous' || status === 'restoring') {
     return (
       <main className="p-8 text-center text-muted-foreground">
         <p role="status">{messages.common.signingIn}</p>

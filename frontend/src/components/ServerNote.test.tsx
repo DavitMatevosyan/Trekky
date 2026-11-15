@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createDesktopPlatform } from '../platform/desktop/desktopPlatform.ts'
+import { fakeDesktopShell } from '../test/fakeDesktopShell.ts'
 import { PlatformContext } from '../platform/PlatformContext.ts'
 import { createWebPlatform } from '../platform/webPlatform.ts'
 import { ServerNote } from './ServerNote.tsx'
@@ -18,7 +19,7 @@ describe('ServerNote', () => {
 
   it('in the desktop app shows the server and changes it on request', async () => {
     const change = vi.fn()
-    const platform = createDesktopPlatform({ url: 'https://trekky.example.ts.net', change })
+    const platform = createDesktopPlatform({ url: 'https://trekky.example.ts.net', change }, fakeDesktopShell(), null)
     render(
       <PlatformContext.Provider value={platform}>
         <ServerNote />

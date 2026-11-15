@@ -1,4 +1,5 @@
 import { jsonResponse, requestAt } from '../test/renderApp.tsx'
+import { createWebPlatform } from '../platform/webPlatform.ts'
 import { AuthSession } from './AuthSession.ts'
 
 const NOW = 1_000_000
@@ -154,4 +155,78 @@ describe('AuthSession', () => {
     expect(statuses).not.toContain('anonymous')
     expect(session.status).toBe('loggedOut')
   })
+
+  describe('restore (a refresh token kept by the platform, ADR-0019)', () => {
+    function storing(initial: string | null) {
+      const saved: (string | null)[] = []
+      const web = createWebPlatform()
+      let current = initial
+      const platform = createWebPlatform({
+        tokens: {
+          load: () => current,
+          save: (token) => {
+            current = token
+            saved.push(token)
+          },
+        },
+        login: { ...web.login, silent: false },
+      })
+      return { platform, saved }
+    }
+
+    it('is restoring until the stored token is redeemed, then authenticated with the rotated one', async () => {
+      const { platform, saved } = storing('stored')
+      const fetchFn = vi.fn<typeof fetch>().mockResolvedValue(tokenResponse('access-2', 'refresh-2'))
+      const session = new AuthSession({ fetchFn, now: () => NOW, platform })
+
+      expect(session.status).toBe('restoring')
+      await session.restore()
+
+      expect(session.status).toBe('authenticated')
+      expect(saved).toEqual(['refresh-2'])
+      expect(new URLSearchParams(await requestAt(fetchFn, 0).text()).get('refresh_token')).toBe('stored')
+    })
+
+    it('redeems the single-use token once even when asked twice', async () => {
+      const { platform } = storing('stored')
+      const fetchFn = vi.fn<typeof fetch>().mockResolvedValue(tokenResponse('access-2', 'refresh-2'))
+      const session = new AuthSession({ fetchFn, now: () => NOW, platform })
+
+      await Promise.all([session.restore(), session.restore()])
+      await session.restore()
+
+      expect(fetchFn).toHaveBeenCalledOnce()
+    })
+
+    it('forgets a rejected token and becomes anonymous', async () => {
+      const { platform, saved } = storing('revoked')
+      const session = new AuthSession({ fetchFn: vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({ error: 'invalid_grant' }, 400)), now: () => NOW, platform })
+
+      await session.restore()
+
+      expect(session.status).toBe('anonymous')
+      expect(saved).toEqual([null])
+    })
+
+    it('keeps the token for next time when the server cannot be reached', async () => {
+      const { platform, saved } = storing('stored')
+      const session = new AuthSession({ fetchFn: vi.fn<typeof fetch>().mockRejectedValue(new TypeError('Failed to fetch')), now: () => NOW, platform })
+
+      await session.restore()
+
+      expect(session.status).toBe('anonymous')
+      expect(saved).toEqual([])
+    })
+
+    it('does nothing without a stored token', async () => {
+      const fetchFn = vi.fn<typeof fetch>()
+      const session = new AuthSession({ fetchFn })
+
+      await session.restore()
+
+      expect(session.status).toBe('anonymous')
+      expect(fetchFn).not.toHaveBeenCalled()
+    })
+  })
 })
+

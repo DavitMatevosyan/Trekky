@@ -48,6 +48,23 @@ export interface BeginAuthorizationOptions {
   prompt?: 'none'
   /** Where the flow runs (TRK-23): the API address, the redirect and where its state is kept. */
   platform?: Platform
+  /**
+   * `sign-up` opens the server's sign-up page first, which continues to the authorization request once the account
+   * exists (the desktop app in the system browser, ADR-0019). By default the request itself is opened, and the server
+   * sends a user without a session to its login page.
+   */
+  screen?: 'sign-up'
+}
+
+/** The server's authorization endpoint, as a same-origin path. */
+const AUTHORIZE_PATH = '/connect/authorize'
+
+/**
+ * True when a login or sign-up page's `returnTo` continues an authorization request that another app (the desktop app,
+ * ADR-0019) started in this browser. Those pages then go back to the server after login instead of signing in here.
+ */
+export function continuesAuthorization(returnTo: string): boolean {
+  return returnTo.startsWith(`${AUTHORIZE_PATH}?`)
 }
 
 /** Keeps only same-origin paths, so the callback can never redirect to another site. */
@@ -57,8 +74,16 @@ export function safeReturnTo(path: string | null | undefined): string {
   return url.origin === window.location.origin ? url.pathname + url.search + url.hash : '/'
 }
 
-/** Starts the authorization code flow by sending the user to /connect/authorize (the web app: a full-page redirect). */
-export async function beginAuthorization({ returnTo, prompt, platform = createWebPlatform() }: BeginAuthorizationOptions = {}): Promise<void> {
+/**
+ * Starts the authorization code flow by sending the user to /connect/authorize (the web app: a full-page redirect; the
+ * desktop app: the system browser). Returns the address it opened, so the same request can be opened again.
+ */
+export async function beginAuthorization({
+  returnTo,
+  prompt,
+  platform = createWebPlatform(),
+  screen,
+}: BeginAuthorizationOptions = {}): Promise<string> {
   const { verifier, challenge } = await createPkcePair()
   const pending: PendingAuthorization = { state: randomUrlSafeString(16), verifier, returnTo: safeReturnTo(returnTo) }
   platform.pendingAuthorization.setItem(PENDING_KEY, JSON.stringify(pending))
@@ -73,7 +98,22 @@ export async function beginAuthorization({ returnTo, prompt, platform = createWe
     code_challenge_method: 'S256',
   })
   if (prompt) query.set('prompt', prompt)
-  platform.login.open(`${platform.apiBaseUrl}/connect/authorize?${query.toString()}`)
+  const authorize = `${AUTHORIZE_PATH}?${query.toString()}`
+  const url =
+    screen === 'sign-up'
+      ? `${platform.apiBaseUrl}/sign-up?${new URLSearchParams({ returnTo: authorize }).toString()}`
+      : `${platform.apiBaseUrl}${authorize}`
+  await platform.login.open(url)
+  return url
+}
+
+/**
+ * True when `params` answer the authorization request this app is waiting for (its `state`). Anything else, such as a
+ * `trekky://` link from some web page (ADR-0019), is ignored rather than allowed to cancel the sign-in in progress.
+ */
+export function answersPendingAuthorization(params: URLSearchParams, platform: Pick<Platform, 'pendingAuthorization'>): boolean {
+  const pending = parsePending(platform.pendingAuthorization.getItem(PENDING_KEY))
+  return pending !== null && params.get('state') === pending.state
 }
 
 export interface CompletedAuthorization {
@@ -90,15 +130,14 @@ export async function completeAuthorization(
     now = Date.now,
   }: { platform?: Platform; fetchFn?: typeof fetch; now?: () => number } = {},
 ): Promise<CompletedAuthorization> {
-  const raw = platform.pendingAuthorization.getItem(PENDING_KEY)
-  platform.pendingAuthorization.removeItem(PENDING_KEY)
-  const pending = parsePending(raw)
+  const pending = parsePending(platform.pendingAuthorization.getItem(PENDING_KEY))
   const returnTo = safeReturnTo(pending?.returnTo)
 
-  // State first: a response this tab did not ask for is never acted on.
+  // State first: a response this tab did not ask for is never acted on, and does not cancel the request it waits for.
   if (!pending || params.get('state') !== pending.state) {
     throw new AuthorizationError('The sign-in response does not match the request.', { loginRequired: true, returnTo })
   }
+  platform.pendingAuthorization.removeItem(PENDING_KEY)
   const error = params.get('error')
   if (error) {
     throw new AuthorizationError(params.get('error_description') ?? error, { loginRequired: error === 'login_required', returnTo })

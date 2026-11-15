@@ -32,6 +32,11 @@
       }
     }
   },
+  "plugins": {
+    "deep-link": {
+      "desktop": { "schemes": ["trekky"] }
+    }
+  },
   "bundle": {
     "active": true,
     "targets": ["msi"],

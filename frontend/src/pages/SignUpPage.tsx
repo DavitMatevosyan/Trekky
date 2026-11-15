@@ -1,12 +1,12 @@
 import { useMutation } from '@tanstack/react-query'
 import type { FormEvent } from 'react'
-import { Link, Navigate } from 'react-router'
+import { Link, Navigate, useSearchParams } from 'react-router'
 import { asProblem, fieldErrors, formLevelError, ProblemError } from '../api/problem.ts'
 import { useAuth, useAuthStatus } from '../auth/AuthContext.ts'
-import { beginAuthorization } from '../auth/oauthClient.ts'
+import { beginAuthorization, continuesAuthorization, safeReturnTo } from '../auth/oauthClient.ts'
 import { AuthCard } from '../components/AuthCard.tsx'
 import { FormError } from '../components/FormError.tsx'
-import { ServerNote } from '../components/ServerNote.tsx'
+import { BrowserSignIn } from '../components/BrowserSignIn.tsx'
 import { FormField } from '../components/FormField.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { messages } from '../i18n/messages.ts'
@@ -28,17 +28,22 @@ export function SignUpPage() {
   const { api } = useAuth()
   const platform = usePlatform()
   const isAuthenticated = useAuthStatus() === 'authenticated'
+  const [searchParams] = useSearchParams()
+  const returnTo = safeReturnTo(searchParams.get('returnTo'))
 
   const signUp = useMutation({
     mutationFn: async (body: SignUpForm) => {
       const { error, response } = await api.POST('/api/v1/auth/sign-up', { body })
       if (!response.ok) throw new ProblemError(asProblem(error))
-      // Sign-up also sets the session cookie, so the code flow can run straight away (US-01 AC4).
-      await beginAuthorization({ returnTo: '/', platform })
+      // Sign-up also sets the session cookie, so the code flow can run straight away (US-01 AC4); for the desktop
+      // app's sign-up in this browser it goes back to the server, which sends the code on (ADR-0019).
+      if (continuesAuthorization(returnTo)) await platform.login.open(returnTo)
+      else await beginAuthorization({ returnTo, platform })
     },
   })
 
-  if (isAuthenticated) return <Navigate to="/" replace />
+  if (isAuthenticated && !continuesAuthorization(returnTo)) return <Navigate to={returnTo} replace />
+  if (platform.login.mode === 'browser') return <BrowserSignIn screen="sign-up" returnTo={returnTo} />
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -65,7 +70,7 @@ export function SignUpPage() {
       footer={
         <>
           {messages.signUp.haveAccount}{' '}
-          <Link to="/login" className="font-medium text-primary underline underline-offset-4 hover:no-underline">
+          <Link to={returnTo === '/' ? '/login' : `/login?${new URLSearchParams({ returnTo }).toString()}`} className="font-medium text-primary underline underline-offset-4 hover:no-underline">
             {messages.signUp.logInLink}
           </Link>
         </>
@@ -95,7 +100,6 @@ export function SignUpPage() {
           {busy ? messages.signUp.submitting : messages.signUp.submit}
         </Button>
       </form>
-      <ServerNote />
     </AuthCard>
   )
 }
