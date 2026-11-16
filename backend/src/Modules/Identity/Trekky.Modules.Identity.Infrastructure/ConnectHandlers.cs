@@ -24,22 +24,37 @@ internal sealed class ConnectHandlers(
     IOpenIddictApplicationManager applications,
     IOpenIddictAuthorizationManager authorizations)
 {
-    /// <summary>Issues an authorization code for the user logged in with the session cookie.</summary>
-    public async Task<Results<SignInHttpResult, ForbidHttpResult>> AuthorizeAsync(HttpContext http, CancellationToken cancellationToken)
+    /// <summary>The web app's login page; it continues to <c>returnTo</c> once the user is logged in.</summary>
+    public const string LoginPath = "/login";
+
+    /// <summary>
+    /// Issues an authorization code for the user logged in with the session cookie. Without a session, an interactive
+    /// request (no <c>prompt=none</c>, e.g. the desktop app in the system browser, ADR-0019) goes to the web app's login
+    /// page and comes back here after login; a silent one gets login_required.
+    /// </summary>
+    public async Task<Results<SignInHttpResult, ForbidHttpResult, RedirectHttpResult>> AuthorizeAsync(HttpContext http, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(http);
 
         var request = http.GetOpenIddictServerRequest()
             ?? throw new InvalidOperationException("The OpenID Connect request cannot be retrieved.");
 
-        // The web app logs in through POST /api/v1/auth/login first; there is no server-rendered login page.
-        // Without a valid session the client gets login_required (also the answer to prompt=none).
-        // The security stamp is checked on every call, so a cookie from before logout stops working at once.
+        // Login happens in the web app (POST /api/v1/auth/login sets the session cookie); there is no
+        // server-rendered login page. The security stamp is checked on every call, so a cookie from before logout
+        // stops working at once.
         var session = await http.AuthenticateAsync(IdentityConstants.ApplicationScheme);
         var user = session.Succeeded ? await signIn.ValidateSecurityStampAsync(session.Principal) : null;
         if (user is null || !await signIn.CanSignInAsync(user))
         {
-            return Forbid(Errors.LoginRequired, "The user is not logged in.");
+            // Only a GET request can be repeated from a URL; a POST's parameters are in its body.
+            if (request.HasPromptValue(PromptValues.None) || !HttpMethods.IsGet(http.Request.Method))
+            {
+                return Forbid(Errors.LoginRequired, "The user is not logged in.");
+            }
+
+            // Back to this same request after login: a same-origin path, which the web app only follows to here.
+            var returnTo = http.Request.PathBase + http.Request.Path + http.Request.QueryString;
+            return TypedResults.Redirect($"{LoginPath}{QueryString.Create("returnTo", returnTo)}");
         }
 
         var membership = await memberships.FindForUserAsync(user.Id, cancellationToken);

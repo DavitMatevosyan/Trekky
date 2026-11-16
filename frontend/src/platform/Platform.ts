@@ -29,13 +29,20 @@ export interface ServerSwitch {
 export interface LoginRedirect {
   /** The callback URL registered for this client. */
   redirectUri(): string
-  /** Opens the authorization URL (the web app: this tab; the desktop app: the system browser). */
-  open(url: string): void
+  /** Opens the authorization URL (the web app: this tab; the desktop app: the system browser, which may fail). */
+  open(url: string): void | Promise<void>
   /**
    * Whether an existing session can sign the user in without a screen (prompt=none). True in the browser, whose
    * session cookie reaches the server; false in the desktop app, which goes to the login page instead.
    */
   silent: boolean
+  /**
+   * Where the user types their credentials: `page` = this app's own login and sign-up forms (the browser);
+   * `browser` = the server's web pages in the system browser, back through the redirect URI (the desktop app, ADR-0019).
+   */
+  mode: 'page' | 'browser'
+  /** `browser` mode: calls `listener` with each callback URL the system browser sends back; returns an unsubscribe. */
+  onCallback?: (listener: (callbackUrl: string) => void) => () => void
 }
 
 /** The part of the Web Storage API the code flow uses. */

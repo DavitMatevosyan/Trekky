@@ -60,7 +60,7 @@ export function renderApp({
   tokens = null,
   platform,
 }: { path?: string; fetchFn?: typeof fetch; tokens?: Tokens | null; platform?: Platform } = {}) {
-  const session = new AuthSession({ fetchFn })
+  const session = new AuthSession({ fetchFn, platform })
   if (tokens) session.setTokens(tokens)
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
   const router = createMemoryRouter(routes, { initialEntries: [path] })

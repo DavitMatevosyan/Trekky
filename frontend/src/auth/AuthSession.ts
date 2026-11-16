@@ -8,8 +8,11 @@ const REFRESH_MARGIN_MS = 30_000
 
 type Listener = () => void
 
-/** `loggedOut` = the user logged out in this tab, so guards go to the login page instead of re-authenticating. */
-export type AuthStatus = 'authenticated' | 'anonymous' | 'loggedOut'
+/**
+ * `loggedOut` = the user logged out in this tab, so guards go to the login page instead of re-authenticating.
+ * `restoring` = a stored refresh token (desktop app, ADR-0019) is being redeemed; guards wait for it.
+ */
+export type AuthStatus = 'authenticated' | 'anonymous' | 'loggedOut' | 'restoring'
 
 export interface AuthSessionOptions {
   fetchFn?: typeof fetch
@@ -30,6 +33,9 @@ export class AuthSession {
   /** Bumped whenever the tokens are dropped, so a refresh that finishes afterwards cannot bring them back. */
   private generation = 0
   private refreshing: Promise<Tokens | null> | null = null
+  /** A refresh token kept by the platform from an earlier run, until {@link restore} has tried it. */
+  private stored: string | null
+  private restoring: Promise<void> | null = null
   private readonly listeners = new Set<Listener>()
   private readonly fetchFn: typeof fetch
   private readonly now: () => number
@@ -40,11 +46,39 @@ export class AuthSession {
     this.fetchFn = fetchFn
     this.now = now
     this.platform = platform
+    this.stored = platform.tokens.load()
   }
 
   get status(): AuthStatus {
     if (this.tokens !== null) return 'authenticated'
+    if (this.stored !== null) return 'restoring'
     return this.loggedOut ? 'loggedOut' : 'anonymous'
+  }
+
+  /**
+   * Signs back in with the refresh token the platform kept from an earlier run (the desktop app, ADR-0019). Runs once
+   * per session, so a second call (StrictMode effects) cannot redeem the single-use token twice. A rejected token is
+   * forgotten; when the server cannot be reached the token is kept for next time and the user sees the login page.
+   */
+  restore(): Promise<void> {
+    this.restoring ??= this.redeemStored()
+    return this.restoring
+  }
+
+  private async redeemStored(): Promise<void> {
+    const refreshToken = this.stored
+    if (refreshToken === null) return
+    const generation = this.generation
+    try {
+      const tokens = await refreshTokens(refreshToken, this.platform, this.fetchFn, this.now)
+      this.stored = null
+      if (generation === this.generation) this.setTokens(tokens)
+      else this.emit()
+    } catch (error) {
+      this.stored = null
+      if (error instanceof AuthorizationError && (error.status === 400 || error.status === 401)) this.platform.tokens.save(null)
+      this.emit()
+    }
   }
 
   subscribe = (listener: Listener): (() => void) => {
@@ -56,6 +90,7 @@ export class AuthSession {
 
   setTokens(tokens: Tokens): void {
     this.tokens = tokens
+    this.stored = null
     this.loggedOut = false
     // The web platform stores nothing (ADR-0003); the desktop app keeps the refresh token to start signed in.
     this.platform.tokens.save(tokens.refreshToken)

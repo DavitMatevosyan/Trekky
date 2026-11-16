@@ -1,11 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createBrowserRouter, RouterProvider, type DataRouter } from 'react-router'
 import { AuthProvider } from './auth/AuthProvider.tsx'
 import { AuthSession } from './auth/AuthSession.ts'
+import { answersPendingAuthorization } from './auth/oauthClient.ts'
 import type { Platform } from './platform/Platform.ts'
 import { PlatformContext } from './platform/PlatformContext.ts'
-import { createWebPlatform } from './platform/webPlatform.ts'
+import { CALLBACK_PATH, createWebPlatform } from './platform/webPlatform.ts'
 import { routes } from './routes.tsx'
 
 export interface AppProps {
@@ -27,6 +28,18 @@ export function App({ platform, session, queryClient, router }: AppProps) {
       router: router ?? createBrowserRouter(routes),
     }
   })
+
+  // The desktop app's sign-in comes back from the system browser as trekky://auth/callback?... (ADR-0019): finish it on
+  // the same callback page the web app uses.
+  useEffect(
+    () =>
+      resolved.platform.login.onCallback?.((callbackUrl) => {
+        const { search, searchParams } = new URL(callbackUrl)
+        // Only the answer to this app's own request; a stray trekky:// link changes nothing.
+        if (answersPendingAuthorization(searchParams, resolved.platform)) void resolved.router.navigate(`${CALLBACK_PATH}${search}`)
+      }),
+    [resolved],
+  )
 
   return (
     <PlatformContext.Provider value={resolved.platform}>

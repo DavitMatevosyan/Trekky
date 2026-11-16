@@ -1,6 +1,13 @@
 import { createWebPlatform } from '../platform/webPlatform.ts'
 import { jsonResponse } from '../test/renderApp.tsx'
-import { AuthorizationError, beginAuthorization, completeAuthorization, safeReturnTo } from './oauthClient.ts'
+import {
+  answersPendingAuthorization,
+  AuthorizationError,
+  beginAuthorization,
+  completeAuthorization,
+  continuesAuthorization,
+  safeReturnTo,
+} from './oauthClient.ts'
 
 async function startFlow(options: Parameters<typeof beginAuthorization>[0] = {}) {
   const navigate = vi.fn<(url: string) => void>()
@@ -26,6 +33,39 @@ describe('oauthClient', () => {
       prompt: 'none',
     })
     expect(url.searchParams.get('code_challenge')).toMatch(/^[A-Za-z0-9_-]{43}$/)
+  })
+
+  it('for sign-up, opens the sign-up page, which continues to the same authorization request (ADR-0019)', async () => {
+    const { url } = await startFlow({ screen: 'sign-up', returnTo: '/projects' })
+
+    expect(url.pathname).toBe('/sign-up')
+    const returnTo = url.searchParams.get('returnTo') ?? ''
+    expect(continuesAuthorization(returnTo)).toBe(true)
+    const authorize = new URL(returnTo, window.location.origin)
+    expect(authorize.pathname).toBe('/connect/authorize')
+    expect(authorize.searchParams.get('client_id')).toBe('trekky-web')
+    expect(authorize.searchParams.get('state')).toMatch(/^[A-Za-z0-9_-]+$/)
+  })
+
+  it('a response with the wrong state does not cancel the request it waits for', async () => {
+    const { state } = await startFlow()
+    const fetchFn = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({ access_token: 'a', refresh_token: 'r', expires_in: 900 }))
+    const web = createWebPlatform()
+
+    expect(answersPendingAuthorization(new URLSearchParams({ state: 'forged' }), web)).toBe(false)
+    await expect(completeAuthorization(new URLSearchParams({ code: 'x', state: 'forged' }), { fetchFn })).rejects.toBeInstanceOf(AuthorizationError)
+    expect(answersPendingAuthorization(new URLSearchParams({ state }), web)).toBe(true)
+
+    await expect(completeAuthorization(new URLSearchParams({ code: 'real', state }), { fetchFn })).resolves.toMatchObject({ returnTo: '/' })
+    expect(answersPendingAuthorization(new URLSearchParams({ state }), web)).toBe(false)
+  })
+
+  it('treats only the authorization endpoint as a request to continue', () => {
+    expect(continuesAuthorization('/connect/authorize?client_id=trekky-desktop')).toBe(true)
+    expect(continuesAuthorization('/connect/authorize')).toBe(false)
+    expect(continuesAuthorization('/connect/token?x=1')).toBe(false)
+    expect(continuesAuthorization('/projects?next=/connect/authorize?x')).toBe(false)
+    expect(continuesAuthorization(safeReturnTo('https://evil.example.com/connect/authorize?x=1'))).toBe(false)
   })
 
   it('sends a code challenge that is the SHA-256 of the verifier it later redeems', async () => {

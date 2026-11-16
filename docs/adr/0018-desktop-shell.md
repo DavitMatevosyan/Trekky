@@ -15,9 +15,9 @@ v1.1 adds Trekky for Windows (Tauri 2, MSI, online only, one account shared with
 
 ## Consequences
 
-- **Easier:** one UI codebase and test suite; the web app does not change in the browser (the desktop code loads only inside Tauri); the server is a setting, so moving it is a settings change, and a build can set the default (`TREKKY_DEFAULT_SERVER_URL`, else `http://localhost:5080`).
+- **Easier:** one UI codebase and test suite; the web app does not change in the browser (the desktop code loads only inside Tauri); the server is a setting, so moving it is a settings change, and a build can set the default (`TREKKY_DEFAULT_SERVER_URL`, else the local dev server `http://localhost:5173`, which also serves the login page, ADR-0019).
 - **Rules:**
-  - The shell exposes small commands (`server_settings`, `set_server_url`) and no general file, shell or HTTP access.
+  - The shell exposes small commands (`server_settings`, `set_server_url`; from ADR-0019 also `open_in_browser`, `load_refresh_token`, `save_refresh_token` and the `auth-callback` event) and no general file, shell or HTTP access.
   - The app reaches the server with `fetch` under CORS (ADR-0017), checking `GET /api/v1/health` before it mounts.
   - The window loads only `http://tauri.localhost` (`http://localhost:5173` in debug builds) and opens no other windows (`window.open` and `target=_blank` are refused). Sign-in and outside links go to the system browser (TREK-35).
   - Platform code says whether silent sign-in exists (`login.silent`): the desktop app has no browser session, so protected pages go to the login page.

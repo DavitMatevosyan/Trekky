@@ -2,33 +2,25 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ServerSwitch } from '../Platform.ts'
 import { DesktopGate } from './DesktopGate.tsx'
+import { fakeDesktopShell } from '../../test/fakeDesktopShell.ts'
 import { ServerUrlError, type DesktopShell } from './desktopShell.ts'
 
-function fakeShell(overrides: Partial<DesktopShell> = {}): DesktopShell & { saved: string[] } {
-  const saved: string[] = []
-  return {
-    saved,
-    serverSettings: vi.fn().mockResolvedValue({ serverUrl: null, defaultServerUrl: 'https://default.example.com' }),
-    setServerUrl: vi.fn(async (url: string) => {
-      saved.push(url)
-      return url.replace(/\/+$/, '')
-    }),
-    checkServer: vi.fn().mockResolvedValue(true),
-    ...overrides,
-  }
-}
+const fakeShell = fakeDesktopShell
 
 function renderGate(shell: DesktopShell) {
   let server: ServerSwitch | undefined
+  let token: string | null = null
   render(
     <DesktopGate shell={shell}>
-      {(current) => {
+      {(current, refreshToken) => {
         server = current
+        token = refreshToken
         return <p>App on {current.url}</p>
       }}
     </DesktopGate>,
   )
   return {
+    refreshToken: () => token,
     server: () => {
       if (!server) throw new Error('The app has not been rendered yet')
       return server
@@ -125,5 +117,28 @@ describe('DesktopGate', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('Connecting to https://trekky.example.com…')
     answer(true)
     await waitFor(() => expect(screen.getByText('App on https://trekky.example.com')).toBeInTheDocument())
+  })
+
+  it('hands the app the refresh token kept for that server', async () => {
+    const shell = fakeDesktopShell({
+      serverSettings: vi.fn().mockResolvedValue({ serverUrl: 'https://trekky.example.com', defaultServerUrl: 'https://default.example.com' }),
+    })
+    shell.credentials.set('https://trekky.example.com', 'stored-refresh')
+    shell.credentials.set('https://other.example.com', 'other-refresh')
+    const gate = renderGate(shell)
+
+    await screen.findByText('App on https://trekky.example.com')
+    expect(gate.refreshToken()).toBe('stored-refresh')
+  })
+
+  it('starts signed out when Credential Manager cannot be read', async () => {
+    const shell = fakeDesktopShell({
+      serverSettings: vi.fn().mockResolvedValue({ serverUrl: 'https://trekky.example.com', defaultServerUrl: 'https://default.example.com' }),
+      loadRefreshToken: vi.fn().mockRejectedValue(new Error('access denied')),
+    })
+    const gate = renderGate(shell)
+
+    await screen.findByText('App on https://trekky.example.com')
+    expect(gate.refreshToken()).toBeNull()
   })
 })

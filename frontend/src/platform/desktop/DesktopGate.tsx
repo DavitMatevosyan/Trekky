@@ -10,12 +10,15 @@ type GateState =
   | { kind: 'setup'; initialUrl: string; current: string | null; error: string | null; busy: boolean }
   | { kind: 'checking'; serverUrl: string }
   | { kind: 'unreachable'; serverUrl: string; busy: boolean }
-  | { kind: 'ready'; serverUrl: string }
+  | { kind: 'ready'; serverUrl: string; refreshToken: string | null }
 
 export interface DesktopGateProps {
   shell: DesktopShell
-  /** The app, once the server answers; `server` lets it show and change the address. */
-  children(server: ServerSwitch): ReactNode
+  /**
+   * The app, once the server answers; `server` lets it show and change the address, `refreshToken` is the one kept
+   * for this server (ADR-0019), so the app can start signed in.
+   */
+  children(server: ServerSwitch, refreshToken: string | null): ReactNode
 }
 
 /**
@@ -29,7 +32,13 @@ export function DesktopGate({ shell, children }: DesktopGateProps) {
     async (serverUrl: string, from: 'start' | 'retry') => {
       setState(from === 'start' ? { kind: 'checking', serverUrl } : { kind: 'unreachable', serverUrl, busy: true })
       const reachable = await shell.checkServer(serverUrl)
-      setState(reachable ? { kind: 'ready', serverUrl } : { kind: 'unreachable', serverUrl, busy: false })
+      if (!reachable) {
+        setState({ kind: 'unreachable', serverUrl, busy: false })
+        return
+      }
+      // Unreadable Credential Manager: start signed out rather than not at all.
+      const refreshToken = await shell.loadRefreshToken(serverUrl).catch(() => null)
+      setState({ kind: 'ready', serverUrl, refreshToken })
     },
     [shell],
   )
@@ -102,8 +111,8 @@ export function DesktopGate({ shell, children }: DesktopGateProps) {
       )
     }
     case 'ready': {
-      const { serverUrl } = state
-      return <Fragment key={serverUrl}>{children({ url: serverUrl, change: () => changeServer(serverUrl) })}</Fragment>
+      const { serverUrl, refreshToken } = state
+      return <Fragment key={serverUrl}>{children({ url: serverUrl, change: () => changeServer(serverUrl) }, refreshToken)}</Fragment>
     }
   }
 }

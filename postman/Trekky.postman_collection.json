@@ -160,7 +160,7 @@
                   "const location = pm.response.headers.get('Location') || '';",
                   "const match = location.match(/[?&]code=([^&]+)/);",
                   "if (match) { pm.collectionVariables.set('code', decodeURIComponent(match[1])); }",
-                  "else { console.log('No code in redirect (not logged in? run 1 or 2 first):', location); }"
+                  "else { console.log('No code in redirect: without a session the server sends the browser to /login?returnTo=<this request> (prompt=none gets login_required instead). Run Sign up or Log in first:', location); }"
                 ]
               }
             }
