@@ -7,7 +7,7 @@ So every entity must be machine-readable from day one: stable keys, structured f
 - Plan, versions, contracts and the task list (TRK-1…): Notion page "Project Management - Task tracker". After the
   TRK-21 switch the task list is the Trekky project `TREK` (keys `TREK-<n>`); Notion's `TRK-<n>` keys stay as history
   (ADR-0016). Below, `TRK-<n>` stands for either key.
-- Current stage: **POC, v1.0 Dogfood**. Build only what the current version needs (see "Scope").
+- Current stage: **POC, v1.1 Hosting and desktop app**. Build only what the current version needs (see "Scope").
 
 ## Repo layout
 
@@ -88,7 +88,8 @@ node import.ts --dry-run                   # needs TREKKY_EMAIL / TREKKY_PASSWOR
 | --- | --- |
 | v0.1 Skeleton | Login (Identity + OpenIddict), org at sign-up, `org_id` + RLS |
 | v0.2 Work items | Projects with key, work items with parent/child, fixed workflow, list, detail, activity log |
-| v1.0 Dogfood (current) | Board with drag and drop, comments, assignee |
+| v1.0 Dogfood | Board with drag and drop, comments, assignee |
+| v1.1 Hosting and desktop app (current) | Home host behind Tailscale Funnel, Trekky tracks itself, Windows desktop app (Tauri 2, MSI, auto-update), Azure move when SaaS starts |
 
 Hosting (TRK-9, ADR-0015): the home machine behind Tailscale Funnel now, Azure Container Apps + Neon Postgres when SaaS starts (TRK-29).
 

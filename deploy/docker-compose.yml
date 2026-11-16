@@ -22,6 +22,9 @@ x-api: &api
     Identity__EncryptionCertificate__Path: /run/secrets-trekky/encryption.pfx
     Identity__EncryptionCertificate__Password: ${IDENTITY_CERTIFICATE_PASSWORD}
     Identity__WebClient__RedirectUris__0: https://${TREKKY_HOST}/auth/callback
+    # The desktop app's webview (Tauri on Windows, ADR-0017) calls the API from this origin; its OAuth client
+    # (trekky-desktop, redirect trekky://auth/callback) needs no settings.
+    Cors__AllowedOrigins__0: http://tauri.localhost
   volumes:
     - ./secrets:/run/secrets-trekky:ro
 

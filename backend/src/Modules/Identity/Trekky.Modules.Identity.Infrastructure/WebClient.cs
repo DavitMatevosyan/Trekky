@@ -1,6 +1,3 @@
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Options;
 using OpenIddict.Abstractions;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 
@@ -46,27 +43,4 @@ internal static class WebClient
 
         return descriptor;
     }
-}
-
-/// <summary>Creates or updates the web client on startup, so redirect URIs follow configuration.</summary>
-internal sealed class WebClientRegistration(IServiceProvider services, IOptions<IdentityModuleOptions> options) : IHostedService
-{
-    public async Task StartAsync(CancellationToken cancellationToken)
-    {
-        await using var scope = services.CreateAsyncScope();
-        var applications = scope.ServiceProvider.GetRequiredService<IOpenIddictApplicationManager>();
-        var descriptor = WebClient.CreateDescriptor(options.Value.WebClient.RedirectUris);
-
-        var existing = await applications.FindByClientIdAsync(WebClient.ClientId, cancellationToken);
-        if (existing is null)
-        {
-            await applications.CreateAsync(descriptor, cancellationToken);
-        }
-        else
-        {
-            await applications.UpdateAsync(existing, descriptor, cancellationToken);
-        }
-    }
-
-    public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 }
