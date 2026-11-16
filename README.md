@@ -76,4 +76,8 @@ Database roles: on first start Postgres creates `trekky_owner` (runs migrations,
 
 ## License
 
-Not chosen yet (ADR-0007). Keep the repository private until it is.
+Copyright (C) 2026 Davit Matevosyan and contributors.
+
+Trekky is free software under the [GNU Affero General Public License v3.0 only](LICENSE) (`AGPL-3.0-only`, ADR-0021).
+You may use, self-host, change and share it. If you run a modified Trekky for others over a network, offer them its
+source code: the app's "Source code" link (`frontend/src/lib/sourceCode.ts`) is where a fork points to the source of the version it runs.

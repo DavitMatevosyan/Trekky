@@ -2,6 +2,7 @@
 name = "trekky-desktop"
 version = "0.1.0"
 description = "Trekky for Windows"
+license = "AGPL-3.0-only"
 edition = "2021"
 publish = false
 

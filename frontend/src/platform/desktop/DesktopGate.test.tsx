@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ServerSwitch } from '../Platform.ts'
 import { DesktopGate } from './DesktopGate.tsx'
+import { SOURCE_CODE_URL } from '../../lib/sourceCode.ts'
 import { fakeDesktopShell } from '../../test/fakeDesktopShell.ts'
 import { ServerUrlError, type DesktopShell } from './desktopShell.ts'
 
@@ -140,5 +141,14 @@ describe('DesktopGate', () => {
 
     await screen.findByText('App on https://trekky.example.com')
     expect(gate.refreshToken()).toBeNull()
+  })
+
+  it('opens the source code link in the system browser on its own screens too (AGPL-3.0)', async () => {
+    const shell = fakeShell()
+    renderGate(shell)
+
+    await userEvent.click(await screen.findByRole('link', { name: 'Source code (AGPL-3.0)' }))
+
+    await waitFor(() => expect(shell.opened).toEqual([SOURCE_CODE_URL]))
   })
 })
