@@ -1,0 +1,28 @@
+[package]
+name = "trekky-desktop"
+version = "0.1.0"
+description = "Trekky for Windows"
+edition = "2021"
+publish = false
+
+[lib]
+# A name other than the binary's, so cargo test and the Windows linker do not clash.
+name = "trekky_desktop_lib"
+crate-type = ["rlib"]
+
+[build-dependencies]
+tauri-build = { version = "=2.7.4", features = [] }
+
+[dependencies]
+tauri = { version = "=2.12.5", features = [] }
+tauri-plugin-single-instance = "=2.5.5"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+url = "2.5"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

@@ -1,3 +1,4 @@
+import type { Platform } from '../platform/Platform.ts'
 import { QueryClient } from '@tanstack/react-query'
 import { render } from '@testing-library/react'
 import { createMemoryRouter } from 'react-router'
@@ -57,12 +58,13 @@ export function renderApp({
   path = '/',
   fetchFn = vi.fn<typeof fetch>(),
   tokens = null,
-}: { path?: string; fetchFn?: typeof fetch; tokens?: Tokens | null } = {}) {
+  platform,
+}: { path?: string; fetchFn?: typeof fetch; tokens?: Tokens | null; platform?: Platform } = {}) {
   const session = new AuthSession({ fetchFn })
   if (tokens) session.setTokens(tokens)
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
   const router = createMemoryRouter(routes, { initialEntries: [path] })
-  const view = render(<App session={session} queryClient={queryClient} router={router} />)
+  const view = render(<App platform={platform} session={session} queryClient={queryClient} router={router} />)
   return { ...view, session, router, fetchFn }
 }
 

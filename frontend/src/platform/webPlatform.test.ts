@@ -52,7 +52,7 @@ describe('the auth flow on another platform', () => {
     return {
       apiBaseUrl: 'https://api.example.com',
       clientId: 'trekky-desktop',
-      login: { redirectUri: () => 'trekky://auth/callback', open: (url) => opened.push(url) },
+      login: { redirectUri: () => 'trekky://auth/callback', open: (url) => opened.push(url), silent: false },
       pendingAuthorization: {
         getItem: (key) => store.get(key) ?? null,
         setItem: (key, value) => store.set(key, value),

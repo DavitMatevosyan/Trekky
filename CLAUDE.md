@@ -20,6 +20,7 @@ backend/                 .NET 10 modular monolith
   src/Modules/<Name>/      One folder per module (added per TRK): Trekky.Modules.<Name>.{Api,Application,Domain,Infrastructure,Persistence} (ADR-0009)
   tests/                 xUnit; integration tests use WebApplicationFactory<Program>
 frontend/                React 19 + TypeScript strict + Vite, React Router, TanStack Query, Tailwind + shadcn/ui; Vitest + Testing Library + Playwright (ADR-0010)
+desktop/                 Trekky for Windows: Tauri 2 shell around the web app, MSI (ADR-0018); its screens live in frontend/src/platform/desktop
 docs/adr/                ADRs (template: 0000-template.md)
 tools/notion-import/     One-off import of the Notion task list into Trekky (TRK-21); Node, no dependencies
 postman/                 Postman collection for manual API testing (ADR-0008)
@@ -45,6 +46,10 @@ npm run lint && npm test && npm run build
 npm run dev                                # http://localhost:5173, proxies /api and /connect → 5080
 npm run generate:api                       # regenerate src/api/schema.d.ts from the running API (commit it)
 npm run e2e                                # Playwright; needs Postgres up, starts API + dev server if not running
+
+cd desktop                                 # needs Rust (MSVC) + VS C++ build tools; see desktop/README.md
+npm ci && npm test && npm run lint         # Rust unit tests, fmt + clippy
+npm run build                              # release MSI in src-tauri/target/release/bundle/msi
 
 cd tools/notion-import
 npm test && ../../frontend/node_modules/.bin/tsc -p .   # importer tests + strict type check (CI runs both)

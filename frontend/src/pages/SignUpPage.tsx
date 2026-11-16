@@ -6,6 +6,7 @@ import { useAuth, useAuthStatus } from '../auth/AuthContext.ts'
 import { beginAuthorization } from '../auth/oauthClient.ts'
 import { AuthCard } from '../components/AuthCard.tsx'
 import { FormError } from '../components/FormError.tsx'
+import { ServerNote } from '../components/ServerNote.tsx'
 import { FormField } from '../components/FormField.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { messages } from '../i18n/messages.ts'
@@ -94,6 +95,7 @@ export function SignUpPage() {
           {busy ? messages.signUp.submitting : messages.signUp.submit}
         </Button>
       </form>
+      <ServerNote />
     </AuthCard>
   )
 }

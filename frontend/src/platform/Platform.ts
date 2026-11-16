@@ -13,6 +13,16 @@ export interface Platform {
   pendingAuthorization: KeyValueStore
   tokens: TokenStore
   links: ExternalLinks
+  /** The desktop app's server and a way to pick another (ADR-0018); absent in the browser, which has one server. */
+  server?: ServerSwitch
+}
+
+/** The server the desktop app talks to, as chosen by the user. */
+export interface ServerSwitch {
+  /** The server's origin, e.g. `https://trekky.example.ts.net`. */
+  url: string
+  /** Leaves the app for the server screen. */
+  change(): void
 }
 
 /** Sends the user to the authorization server and says where it comes back. */
@@ -21,6 +31,11 @@ export interface LoginRedirect {
   redirectUri(): string
   /** Opens the authorization URL (the web app: this tab; the desktop app: the system browser). */
   open(url: string): void
+  /**
+   * Whether an existing session can sign the user in without a screen (prompt=none). True in the browser, whose
+   * session cookie reaches the server; false in the desktop app, which goes to the login page instead.
+   */
+  silent: boolean
 }
 
 /** The part of the Web Storage API the code flow uses. */

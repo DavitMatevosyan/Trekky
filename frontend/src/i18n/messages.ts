@@ -212,4 +212,37 @@ export const messages = {
     title: 'Page not found',
     backHome: 'Go to the start page',
   },
+  /** The Windows desktop app's own screens (ADR-0018). */
+  desktop: {
+    starting: 'Starting Trekky…',
+    connecting: (serverUrl: string) => `Connecting to ${serverUrl}…`,
+    setup: {
+      title: 'Connect to your Trekky server',
+      intro: 'Enter the address of the Trekky server your team uses. You can change it later.',
+      serverUrl: 'Server address',
+      serverUrlHint: 'For example https://trekky.example.com',
+      submit: 'Connect',
+      connecting: 'Connecting…',
+      cancel: 'Keep the current server',
+      footer: 'Trekky for Windows needs a connection to the server.',
+      errors: (code: string) =>
+        code === 'invalid'
+          ? 'Enter a web address, such as https://trekky.example.com.'
+          : code === 'insecure'
+            ? 'Use an https:// address. Plain http is only allowed for localhost.'
+            : 'The address could not be saved. Please try again.',
+    },
+    unreachable: {
+      title: 'Can’t reach the server',
+      body: (serverUrl: string) => `Trekky could not connect to ${serverUrl}. Check your internet connection, or try again in a moment.`,
+      retry: 'Try again',
+      retrying: 'Trying again…',
+      changeServer: 'Change server',
+      footer: 'Trekky for Windows works online only.',
+    },
+    server: {
+      label: (host: string) => `Server: ${host}`,
+      change: 'Change server',
+    },
+  },
 } as const
