@@ -118,7 +118,8 @@ export const columnKeyboardCoordinates: KeyboardCoordinateGetter = (event, { con
   const next = WORK_ITEM_STATUSES[current + (event.code === 'ArrowRight' ? 1 : -1)]
   const rect = next === undefined ? undefined : droppableRects.get(next)
   if (next === undefined || !rect) return undefined
-  // Stacked columns on a narrow screen can be off screen; the card stays at its height when it still fits the column.
+  // On a narrow screen the next column can be off to the side of the scrolling row: bring it into view first. The card
+  // stays at its height when it still fits the column.
   droppableContainers.get(next)?.node.current?.scrollIntoView({ block: 'nearest' })
   const lowest = Math.max(rect.top, rect.bottom - collisionRect.height)
   return { x: rect.left, y: Math.min(Math.max(collisionRect.top, rect.top), lowest) }
