@@ -1,0 +1,39 @@
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vs/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+TestResults/
+*.trx
+*.coverage
+coverage/
+
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+npm-debug.log*
+playwright-report/
+test-results/
+.playwright-mcp/
+
+# Claude Code (personal settings)
+.claude/settings.local.json
+
+# Production deploy (deploy/README.md): certificates and backups never go in git
+deploy/secrets/
+deploy/backups/

@@ -1,0 +1,113 @@
+# Trekky
+
+A lean task tracker — a simpler alternative to Jira — built by Davit with Claude, about 1 hour a week.
+Later products build on it: Trekky Docs → a context layer → an AI agent that completes agent-ready tasks.
+So every entity must be machine-readable from day one: stable keys, structured fields, full history.
+
+- Plan, versions, contracts and the task list (TRK-1…): Notion page "Project Management - Task tracker". After the
+  TRK-21 switch the task list is the Trekky project `TREK` (keys `TREK-<n>`); Notion's `TRK-<n>` keys stay as history
+  (ADR-0016). Below, `TRK-<n>` stands for either key.
+- Current stage: **POC, v1.1 Hosting and desktop app**. Build only what the current version needs (see "Scope").
+
+## Repo layout
+
+```
+backend/                 .NET 10 modular monolith
+  Trekky.slnx
+  src/Trekky.Api/        Host: wiring, /api/v1 group, OpenAPI, health
+  src/Trekky.SharedKernel/   IModule contract and cross-cutting primitives only (incl. ITenantContext)
+  src/Trekky.Persistence/    EF Core + Npgsql wiring, tenant context, RLS helpers, dev migrator
+  src/Modules/<Name>/      One folder per module (added per TRK): Trekky.Modules.<Name>.{Api,Application,Domain,Infrastructure,Persistence} (ADR-0009)
+  tests/                 xUnit; integration tests use WebApplicationFactory<Program>
+frontend/                React 19 + TypeScript strict + Vite, React Router, TanStack Query, Tailwind + shadcn/ui; Vitest + Testing Library + Playwright (ADR-0010)
+desktop/                 Trekky for Windows: Tauri 2 shell around the web app, MSI (ADR-0018); its screens live in frontend/src/platform/desktop
+docs/adr/                ADRs (template: 0000-template.md)
+tools/notion-import/     One-off import of the Notion task list into Trekky (TRK-21); Node, no dependencies
+postman/                 Postman collection for manual API testing (ADR-0008)
+docker-compose.yml       Postgres 17, Mailpit (local only)
+docker/postgres/init/    Creates trekky_owner / trekky_app roles (local dev, tests and production)
+deploy/                  Production Compose for the home host (ADR-0015): Caddy (web), API, migrate, Postgres, backup, Tailscale Funnel (deploy/README.md)
+```
+
+## Commands
+
+```bash
+docker compose up -d                       # infra (copy .env.example to .env first)
+
+cd backend
+dotnet build                               # warnings are errors
+dotnet test                                # needs Docker running (Testcontainers starts Postgres)
+dotnet run --project src/Trekky.Api        # http://localhost:5080, /api/v1/health (or run config "Trekky" in Rider: infra + API + web)
+dotnet tool restore && dotnet ef migrations add <Name> --context <Module>DbContext -p src/Modules/<Module>/Trekky.Modules.<Module>.Persistence -s src/Trekky.Api -o Migrations
+
+cd frontend
+npm ci                                     # installs exactly what package-lock.json pins
+npm run lint && npm test && npm run build
+npm run dev                                # http://localhost:5173, proxies /api and /connect → 5080
+npm run generate:api                       # regenerate src/api/schema.d.ts from the running API (commit it)
+npm run e2e                                # Playwright; needs Postgres up, starts API + dev server if not running
+
+cd desktop                                 # needs Rust (MSVC) + VS C++ build tools; see desktop/README.md
+npm ci && npm test && npm run lint         # Rust unit tests, fmt + clippy
+npm run build                              # release MSI in src-tauri/target/release/bundle/msi
+npm run e2e                                # smoke e2e (tauri-driver); needs API + web dev server, build:debug, MSEDGEDRIVER
+
+cd tools/notion-import
+npm test && ../../frontend/node_modules/.bin/tsc -p .   # importer tests + strict type check (CI runs both)
+node import.ts --dry-run                   # needs TREKKY_EMAIL / TREKKY_PASSWORD; see its README
+```
+
+## How we work (non-negotiable)
+
+- **One TRK at a time, in order.** Every change belongs to an existing key from the task list (Notion `TRK-<n>`, or Trekky `TREK-<n>` after the switch, ADR-0016). Never invent a new key or jump ahead; if work is needed that has no TRK, ask Davit first.
+- **Buildable history.** Every TRK is verified locally (build, tests, lint, app starts) before it is pushed. If one TRK alone would leave the app not building or running, combine it with the TRKs it needs into one commit. A fix for a TRK goes under that same TRK key.
+- **Branches:** `TRK-42-short-description` off `dev`, squash-merged into `dev`. `dev` → `staging` → `main` are promoted by merge only.
+- **Commits:** `TRK-42: <descriptive message>` — say what changed and why, with a body when it is not obvious.
+- **Claude verifies, reviews and pushes (ADR-0013).** Run `/verify` and the `code-reviewer` agent and fix every must-fix finding. Then commit, push the `TRK-<n>-…` branch and open or update the PR to `dev`. Push only when both passed on the exact tree being committed, and run them again after every fix. If something could not be run, do not push and say what is missing. Stage only reviewed files. Push only TRK branches (`TRK-<n>-…`, branched from `Trekky/dev`) and `ui-evidence` (ADR-0012). Never push to `dev`, `staging` or `main`, never merge, never force-push, and never amend, squash or rebase commits on the remote. Davit reviews the PR and merges.
+- **Clean test runs.** Every UI or browser test run is arrange → test → validate → report → clean up: push the evidence (ADR-0012), then delete local screenshots, delete the test users, orgs and their data, and stop the API, dev server and browser started for the run.
+- **Never claim something is verified unless you ran it.** If you could not run the build or tests, say so plainly.
+- **Reviews:** every change is reviewed by Claude (the `code-reviewer` agent) before it is pushed, and by Davit on the PR before it is merged.
+- **Postman:** a TRK that adds or changes an endpoint updates `postman/Trekky.postman_collection.json` in the same commit (ADR-0008).
+- **Decisions:** anything that sets a rule goes in an ADR (`/adr` skill). ADRs are never edited after Agreed; supersede them instead.
+
+## Architecture rules
+
+- **Modular monolith.** Each module implements `IModule` (SharedKernel), owns its own Postgres schema and DbContext, and maps endpoints under `/api/v1`. Modules talk through public contracts or events — never through another module's internals or cross-schema joins.
+- **Module layers (ADR-0009).** Api → Application, Infrastructure; Infrastructure → Application, Persistence; Application → Domain; Persistence → Domain. Only `<Name>Module` and `Application/Contracts` are public; `ModuleLayeringTests` checks the direction. Input validation is FluentValidation in Application, never in Domain. One type per file.
+- **Tenancy.** Every tenant-owned table has `org_id`; Postgres RLS policies enforce it; the request sets `app.org_id` per connection. Never rely on `WHERE org_id = …` alone. Register module DbContexts with `AddModuleDbContext<T>(configuration, schema)` and add the policy in the migration with `migrationBuilder.EnableTenantRowLevelSecurity(schema, table)` — never hand-write it. The API connects as `trekky_app` (RLS applies); migrations run as `trekky_owner`.
+- **Activity log.** Every state change writes an `activity_event` through the outbox in the same transaction. This stream later feeds notifications, real-time, webhooks and AI context — do not skip it. In code: `modelBuilder.AddOutbox()`, `services.AddModuleOutbox(schema)`, `migrationBuilder.EnableOutboxRowLevelSecurity(schema)`, then `db.AddActivityEvent(ActivityEnvelope.Create(...))` before the `SaveChanges` that makes the change (ADR-0011).
+- **IDs.** UUIDv7 internally (`Guid.CreateVersion7()`); human keys like `TRK-42` externally.
+- **Work items.** One `work_item` table: `type` (Epic, Story, Task, SubTask, Bug, TechDebt) + `parent_id`; reserved `custom` JSONB column.
+- **API.** OpenAPI-first REST under `/api/v1`; RFC 9457 problem details; cursor pagination; ETag/If-Match for edits; `TypedResults`.
+- **Auth.** ASP.NET Core Identity + OpenIddict in-app (no external IdP); JWT with user, org and role claims.
+- **Storage / mail.** No object storage until attachments; when added, code only against the S3 API (ADR-0006: MinIO removed, SeaweedFS proposed; production store chosen with hosting). SMTP for mail (Mailpit locally).
+
+## Code conventions
+
+- **C#:** file-scoped namespaces, nullable on, `sealed` by default, records for DTOs, async all the way, no static mutable state. Package versions live only in `Directory.Packages.props`; check for known vulnerabilities before adding or bumping one (warnings are errors, so NU190x audit warnings fail the build).
+- **TypeScript:** strict, no `any`, named exports, components in PascalCase files. User-facing strings must be easy to move to i18n; UI must meet WCAG AA.
+- **Tests:** unit tests for core and complex business logic (no coverage target); integration tests for endpoints; Playwright e2e for key user flows once they exist. Test names describe behaviour.
+
+## Scope
+
+| Version | Contents |
+| --- | --- |
+| v0.1 Skeleton | Login (Identity + OpenIddict), org at sign-up, `org_id` + RLS |
+| v0.2 Work items | Projects with key, work items with parent/child, fixed workflow, list, detail, activity log |
+| v1.0 Dogfood | Board with drag and drop, comments, assignee |
+| v1.1 Hosting and desktop app (current) | Home host behind Tailscale Funnel, Trekky tracks itself, Windows desktop app (Tauri 2, MSI, auto-update), Azure move when SaaS starts |
+
+Hosting (TRK-9, ADR-0015): the home machine behind Tailscale Funnel now, Azure Container Apps + Neon Postgres when SaaS starts (TRK-29).
+
+Not before their version: sprints, notifications, real-time, custom workflows/fields, MCP server, SSO, billing.
+
+## Agents and skills
+
+| Name | Kind | Use it to |
+| --- | --- | --- |
+| `code-reviewer` | agent | Review the current diff against these rules before Claude pushes |
+| `test-writer` | agent | Write unit, integration or e2e tests for a change |
+| `/trk` | skill | Start, implement and finish a TRK end to end |
+| `/verify` | skill | Run the full local verification before a commit is pushed |
+| `/new-module` | skill | Add a backend module that follows the module rules |
+| `/adr` | skill | Write an ADR from the template |

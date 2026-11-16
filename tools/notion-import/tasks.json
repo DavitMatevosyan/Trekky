@@ -1,0 +1,261 @@
+{
+  "source": "Notion page \"Project Management - Task tracker\", section Tasks, as of 2026-11-13",
+  "project": {
+    "key": "TREK",
+    "name": "Trekky"
+  },
+  "epics": [
+    {
+      "title": "Groundwork",
+      "description": "Repo, rules, CI, ADRs and specs before the first version.",
+      "items": [
+        {
+          "notionKey": "TRK-0",
+          "title": "Repo scaffold",
+          "status": "done",
+          "description": ".NET 10 API + SharedKernel + tests, React/Vite frontend + tests, Docker Compose (Postgres, MinIO, Mailpit), README, ADR template."
+        },
+        {
+          "notionKey": "TRK-1",
+          "title": "CLAUDE.md, agents and skills",
+          "status": "done",
+          "description": "`CLAUDE.md` with project rules; `code-reviewer` and `test-writer` agents; `trk`, `verify`, `new-module` and `adr` skills."
+        },
+        {
+          "notionKey": "TRK-2",
+          "title": "CI on GitHub",
+          "status": "done",
+          "description": "Add `.github/workflows/ci.yml`, run the first `npm install` and commit `package-lock.json`, switch CI to `npm ci`. Done when a PR to `dev` shows green backend and frontend jobs. Until TRK-22, \"green CI before merge\" is a team rule, not enforced by GitHub (branch protection needs a public repo or a paid plan)."
+        },
+        {
+          "notionKey": "TRK-3",
+          "title": "ADR-001 to ADR-005",
+          "status": "done",
+          "description": "Stack, tenancy, auth, hosting, IDs, recording what is already agreed."
+        },
+        {
+          "notionKey": "TRK-4",
+          "title": "Product spec for v0.1–v1.0",
+          "status": "done",
+          "description": "User stories with acceptance criteria, wireframes for board, item detail and list, plus the shortcut map."
+        },
+        {
+          "notionKey": "TRK-5",
+          "title": "Tech spec for v0.1–v1.0",
+          "status": "done",
+          "description": "ERD, OpenAPI draft (auth, projects, work items), `activity_event` schema with the first event types."
+        }
+      ]
+    },
+    {
+      "title": "v0.1 Skeleton",
+      "description": "Runs end to end: login (Identity + OpenIddict), org at sign-up, `org_id` + RLS.",
+      "items": [
+        {
+          "notionKey": "TRK-6",
+          "title": "Database and tenancy foundation",
+          "status": "done",
+          "description": "EF Core + Npgsql, migrations applied on startup in dev, tenant context sets `app.org_id` per request, RLS helper for migrations, integration test proving one org cannot read another's rows."
+        },
+        {
+          "notionKey": "TRK-6.1",
+          "title": "Remove MinIO from the local stack",
+          "status": "done",
+          "description": "Its images were deleted from Docker Hub; ADR-0006 records the removal and proposes SeaweedFS locally / Oracle Object Storage on the POC, decided with the attachments TRK."
+        },
+        {
+          "notionKey": "TRK-7",
+          "title": "Sign-up and login API",
+          "status": "done",
+          "description": "Identity + OpenIddict (JWT access + rotating refresh, logout), sign-up creates the org and an Owner membership, integration tests."
+        },
+        {
+          "notionKey": "TRK-8",
+          "title": "Sign-up and login in the web app",
+          "status": "done",
+          "description": "Routing, TanStack Query, Tailwind + shadcn/ui, client generated from OpenAPI, sign-up / login / logout pages with token refresh, component tests + Playwright e2e (sign up → log in)."
+        },
+        {
+          "notionKey": "TRK-8.1",
+          "title": "Follow-ups from the TRK-8 review",
+          "status": "done",
+          "description": "`POST /api/v1/auth/logout` also accepts the session cookie, so logout ends the session even when the tab's tokens are already gone; ADR-0010 records the frontend stack and token handling."
+        },
+        {
+          "notionKey": "TRK-10",
+          "title": "Projects end to end",
+          "status": "done",
+          "description": "Module, API, create and list UI; introduces the activity log + outbox (`ProjectCreated`); tests."
+        }
+      ]
+    },
+    {
+      "title": "v0.2 Work items",
+      "description": "Projects with a key, work items with parent/child, fixed workflow, list, detail, activity log.",
+      "items": [
+        {
+          "notionKey": "TRK-11",
+          "title": "Work items end to end",
+          "status": "done",
+          "description": "6 types, parent/child rules, per-project keys, create / edit API, list view and item detail, activity events, tests."
+        },
+        {
+          "notionKey": "TRK-11.1",
+          "title": "Parent picker",
+          "status": "done",
+          "description": "The item form's \"Parent key\" text field becomes a searchable dropdown of candidates (key · type · title), only of the parent types the chosen type allows, never the item itself; type and `q` (key or title) filters on `GET /projects/{id}/work-items`; keyboard and screen-reader accessible (WCAG AA); API, component and e2e tests."
+        },
+        {
+          "notionKey": "TRK-12",
+          "title": "Status workflow",
+          "status": "done",
+          "description": "To Do → In Progress → In Review → Done with the allowed transitions (US-10), `POST /work-items/{id}/status` (422 lists the allowed targets), `allowedTransitions` on the item, `WorkItemStatusChanged` event, status dropdown on item detail offering only allowed moves; tests."
+        },
+        {
+          "notionKey": "TRK-13",
+          "title": "History API",
+          "status": "done",
+          "description": "`GET /work-items/{id}/history` from the activity log, newest first, 50 per page; actor names through a public Identity contract (also gives the item its `createdBy`); tests."
+        },
+        {
+          "notionKey": "TRK-14",
+          "title": "History tab",
+          "status": "done",
+          "description": "History on item detail with one sentence per event (US-09 AC2), Playwright e2e (create project → item → change status → see it in history)."
+        }
+      ]
+    },
+    {
+      "title": "v1.0 Dogfood",
+      "description": "Board with drag and drop, comments, assignee; Trekky tracks itself.",
+      "items": [
+        {
+          "notionKey": "TRK-15",
+          "title": "Board, read-only",
+          "status": "done",
+          "description": "One column per status in workflow order with counts, cards with key, type and title, Done shows the latest 20 with \"Show all\" (US-11 AC1, AC2); tests."
+        },
+        {
+          "notionKey": "TRK-15.1",
+          "title": "Board gaps from TRK-15",
+          "status": "done",
+          "description": "`done_at` so Done's latest 20 means last finished; \"New item\" on the board; \"Show all\" kept in the URL and the item breadcrumb returns to the board; notice when a refresh fails and keyboard-friendly retry; board read as one snapshot; tests."
+        },
+        {
+          "notionKey": "TRK-16",
+          "title": "Board drag between columns",
+          "status": "done",
+          "description": "Drag and drop (dnd-kit) changes status, a disallowed move snaps back with the reason, cards move with the keyboard too (US-11 AC3, AC5); e2e."
+        },
+        {
+          "notionKey": "TRK-17",
+          "title": "Board reorder",
+          "status": "done",
+          "description": "`rank` column, move within a column persists for everyone (US-11 AC4); no activity event for rank changes; tests."
+        },
+        {
+          "notionKey": "TRK-18",
+          "title": "Comments",
+          "status": "done",
+          "description": "Add and list Markdown comments on an item, oldest first with author and time, `CommentAdded` event (US-12 AC1, AC3); tests."
+        },
+        {
+          "notionKey": "TRK-19",
+          "title": "Edit and delete own comments",
+          "status": "done",
+          "description": "\"edited\" shown, with their activity events (US-12 AC2); tests."
+        },
+        {
+          "notionKey": "TRK-20",
+          "title": "Assignee on items",
+          "status": "done",
+          "description": "Members endpoint, assignee set or cleared on edit, shown on list, board and detail, `WorkItemAssigned` event (US-13); tests."
+        },
+        {
+          "notionKey": "TRK-21",
+          "title": "Dogfood switch",
+          "status": "in_progress",
+          "description": "Move Trekky's tracking from Notion into Trekky. Needs a running instance: either un-defer TRK-9 first or run it locally."
+        }
+      ]
+    },
+    {
+      "title": "v1.1 Hosting and desktop app",
+      "description": "Hosting now: home machine + Tailscale Funnel; every hosting TRK keeps the stack ready to move to Azure Container Apps + Neon Postgres when SaaS starts. Desktop: Tauri 2, Windows only, MSI, online only, one account shared with the web app. Order: TRK-9 → TRK-21 → TRK-23 to TRK-27 → TRK-22 → TRK-28 → TRK-29.",
+      "items": [
+        {
+          "notionKey": "TRK-9",
+          "title": "Running on the home host",
+          "status": "in_review",
+          "description": "Re-scoped 2026-11-13 (was the Oracle VM; reuses the production stack from closed PR #11, branch `TRK-9-oracle-vm-deploy`): API and web Dockerfiles, production Compose on the home machine, public HTTPS through Tailscale Funnel, nightly `pg_dump` with one tested restore. Azure-ready from the start: every setting from environment variables, OpenIddict signing/encryption certificates and ASP.NET Data Protection keys kept outside the container, nothing stored on the container disk. A new ADR supersedes ADR-0004 (home host now, Azure Container Apps + Neon later)."
+        },
+        {
+          "notionKey": "TRK-23",
+          "title": "Frontend platform layer",
+          "status": "todo",
+          "description": "Login redirect and callback, token storage, API base URL from runtime config and opening external links behind small interfaces, with web implementations only; web app behaviour unchanged; unit tests."
+        },
+        {
+          "notionKey": "TRK-24",
+          "title": "Desktop OAuth client and CORS",
+          "status": "todo",
+          "description": "Public `trekky-desktop` client registered on startup like `trekky-web` (authorization code + PKCE, refresh tokens, redirect `trekky://auth/callback`); longer refresh-token lifetime for the desktop client only (value set in the TRK); configurable CORS origins (`http://tauri.localhost`); API tests for the desktop login flow and CORS."
+        },
+        {
+          "notionKey": "TRK-25",
+          "title": "Tauri 2 shell",
+          "status": "todo",
+          "description": "`desktop/` with `src-tauri`, loads the built web app, single instance, first-run server URL screen (default: the TRK-9 URL, changeable later), \"can't reach server\" screen with retry; builds an MSI locally (WebView2 offline installer included, fixed upgrade code so new versions upgrade in place); tests."
+        },
+        {
+          "notionKey": "TRK-26",
+          "title": "Desktop login",
+          "status": "todo",
+          "description": "Sign-up and login open in the system browser and return through the `trekky://` deep link; refresh token in Windows Credential Manager so the app starts signed in; one token refresh at a time; logout revokes and clears; smoke e2e (tauri-driver) against the local stack."
+        },
+        {
+          "notionKey": "TRK-27",
+          "title": "Windows build in CI",
+          "status": "todo",
+          "description": "A PR job builds the MSI as an artifact, a version tag drafts a GitHub release with the MSI; unsigned for now (SmartScreen warning on install); Davit adds the workflow file."
+        },
+        {
+          "notionKey": "TRK-28",
+          "title": "Desktop auto-update",
+          "status": "todo",
+          "description": "Tauri updater with its own signing key, update feed on GitHub Releases. Needs TRK-22 (public repo)."
+        },
+        {
+          "notionKey": "TRK-29",
+          "title": "Move to Azure Container Apps + Neon Postgres",
+          "status": "todo",
+          "description": "Images on GHCR, Container Apps for API and web, migrations as a Container Apps job instead of on startup, secrets in Container Apps, data moved with `pg_dump` / restore, desktop default server URL updated, ADR records the move. Use Neon's direct (unpooled) connection unless tenancy changes first: `TenantConnectionInterceptor` sets `app.org_id` for the whole session, which a transaction-mode pooler does not keep."
+        }
+      ]
+    },
+    {
+      "title": "Before going public",
+      "description": "What has to be settled before the repo is public.",
+      "items": [
+        {
+          "notionKey": "TRK-22",
+          "title": "License, trademark and domain; make the repo public",
+          "status": "todo",
+          "description": "ADR-0007 license, trademark and domain check, make the repo public, protect `dev` / `staging` / `main` (PR + green CI required)."
+        }
+      ]
+    },
+    {
+      "title": "Known issues",
+      "description": "Problems found and left for later.",
+      "items": [
+        {
+          "type": "bug",
+          "title": "History shows only its heading after a failed first check",
+          "status": "todo",
+          "description": "From TRK-14 (PR #18): on the item page's History section, if a new item's first history read returns no events and the next check fails, only the heading shows until a later check succeeds or the page is reloaded. Needs a failure in the few seconds after creating an item."
+        }
+      ]
+    }
+  ]
+}

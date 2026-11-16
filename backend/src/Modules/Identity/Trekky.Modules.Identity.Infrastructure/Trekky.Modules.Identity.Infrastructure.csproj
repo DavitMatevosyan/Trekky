@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="OpenIddict.AspNetCore" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Trekky.SharedKernel\Trekky.SharedKernel.csproj" />
+    <ProjectReference Include="..\Trekky.Modules.Identity.Application\Trekky.Modules.Identity.Application.csproj" />
+    <ProjectReference Include="..\Trekky.Modules.Identity.Persistence\Trekky.Modules.Identity.Persistence.csproj" />
+  </ItemGroup>
+
+</Project>

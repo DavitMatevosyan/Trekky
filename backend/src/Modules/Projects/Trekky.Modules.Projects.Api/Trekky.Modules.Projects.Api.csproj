@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Trekky.SharedKernel\Trekky.SharedKernel.csproj" />
+    <ProjectReference Include="..\Trekky.Modules.Projects.Application\Trekky.Modules.Projects.Application.csproj" />
+    <ProjectReference Include="..\Trekky.Modules.Projects.Infrastructure\Trekky.Modules.Projects.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

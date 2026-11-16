@@ -1,0 +1,909 @@
+{
+  "info": {
+    "name": "Trekky API",
+    "description": "Local API collection, kept in step with the endpoints (ADR-0008). Import postman/Trekky.postman_collection.json in the Postman desktop app.\n\nAuth: run Sign up (or Log in) -> Authorize -> Token once; the session cookie stays in Postman's cookie jar and the tokens are saved as collection variables, which every other request sends as Bearer. When the access token expires (15 min) run Refresh; after logout or a database reset run Log in -> Authorize -> Token again.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5080"
+    },
+    {
+      "key": "redirectUri",
+      "value": "http://localhost:5173/auth/callback"
+    },
+    {
+      "key": "email",
+      "value": "me@example.com"
+    },
+    {
+      "key": "password",
+      "value": "correct horse battery staple"
+    },
+    {
+      "key": "codeVerifier",
+      "value": ""
+    },
+    {
+      "key": "codeChallenge",
+      "value": ""
+    },
+    {
+      "key": "code",
+      "value": ""
+    },
+    {
+      "key": "access_token",
+      "value": ""
+    },
+    {
+      "key": "refresh_token",
+      "value": ""
+    },
+    {
+      "key": "projectId",
+      "value": ""
+    },
+    {
+      "key": "workItemId",
+      "value": ""
+    },
+    {
+      "key": "workItemEtag",
+      "value": ""
+    },
+    {
+      "key": "commentId",
+      "value": ""
+    },
+    {
+      "key": "commentEtag",
+      "value": ""
+    },
+    {
+      "key": "memberId",
+      "value": ""
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "GET",
+        "url": "{{baseUrl}}/api/v1/health"
+      }
+    },
+    {
+      "name": "Auth",
+      "description": "TRK-7: sign-up, login, authorization code + PKCE, refresh, logout, current user.",
+      "item": [
+        {
+          "name": "Sign up",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"organizationName\": \"Acme\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/sign-up"
+          }
+        },
+        {
+          "name": "Log in",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/login"
+          }
+        },
+        {
+          "name": "Authorize (code + PKCE)",
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';",
+                  "let verifier = '';",
+                  "for (let i = 0; i < 64; i++) verifier += chars[Math.floor(Math.random() * chars.length)];",
+                  "const challenge = CryptoJS.SHA256(verifier).toString(CryptoJS.enc.Base64).replace(/=+$/, '').replace(/\\+/g, '-').replace(/\\//g, '_');",
+                  "pm.collectionVariables.set('codeVerifier', verifier);",
+                  "pm.collectionVariables.set('codeChallenge', challenge);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('redirects to the callback with a code', () => pm.response.to.have.status(302));",
+                  "const location = pm.response.headers.get('Location') || '';",
+                  "const match = location.match(/[?&]code=([^&]+)/);",
+                  "if (match) { pm.collectionVariables.set('code', decodeURIComponent(match[1])); }",
+                  "else { console.log('No code in redirect: without a session the server sends the browser to /login?returnTo=<this request> (prompt=none gets login_required instead). Run Sign up or Log in first:', location); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/connect/authorize?client_id=trekky-web&response_type=code&redirect_uri={{redirectUri}}&scope=openid email profile offline_access&state=xyz&code_challenge={{codeChallenge}}&code_challenge_method=S256",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "connect",
+                "authorize"
+              ],
+              "query": [
+                {
+                  "key": "client_id",
+                  "value": "trekky-web"
+                },
+                {
+                  "key": "response_type",
+                  "value": "code"
+                },
+                {
+                  "key": "redirect_uri",
+                  "value": "{{redirectUri}}"
+                },
+                {
+                  "key": "scope",
+                  "value": "openid email profile offline_access"
+                },
+                {
+                  "key": "state",
+                  "value": "xyz"
+                },
+                {
+                  "key": "code_challenge",
+                  "value": "{{codeChallenge}}"
+                },
+                {
+                  "key": "code_challenge_method",
+                  "value": "S256"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Token (exchange code)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('tokens issued', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "if (body.access_token) pm.collectionVariables.set('access_token', body.access_token);",
+                  "if (body.refresh_token) pm.collectionVariables.set('refresh_token', body.refresh_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "grant_type",
+                  "value": "authorization_code"
+                },
+                {
+                  "key": "client_id",
+                  "value": "trekky-web"
+                },
+                {
+                  "key": "code",
+                  "value": "{{code}}"
+                },
+                {
+                  "key": "redirect_uri",
+                  "value": "{{redirectUri}}"
+                },
+                {
+                  "key": "code_verifier",
+                  "value": "{{codeVerifier}}"
+                }
+              ]
+            },
+            "url": "{{baseUrl}}/connect/token"
+          }
+        },
+        {
+          "name": "Me",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/me"
+          }
+        },
+        {
+          "name": "Refresh",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body.access_token) pm.collectionVariables.set('access_token', body.access_token);",
+                  "if (body.refresh_token) pm.collectionVariables.set('refresh_token', body.refresh_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "grant_type",
+                  "value": "refresh_token"
+                },
+                {
+                  "key": "client_id",
+                  "value": "trekky-web"
+                },
+                {
+                  "key": "refresh_token",
+                  "value": "{{refresh_token}}"
+                }
+              ]
+            },
+            "url": "{{baseUrl}}/connect/token"
+          }
+        },
+        {
+          "name": "Log out",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/auth/logout",
+            "description": "Revokes every token of the user and invalidates their session cookies. Authenticates with the Bearer token or, since TRK-8.1, with the session cookie alone (so logout still works after the tokens have expired)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Members",
+      "item": [
+        {
+          "name": "List members",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('members found', () => pm.response.to.have.status(200));",
+                  "const items = pm.response.json().items;",
+                  "pm.test('at least the caller', () => pm.expect(items.length).to.be.above(0));",
+                  "if (items.length) pm.collectionVariables.set('memberId', items[0].user.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/members",
+            "description": "The caller's organization's members ({ user: { id, displayName, email }, role }), by display name: who an item can be assigned to (US-13). Saves the first member's id for Assign work item."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Projects",
+      "description": "TRK-10: create, list (by name, cursor pagination) and get projects (by id or key; itemCount since TRK-11). Run Auth first; Create project saves projectId.",
+      "item": [
+        {
+          "name": "Create project",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('project created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "if (body.id) pm.collectionVariables.set('projectId', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Trekky\",\n  \"key\": \"TRK\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/projects",
+            "description": "The key must match ^[A-Z][A-Z0-9]{1,9}$ and be unique in the organization (409 otherwise); it never changes. Records a ProjectCreated activity event."
+          }
+        },
+        {
+          "name": "List projects",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/projects?limit=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "projects"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "cursor",
+                  "value": "",
+                  "disabled": true,
+                  "description": "nextCursor from the previous page"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get project",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/projects/{{projectId}}"
+          }
+        },
+        {
+          "name": "Get project by key",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/projects/by-key/TRK",
+            "description": "The web app's /TRK URLs use this. 404 when the organization has no project with this key."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Work items",
+      "description": "TRK-11: create, list (newest update first, cursor pagination; filter by type and key or title since TRK-11.1), get (by id or key) and edit work items. Run Auth and Create project first; Create work item saves workItemId and its ETag, which Edit sends as If-Match.",
+      "item": [
+        {
+          "name": "Create work item",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('work item created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "if (body.id) pm.collectionVariables.set('workItemId', body.id);",
+                  "const etag = pm.response.headers.get('ETag');",
+                  "if (etag) pm.collectionVariables.set('workItemEtag', etag);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"story\",\n  \"title\": \"Comments on items\",\n  \"descriptionMd\": \"Members can **discuss** an item.\",\n  \"parentId\": null\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/work-items",
+            "description": "type: epic, story, task, subtask, bug or tech_debt. The item starts in To Do with the project's next key (TRK-1, TRK-2, ...). parentId must be an item of the same project whose type the parent rules allow (422 with allowedParentTypes otherwise); a subtask needs one. Records a WorkItemCreated activity event."
+          }
+        },
+        {
+          "name": "List work items",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/projects/{{projectId}}/work-items?limit=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "projects",
+                "{{projectId}}",
+                "work-items"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "cursor",
+                  "value": "",
+                  "disabled": true,
+                  "description": "nextCursor from the previous page"
+                },
+                {
+                  "key": "type",
+                  "value": "epic",
+                  "disabled": true,
+                  "description": "Repeat to keep only these types, e.g. the parent types an item allows (TRK-11.1)"
+                },
+                {
+                  "key": "type",
+                  "value": "story",
+                  "disabled": true
+                },
+                {
+                  "key": "q",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Key prefix (TRK-1) or title text, case-insensitive"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get board",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('board found', () => pm.response.to.have.status(200));",
+                  "pm.test('one column per status in workflow order', () => pm.expect(pm.response.json().columns.map((c) => c.status)).to.eql(['todo', 'in_progress', 'in_review', 'done']));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/projects/{{projectId}}/board",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "projects",
+                "{{projectId}}",
+                "board"
+              ],
+              "query": [
+                {
+                  "key": "allDone",
+                  "value": "true",
+                  "disabled": true,
+                  "description": "Every Done card instead of the latest 20"
+                }
+              ]
+            },
+            "description": "One column per status in workflow order. count is the column's full size; Done holds the latest 20 cards unless allDone=true. Each column is in board order (rank); Done is last finished first. Each card has an etag to send as If-Match to Move card on board or Change work item status."
+          }
+        },
+        {
+          "name": "Get work item",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('work item found', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "if (body.id) pm.collectionVariables.set('workItemId', body.id);",
+                  "const etag = pm.response.headers.get('ETag');",
+                  "if (etag) pm.collectionVariables.set('workItemEtag', etag);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/work-items/{{workItemId}}",
+            "description": "With its parent, children and createdBy (id, displayName, email; null if they left the organization). Saves the ETag for Edit."
+          }
+        },
+        {
+          "name": "Get work item by key",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/work-items/by-key/TRK-1"
+          }
+        },
+        {
+          "name": "Edit work item",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('work item edited', () => pm.response.to.have.status(200));",
+                  "const etag = pm.response.headers.get('ETag');",
+                  "if (etag) pm.collectionVariables.set('workItemEtag', etag);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/merge-patch+json"
+              },
+              {
+                "key": "If-Match",
+                "value": "{{workItemEtag}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Comments on work items\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/work-items/{{workItemId}}",
+            "description": "JSON merge patch: only the fields sent change (type, title, descriptionMd, parentId); null clears descriptionMd or parentId. If-Match is required (428) and must be the latest ETag (412 otherwise). A new type or parent re-checks the parent rules for the item and its children (422). Records a WorkItemUpdated activity event when something changed."
+          }
+        },
+        {
+          "name": "Assign work item",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('work item assigned', () => pm.response.to.have.status(200));",
+                  "pm.test('assignee shown', () => pm.expect(pm.response.json().assignee.id).to.eql(pm.collectionVariables.get('memberId')));",
+                  "const etag = pm.response.headers.get('ETag');",
+                  "if (etag) pm.collectionVariables.set('workItemEtag', etag);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/merge-patch+json"
+              },
+              {
+                "key": "If-Match",
+                "value": "{{workItemEtag}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"assigneeId\": \"{{memberId}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/work-items/{{workItemId}}",
+            "description": "Same merge patch as Edit work item (US-13): assigneeId is a member's user id, or null for nobody. Someone who is not a member is a 422 (Assignee not allowed). Records WorkItemAssigned { from, to } with ids and names; the item, list and board show the assignee."
+          }
+        },
+        {
+          "name": "Change work item status",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status changed', () => pm.response.to.have.status(200));",
+                  "const etag = pm.response.headers.get('ETag');",
+                  "if (etag) pm.collectionVariables.set('workItemEtag', etag);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "If-Match",
+                "value": "{{workItemEtag}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"to\": \"in_progress\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/work-items/{{workItemId}}/status",
+            "description": "Moves the item through the workflow (US-10): To Do → In Progress; In Progress → To Do or In Review; In Review → To Do, In Progress or Done; Done → In Progress. Any other target, including the current status, is a 422 with allowedTransitions; an unknown status is a 400. If-Match is required (428) and must be the latest ETag (412 otherwise). Records a WorkItemStatusChanged activity event and puts the card on top of its new board column. The item's allowedTransitions lists where it can move now."
+          }
+        },
+        {
+          "name": "Move card on board",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('card moved', () => pm.response.to.have.status(200));",
+                  "const etag = pm.response.headers.get('ETag');",
+                  "if (etag) pm.collectionVariables.set('workItemEtag', etag);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "If-Match",
+                "value": "{{workItemEtag}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"in_progress\",\n  \"afterId\": null,\n  \"beforeId\": null\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/work-items/{{workItemId}}/move",
+            "description": "A card dropped on the board (US-11 AC3, AC4). status is the column: the current one to reorder, or one the workflow allows (422 with allowedTransitions otherwise; recorded as WorkItemStatusChanged). afterId and beforeId are the cards directly above and below the drop in that column, null at the top or bottom; both null for an empty column. 409 when they are no longer next to each other. Done is last finished first, so afterId and beforeId must be null there (400). A neighbour that is the moved card itself, or afterId equal to beforeId, is also a 400. A reorder alone is not in history and does not change updatedAt; dropping a card where it already is changes nothing. If-Match is required (428) and must be the latest ETag (412 otherwise)."
+          }
+        },
+        {
+          "name": "Get work item history",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('history found', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('has a page of events', () => pm.expect(body.items).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/work-items/{{workItemId}}/history?limit=50",
+            "description": "The item's activity events, newest first (US-09), each with the actor's displayName, the entity key and the event payload (docs/tech/activity-events.md). limit is 1–100 (default 50); pass nextCursor as cursor for the next page, null on the last. A change can take up to a second to appear. An unknown item or another organization's is a 404."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Comments",
+      "item": [
+        {
+          "name": "Add comment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('comment added', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "if (body.id) pm.collectionVariables.set('commentId', body.id);",
+                  "if (body.etag) pm.collectionVariables.set('commentEtag', body.etag);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bodyMd\": \"Let's keep comments **flat**, no threads in v1.0.\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/work-items/{{workItemId}}/comments",
+            "description": "Markdown, 1 to 20,000 characters and not only whitespace (400 otherwise). Records a CommentAdded activity event on the item (payload: commentId and the first 200 characters), so the comment shows in its history; the item itself is not changed. 404 for an unknown item or another organization's. Returns the comment with its author; Location is the comment."
+          }
+        },
+        {
+          "name": "List comments",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('comments found', () => pm.response.to.have.status(200));",
+                  "pm.test('has a page of comments', () => pm.expect(pm.response.json().items).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/work-items/{{workItemId}}/comments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "work-items",
+                "{{workItemId}}",
+                "comments"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "disabled": true,
+                  "description": "1 to 100, default 50"
+                },
+                {
+                  "key": "cursor",
+                  "value": "",
+                  "disabled": true,
+                  "description": "nextCursor from the previous page"
+                }
+              ]
+            },
+            "description": "Oldest first, 50 per page, with each author (null if they left the organization), createdAt and edited."
+          }
+        },
+        {
+          "name": "Get comment",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/comments/{{commentId}}",
+            "description": "One comment with its ETag (saved for Edit comment); 404 when it does not exist, was deleted or belongs to another organization."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('comment found', () => pm.response.to.have.status(200));",
+                  "const etag = pm.response.headers.get('ETag');",
+                  "if (etag) pm.collectionVariables.set('commentEtag', etag);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Edit comment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('comment edited', () => pm.response.to.have.status(200));",
+                  "pm.test('shown as edited', () => pm.expect(pm.response.json().edited).to.be.true);",
+                  "const etag = pm.response.headers.get('ETag');",
+                  "if (etag) pm.collectionVariables.set('commentEtag', etag);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/merge-patch+json"
+              },
+              {
+                "key": "If-Match",
+                "value": "{{commentEtag}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bodyMd\": \"Let's keep comments **flat**: no threads in v1.0.\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/comments/{{commentId}}",
+            "description": "Only the author may edit (403). Same body rules as a new comment (400). If-Match is required (428) and must be the comment's latest etag (412, with the latest ETag). Records CommentEdited on the item; an unchanged body changes nothing."
+          }
+        },
+        {
+          "name": "Delete comment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('comment deleted', () => pm.response.to.have.status(200));",
+                  "pm.test('says when', () => pm.expect(pm.response.json().deletedAt).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/v1/comments/{{commentId}}",
+            "description": "Only the author may delete (403). Soft delete: the comment is no longer listed or readable (404 afterwards). Records CommentDeleted on the item; answers { id, deletedAt }, deletedAt being the event's time."
+          }
+        }
+      ]
+    }
+  ]
+}

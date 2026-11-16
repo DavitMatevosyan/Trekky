@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Trekky.Persistence\Trekky.Persistence.csproj" />
+    <ProjectReference Include="..\Trekky.Modules.Projects.Domain\Trekky.Modules.Projects.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

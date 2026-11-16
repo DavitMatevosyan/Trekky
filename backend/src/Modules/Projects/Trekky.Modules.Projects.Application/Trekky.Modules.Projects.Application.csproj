@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="FluentValidation" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Trekky.Modules.Projects.Domain\Trekky.Modules.Projects.Domain.csproj" />
+    <ProjectReference Include="..\..\..\Trekky.SharedKernel\Trekky.SharedKernel.csproj" />
+  </ItemGroup>
+
+</Project>

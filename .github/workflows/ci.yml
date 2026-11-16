@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  push:
+    branches: [dev, staging, main]
+  pull_request:
+    branches: [dev, staging, main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (build + test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: backend/global.json
+      - run: dotnet restore
+      - run: dotnet build --no-restore --configuration Release
+      - run: dotnet test --no-build --configuration Release
+
+  frontend:
+    name: Frontend (lint + test + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          check-latest: true
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      # TRK-21: the Notion import tool, type-checked with the frontend's TypeScript and tested with node:test
+      # (Node runs the .ts files itself from 22.18; check-latest above takes the newest 22.x).
+      - name: Notion import tool (types + tests)
+        run: npx tsc -p ../tools/notion-import && node --test ../tools/notion-import/plan.test.ts
+
+  images:
+    name: Docker images (build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      # The production images (deploy/docker-compose.yml, ADR-0015) still build after every change.
+      - run: docker build -t trekky-api backend
+      - run: docker build -t trekky-web frontend
+      - run: docker build -t trekky-backup deploy/backup
+      - name: Compose file is valid
+        working-directory: deploy
+        run: cp .env.example .env && docker compose --profile funnel config --quiet
+
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: backend/global.json
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Start Postgres
+        run: |
+          cp .env.example .env
+          docker compose up -d --wait postgres
+      - name: Build the API
+        working-directory: backend
+        run: dotnet build src/Trekky.Api
+      - name: Install web dependencies and Chromium
+        working-directory: frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      # Playwright starts the API (Development: applies migrations) and the Vite dev server.
+      - name: Run Playwright
+        working-directory: frontend
+        run: npx playwright test
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report
+          path: frontend/playwright-report
+          retention-days: 7

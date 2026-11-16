@@ -1,0 +1,31 @@
+name: trekky
+
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-trekky}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-trekky_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-trekky}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # Creates trekky_owner / trekky_app on first start (empty volume only).
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-trekky} -d ${POSTGRES_DB:-trekky}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+# No object storage yet: MinIO was removed (ADR-0006). The attachments TRK adds the chosen S3-compatible server.
+
+volumes:
+  postgres-data:

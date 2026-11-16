@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" />
+    <PackageReference Include="OpenIddict.EntityFrameworkCore" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Trekky.Persistence\Trekky.Persistence.csproj" />
+    <ProjectReference Include="..\Trekky.Modules.Identity.Domain\Trekky.Modules.Identity.Domain.csproj" />
+  </ItemGroup>
+
+</Project>
