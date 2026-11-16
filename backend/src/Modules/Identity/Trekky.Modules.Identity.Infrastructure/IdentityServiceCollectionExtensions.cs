@@ -118,6 +118,11 @@ internal static class IdentityServiceCollectionExtensions
                 // Access tokens are signed JWTs (RS256, JWKS), not encrypted, so clients and later services can read them.
                 server.DisableAccessTokenEncryption();
 
+                // Refresh tokens are short random handles; their content stays in the token table (ADR-0019). The
+                // desktop app keeps one in Windows Credential Manager, which holds at most 2560 bytes, and a copied
+                // handle is useless once revoked.
+                server.UseReferenceRefreshTokens();
+
                 if (options.UseDevelopmentCertificates)
                 {
                     server.AddDevelopmentEncryptionCertificate().AddDevelopmentSigningCertificate();

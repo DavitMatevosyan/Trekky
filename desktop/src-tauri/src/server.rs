@@ -9,9 +9,10 @@ use serde::{Deserialize, Serialize};
 use url::{Host, Url};
 
 /// Offered on first run. Set `TREKKY_DEFAULT_SERVER_URL` when building to point it at the hosted instance (ADR-0015).
+/// Without it: the local dev server, which serves the web app (its login page, ADR-0019) and proxies the API.
 pub const DEFAULT_SERVER_URL: &str = match option_env!("TREKKY_DEFAULT_SERVER_URL") {
     Some(url) => url,
-    None => "http://localhost:5080",
+    None => "http://localhost:5173",
 };
 
 /// The file in the app's config folder (`%APPDATA%\app.trekky.desktop`) that keeps the address.

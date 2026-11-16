@@ -50,6 +50,7 @@ npm run e2e                                # Playwright; needs Postgres up, star
 cd desktop                                 # needs Rust (MSVC) + VS C++ build tools; see desktop/README.md
 npm ci && npm test && npm run lint         # Rust unit tests, fmt + clippy
 npm run build                              # release MSI in src-tauri/target/release/bundle/msi
+npm run e2e                                # smoke e2e (tauri-driver); needs API + web dev server, build:debug, MSEDGEDRIVER
 
 cd tools/notion-import
 npm test && ../../frontend/node_modules/.bin/tsc -p .   # importer tests + strict type check (CI runs both)

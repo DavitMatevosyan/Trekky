@@ -2,6 +2,8 @@ import { act, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beginAuthorization } from './auth/oauthClient.ts'
 import { createDesktopPlatform } from './platform/desktop/desktopPlatform.ts'
+import { fakeDesktopShell } from './test/fakeDesktopShell.ts'
+import { createWebPlatform } from './platform/webPlatform.ts'
 import { fakeApi, jsonResponse, me, problemResponse, renderApp, requestAt, requestsTo, validTokens } from './test/renderApp.tsx'
 
 vi.mock('./auth/oauthClient.ts', async (importOriginal) => ({
@@ -21,7 +23,7 @@ describe('App', () => {
     })
 
     it('in the desktop app, go to the login page instead of a silent sign-in, keeping the way back', async () => {
-      const { router } = renderApp({ path: '/?tab=1', platform: createDesktopPlatform({ url: 'https://trekky.example.com', change: vi.fn() }) })
+      const { router } = renderApp({ path: '/?tab=1', platform: createDesktopPlatform({ url: 'https://trekky.example.com', change: vi.fn() }, fakeDesktopShell(), null) })
 
       expect(await screen.findByRole('heading', { name: 'Log in to Trekky' })).toBeInTheDocument()
       expect(router.state.location.pathname).toBe('/login')
@@ -101,6 +103,31 @@ describe('App', () => {
       expect(await screen.findByRole('alert')).toHaveTextContent('Something is off.')
     })
 
+    it('continues the desktop app’s authorization request after login instead of signing in here (ADR-0019)', async () => {
+      const opened: string[] = []
+      const web = createWebPlatform()
+      const platform = createWebPlatform({ login: { ...web.login, open: (url) => {
+        opened.push(url)
+      } } })
+      const authorize = '/connect/authorize?client_id=trekky-desktop&redirect_uri=trekky%3A%2F%2Fauth%2Fcallback&state=s'
+      const fetchFn = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 204 }))
+      renderApp({ path: `/login?${new URLSearchParams({ returnTo: authorize }).toString()}`, fetchFn, platform })
+
+      await submitLogin('ada@example.com', 'correct-horse-battery')
+
+      await waitFor(() => expect(opened).toEqual([authorize]))
+      expect(beginAuthorization).not.toHaveBeenCalled()
+    })
+
+    it('keeps the way back when switching to sign-up', () => {
+      renderApp({ path: `/login?${new URLSearchParams({ returnTo: '/connect/authorize?client_id=trekky-desktop' }).toString()}` })
+
+      expect(screen.getByRole('link', { name: 'Create one' })).toHaveAttribute(
+        'href',
+        `/sign-up?${new URLSearchParams({ returnTo: '/connect/authorize?client_id=trekky-desktop' }).toString()}`,
+      )
+    })
+
     it('starts the code flow after the API accepts the credentials, returning where the user was headed', async () => {
       const fetchFn = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 204 }))
       renderApp({ path: '/login?returnTo=%2Fprojects', fetchFn })
@@ -152,6 +179,22 @@ describe('App', () => {
         password: 'correct-horse-battery',
         organizationName: 'Acme',
       })
+    })
+
+    it('continues the desktop app’s authorization request once the account exists (ADR-0019)', async () => {
+      const opened: string[] = []
+      const web = createWebPlatform()
+      const platform = createWebPlatform({ login: { ...web.login, open: (url) => {
+        opened.push(url)
+      } } })
+      const authorize = '/connect/authorize?client_id=trekky-desktop&state=s'
+      const fetchFn = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse(me, 201))
+      renderApp({ path: `/sign-up?${new URLSearchParams({ returnTo: authorize }).toString()}`, fetchFn, platform })
+
+      await submitSignUp()
+
+      await waitFor(() => expect(opened).toEqual([authorize]))
+      expect(beginAuthorization).not.toHaveBeenCalled()
     })
   })
 

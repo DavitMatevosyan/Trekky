@@ -212,6 +212,25 @@ export const messages = {
     title: 'Page not found',
     backHome: 'Go to the start page',
   },
+  /** The desktop app's login and sign-up, which happen in the system browser (ADR-0019). */
+  browserSignIn: {
+    logIn: {
+      title: 'Log in to Trekky',
+      intro: 'Trekky opens your browser to log in. When you’re done, you come back here automatically.',
+      submit: 'Log in with your browser',
+      otherPrompt: 'No account?',
+      otherLink: 'Create one',
+    },
+    signUp: {
+      title: 'Create your Trekky account',
+      intro: 'Trekky opens your browser to create your account. When you’re done, you come back here automatically.',
+      submit: 'Sign up in your browser',
+      otherPrompt: 'Have an account?',
+      otherLink: 'Log in',
+    },
+    waiting: 'Finish in your browser. Trekky continues here automatically.',
+    openAgain: 'Open the browser again',
+  },
   /** The Windows desktop app's own screens (ADR-0018). */
   desktop: {
     starting: 'Starting Trekky…',
