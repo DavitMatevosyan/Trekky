@@ -27,7 +27,7 @@
 
 The name is **not clearly free**. Another software "tracker" already ships as Trekky on `trekky.app`, and the obvious `.com`, `.app` and `.io` domains are taken. Using it for a public product risks confusion and a trademark complaint, and the best domains are unavailable.
 
-**Davit decides.** The options are:
+**Decision (Davit, 2026-11-16): keep "Trekky", publicly too (option 2 below), accepting the risk above.** The options that were considered:
 1. Keep "Trekky" internally (repository, `TREK` keys) and choose a product name before any marketing. This needs no code changes now.
 2. Keep "Trekky" publicly with a qualified domain (e.g. `trekky.dev`) and accept the risk.
 3. Rename now, while there are no users.

@@ -55,9 +55,23 @@ Tailscale state in named volumes; certificates in `deploy/secrets/`; backups in 
 
 ## Deploy a new version
 
+The host runs `main` from its own checkout, on a detached HEAD (no local branch to pull into):
+
 ```bash
-cd trekky && git pull && cd deploy && docker compose --profile funnel up -d --build
+cd trekky                     # the host checkout
+git fetch Trekky
+# Before switching: which migrations come with this version?
+git diff --stat HEAD..Trekky/main -- 'backend/src/Modules/*/*.Persistence/Migrations/*'
+cd deploy && docker compose exec backup backup-once.sh    # fresh backup; the log ends with "backup: ..."
+cd .. && git rev-parse HEAD   # note it: the version to go back to
+git checkout --detach Trekky/main
+cd deploy && docker compose --profile funnel up -d --build
+docker compose ps             # migrate exited 0, the rest running
+curl -fsS https://<TREKKY_HOST>/api/v1/health
 ```
+
+- If a new migration drops, renames or rewrites data, stop and get Davit's OK first (ADR-0023).
+- **Rollback:** `git checkout --detach <the noted commit>` and run `up` again. Migrations are not reverted, so restore the backup taken above if the database changed (see Restore).
 
 `migrate` applies new migrations before the new API starts. Users stay logged in across deploys: the session-cookie
 keys live in the `dataprotection-keys` volume, and the token certificates don't change.
@@ -114,6 +128,6 @@ publishes loopback ports 8080/8443, so it runs next to the dev stack. On Windows
 ## Not yet
 
 - **Staging** is not set up; there is one stack.
-- **Deploy from CI** comes with Azure (TRK-29). Until then, deploys are `git pull` + `docker compose up` on the machine.
+- **Deploy from CI** comes with Azure (TRK-29). Until then, deploys are a checkout of `main` + `docker compose up` on the machine (above).
 - **Monitoring:** a failed backup or a stopped machine shows only in `docker compose logs`; check now and then until
   there are logs + Sentry (v1.1).
