@@ -68,6 +68,7 @@ export const messages = {
   },
   board: {
     loading: 'Loading board…',
+    columns: 'Board columns',
     columnHeading: (status: string, count: number) => `${status} (${count})`,
     emptyColumn: 'No items',
     showAll: 'Show all',
