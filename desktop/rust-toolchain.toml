@@ -1,0 +1,6 @@
+# The Rust version the desktop shell builds and lints with, locally and in CI (ADR-0020), for every command run from
+# desktop/ or below. Pinned so a new stable release cannot add clippy lints that fail every PR; bump it in its own PR.
+[toolchain]
+channel = "1.100.0"
+components = ["clippy", "rustfmt"]
+profile = "minimal"

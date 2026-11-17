@@ -1,4 +1,4 @@
-import type { Platform, ServerSwitch, TokenStore } from '../Platform.ts'
+import type { ExternalLinks, Platform, ServerSwitch, TokenStore } from '../Platform.ts'
 import { externalUrl } from '../externalUrl.ts'
 import type { DesktopShell } from './desktopShell.ts'
 
@@ -36,18 +36,26 @@ export function createDesktopPlatform(
     // The code flow's state lives as long as the window, which is as long as a sign-in in the browser can take.
     pendingAuthorization: window.sessionStorage,
     tokens: credentialStore(server.url, shell, storedRefreshToken),
-    links: {
-      open: (url) => {
-        const external = externalUrl(url)
-        if (!external) return false
-        shell.openInBrowser(external).catch(() => {
-          // The link stays unopened; nothing else to do from a click.
-        })
-        return true
-      },
-    },
+    links: desktopLinks(shell),
     server,
     ...overrides,
+  }
+}
+
+/**
+ * Outside links in the desktop app: http(s) addresses on another origin open in the system browser, because the window
+ * never leaves the app (ADR-0018). Also used by the screens shown before a server is chosen (DesktopGate).
+ */
+export function desktopLinks(shell: DesktopShell): ExternalLinks {
+  return {
+    open: (url) => {
+      const external = externalUrl(url)
+      if (!external) return false
+      shell.openInBrowser(external).catch(() => {
+        // The link stays unopened; nothing else to do from a click.
+      })
+      return true
+    },
   }
 }
 

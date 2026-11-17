@@ -70,10 +70,14 @@ Database roles: on first start Postgres creates `trekky_owner` (runs migrations,
 - **Branches:** short-lived feature branches named `TRK-42-short-description`, squash-merged into `dev`. Long-lived `dev` → `staging` → `main`, one per environment, promoted by merge.
 - **Commits:** a descriptive message saying what changed and why, prefixed with the item key, e.g. `TRK-42: Add drag-and-drop between board columns`.
 - **Buildable history:** every TRK is verified locally (build, tests, app runs) before it is pushed. If one TRK alone would leave the app not building or running, combine it with the TRKs it needs into one commit.
-- **Reviews:** every PR is reviewed; CI (build, tests, lint) must be green to merge. Claude verifies, reviews and pushes TRK branches and opens the PR; Davit reviews and merges (ADR-0013).
+- **Reviews:** every PR is reviewed; CI (build, tests, lint) must be green to merge. Davit gives the requirements; Claude implements, verifies, reviews, merges, promotes and deploys (ADR-0023).
 - **Tests:** unit tests for core and complex business logic; Playwright e2e for key user flows.
 - **Decisions:** one ADR per decision in `docs/adr`, never edited after it is Agreed.
 
 ## License
 
-Not chosen yet (ADR-0007). Keep the repository private until it is.
+Copyright (C) 2026 Davit Matevosyan and contributors.
+
+Trekky is free software under the [GNU Affero General Public License v3.0 only](LICENSE) (`AGPL-3.0-only`, ADR-0021).
+You may use, self-host, change and share it. If you run a modified Trekky for others over a network, offer them its
+source code: the app's "Source code" link (`frontend/src/lib/sourceCode.ts`) is where a fork points to the source of the version it runs.

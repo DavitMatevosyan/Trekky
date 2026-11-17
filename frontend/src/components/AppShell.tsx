@@ -3,6 +3,7 @@ import { Link, Outlet, useNavigate } from 'react-router'
 import { useAuth } from '../auth/AuthContext.ts'
 import { useMe } from '../auth/useMe.ts'
 import { messages } from '../i18n/messages.ts'
+import { SourceCodeLink } from './SourceCodeLink.tsx'
 import { Button } from './ui/Button.tsx'
 
 /** Top bar with the organization and the user menu (wireframes: "App shell"); project switcher comes with projects. */
@@ -39,6 +40,9 @@ export function AppShell() {
       <main className="mx-auto max-w-5xl px-4 py-8">
         <Outlet />
       </main>
+      <footer className="mx-auto max-w-5xl px-4 pb-8 text-xs text-muted-foreground">
+        <SourceCodeLink />
+      </footer>
     </div>
   )
 }

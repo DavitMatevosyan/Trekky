@@ -28,6 +28,7 @@ export const messages = {
     logOut: 'Log out',
     loggingOut: 'Logging out…',
     mainNav: 'Main',
+    sourceCode: 'Source code (AGPL-3.0)',
   },
   /** Labels for the API's role values (`owner`, `admin`, ...); unknown values are shown as sent. */
   roles: { owner: 'Owner', admin: 'Admin', member: 'Member', viewer: 'Viewer' } as Record<string, string | undefined>,
@@ -68,6 +69,7 @@ export const messages = {
   },
   board: {
     loading: 'Loading board…',
+    columns: 'Board columns',
     columnHeading: (status: string, count: number) => `${status} (${count})`,
     emptyColumn: 'No items',
     showAll: 'Show all',

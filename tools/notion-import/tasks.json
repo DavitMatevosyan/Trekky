@@ -1,5 +1,5 @@
 {
-  "source": "Notion page \"Project Management - Task tracker\", section Tasks, as of 2026-11-13",
+  "source": "Notion page \"Project Management - Task tracker\", section Tasks, as of 2026-11-16",
   "project": {
     "key": "TREK",
     "name": "Trekky"
@@ -174,7 +174,7 @@
         {
           "notionKey": "TRK-21",
           "title": "Dogfood switch",
-          "status": "in_progress",
+          "status": "done",
           "description": "Move Trekky's tracking from Notion into Trekky. Needs a running instance: either un-defer TRK-9 first or run it locally."
         }
       ]
@@ -186,37 +186,37 @@
         {
           "notionKey": "TRK-9",
           "title": "Running on the home host",
-          "status": "in_review",
+          "status": "done",
           "description": "Re-scoped 2026-11-13 (was the Oracle VM; reuses the production stack from closed PR #11, branch `TRK-9-oracle-vm-deploy`): API and web Dockerfiles, production Compose on the home machine, public HTTPS through Tailscale Funnel, nightly `pg_dump` with one tested restore. Azure-ready from the start: every setting from environment variables, OpenIddict signing/encryption certificates and ASP.NET Data Protection keys kept outside the container, nothing stored on the container disk. A new ADR supersedes ADR-0004 (home host now, Azure Container Apps + Neon later)."
         },
         {
           "notionKey": "TRK-23",
           "title": "Frontend platform layer",
-          "status": "todo",
+          "status": "done",
           "description": "Login redirect and callback, token storage, API base URL from runtime config and opening external links behind small interfaces, with web implementations only; web app behaviour unchanged; unit tests."
         },
         {
           "notionKey": "TRK-24",
           "title": "Desktop OAuth client and CORS",
-          "status": "todo",
+          "status": "done",
           "description": "Public `trekky-desktop` client registered on startup like `trekky-web` (authorization code + PKCE, refresh tokens, redirect `trekky://auth/callback`); longer refresh-token lifetime for the desktop client only (value set in the TRK); configurable CORS origins (`http://tauri.localhost`); API tests for the desktop login flow and CORS."
         },
         {
           "notionKey": "TRK-25",
           "title": "Tauri 2 shell",
-          "status": "todo",
+          "status": "done",
           "description": "`desktop/` with `src-tauri`, loads the built web app, single instance, first-run server URL screen (default: the TRK-9 URL, changeable later), \"can't reach server\" screen with retry; builds an MSI locally (WebView2 offline installer included, fixed upgrade code so new versions upgrade in place); tests."
         },
         {
           "notionKey": "TRK-26",
           "title": "Desktop login",
-          "status": "todo",
+          "status": "done",
           "description": "Sign-up and login open in the system browser and return through the `trekky://` deep link; refresh token in Windows Credential Manager so the app starts signed in; one token refresh at a time; logout revokes and clears; smoke e2e (tauri-driver) against the local stack."
         },
         {
           "notionKey": "TRK-27",
           "title": "Windows build in CI",
-          "status": "todo",
+          "status": "in_review",
           "description": "A PR job builds the MSI as an artifact, a version tag drafts a GitHub release with the MSI; unsigned for now (SmartScreen warning on install); Davit adds the workflow file."
         },
         {
@@ -254,6 +254,102 @@
           "title": "History shows only its heading after a failed first check",
           "status": "todo",
           "description": "From TRK-14 (PR #18): on the item page's History section, if a new item's first history read returns no events and the next check fails, only the heading shows until a later check succeeds or the page is reloaded. Needs a failure in the few seconds after creating an item."
+        }
+      ]
+    },
+    {
+      "title": "v1.2 AI delivery workflow",
+      "description": "Davit gives a vague idea; Claude researches it, proposes features, splits the agreed scope into an epic, implements the stories in parallel worktrees, validates them with CI proof and opens the PRs. Davit decides the scope, approves the breakdown and merges after a short review, with no manual re-testing. Ideas are discussed in a prompt window in the desktop app, which runs Claude Code locally in the opened workspace; the same steps also work as Claude Code skills from a terminal. It is general, not Trekky-specific: any folder can be opened as a workspace, and the AI sets up and keeps improving the workspace's own kit. Order: TRK-30 → TRK-31 to TRK-34 and TRK-42 (any order) → TRK-35 → TRK-36 → TRK-37 → TRK-38 → TRK-39 → TRK-40 → TRK-41 → TRK-43 → TRK-44.",
+      "items": [
+        {
+          "notionKey": "TRK-30",
+          "title": "ADR for the AI delivery workflow",
+          "status": "todo",
+          "description": "Stories inside an approved epic may run in parallel, one worktree each (supersedes \"one TRK at a time\" for them); Claude may create the epic and its stories in the tracker after Davit approves the breakdown, keys always assigned by the tracker; `.trekky/` is the local, git-ignored store per workspace; temporary CI proof is required on every PR (replaces the `ui-evidence` branch from ADR-0012 for these PRs); the desktop prompt window runs the user's own installed Claude Code in the workspace, signed in with their own Claude account or API key, and Trekky never offers a Claude login or stores Claude credentials (Anthropic's terms for third-party apps); agents sit behind a provider interface so other AI models can be added later without changing the workflow, with Claude Code as the only provider for now; the workspace kit is committed with the code and kept up to date by the AI through reviewed PRs, while a locked set of core rules (pushing, merging, credentials, the approval gates) changes only by Davit's hand; `CLAUDE.md` updated to match."
+        },
+        {
+          "notionKey": "TRK-31",
+          "title": "Local store and /idea",
+          "status": "todo",
+          "description": "`.trekky/epics/<slug>/` layout (idea, research, options, decisions, plan, proof), excluded through `.git/info/exclude` so no `.gitignore` change; worktrees find it through `TREKKY_STORE`; a doc is committed only when explicitly marked; each epic folder also keeps its prompt-window conversation (in Trekky's own provider-neutral format) and the agent's session id so a discussion can be resumed; `/idea` skill writes `idea.md`."
+        },
+        {
+          "notionKey": "TRK-32",
+          "title": "Per-worktree ports",
+          "status": "todo",
+          "description": "API URL, Vite port and proxy target and Playwright `baseURL` read from environment variables, defaults unchanged (5080, 5173); two worktrees can run the API, dev server and e2e at the same time; tests."
+        },
+        {
+          "notionKey": "TRK-33",
+          "title": "/research",
+          "status": "todo",
+          "description": "Research brief (prior art, codebase scan, ADR constraints, risks, open questions) and options (value, effort, risk, recommendation); `decisions.md` after the discussion; decisions that set a rule go through `/adr`; works from a terminal and from the prompt window (TRK-37)."
+        },
+        {
+          "notionKey": "TRK-34",
+          "title": "CI proof",
+          "status": "todo",
+          "description": "CI uploads the Playwright report, traces and test results as workflow artifacts with short retention, video only on failure; Davit adds the workflow change."
+        },
+        {
+          "notionKey": "TRK-35",
+          "title": "Desktop workspaces",
+          "status": "todo",
+          "description": "\"Open folder\" in the desktop app picks a local git repo as a workspace and links it to a Trekky project; recent workspaces remembered on this machine; opening one checks it is a git repo and sets up `.trekky/` (TRK-31); web app unchanged; tests. Needs TRK-25, TRK-31."
+        },
+        {
+          "notionKey": "TRK-36",
+          "title": "Desktop agent runner",
+          "status": "todo",
+          "description": "An agent provider interface (is it installed and signed in, start, stream, stop, resume) with provider-neutral events (text, tool call, tool result, permission request, done, error), so other AI models can be added later as new providers; the first and only provider starts the user's installed Claude Code headless (streaming JSON) with the workspace as working folder, streams its messages and tool activity to the UI, can stop a run and resume a conversation by session id; uses the workspace's Claude Code settings and permission rules, and shows anything not pre-allowed for the user to allow or deny; clear screens for \"Claude Code not installed\" and \"not signed in\"; tests with a fake agent process. Needs TRK-35."
+        },
+        {
+          "notionKey": "TRK-37",
+          "title": "Prompt window",
+          "status": "todo",
+          "description": "Chat panel in the desktop app like the Claude desktop app, per workspace: list of conversations (one per idea/epic), streaming Markdown replies, collapsible tool activity, stop, attach files; conversations kept in `.trekky/epics/<slug>/` and resumed from there; actions that move the idea through the stages (research → options → decisions → breakdown), with the breakdown dry run approved in the window; the web app shows it as desktop-only; keyboard accessible (WCAG AA); component tests and a tauri-driver e2e with a fake agent. Needs TRK-36."
+        },
+        {
+          "notionKey": "TRK-38",
+          "title": "/breakdown",
+          "status": "todo",
+          "description": "`plan.json` schema (type, title, description, Given/When/Then acceptance criteria, dependencies, touch set, test plan, size); dry run for Davit's approval, then the epic and its stories are created in the tracker and their keys written back. Needs TRK-21 and a bot user in the org (not Davit's credentials)."
+        },
+        {
+          "notionKey": "TRK-39",
+          "title": "/implement-epic",
+          "status": "todo",
+          "description": "Worktrees beside the repo (`../trekky-wt/<key>/`); scheduler builds waves from dependencies, runs stories with overlapping touch sets or shared hotspot files (EF migrations and model snapshot, `Directory.Packages.props`, `package-lock.json`, Postman collection, `schema.d.ts`, `ci.yml`) one at a time, and caps concurrency at free worktrees, ready stories and machine limits; commands, port variables and hotspot files from the workspace profile (TRK-42), Trekky's port offsets from TRK-32; `/trk` in each worktree; `dev` merged into open story branches after each merge (never rebased); progress of each story visible in the prompt window. Needs TRK-31, TRK-32, TRK-38, TRK-42."
+        },
+        {
+          "notionKey": "TRK-40",
+          "title": "/validate",
+          "status": "todo",
+          "description": "Independent validator agent that sees only the acceptance criteria, the diff and the CI results; `proof/<key>.md` and an acceptance criterion → evidence table in the PR body; a failing story goes back to its implementer, after 3 attempts to Davit. Needs TRK-34, TRK-39."
+        },
+        {
+          "notionKey": "TRK-41",
+          "title": "/ship",
+          "status": "todo",
+          "description": "After Davit merges, the story is set to Done in the tracker, its worktree and local proof are removed, and the epic is closed when all its stories are Done; promoting `dev` → `staging` → `main` stays with Davit. Needs TRK-40."
+        },
+        {
+          "notionKey": "TRK-42",
+          "title": "Workspace profile",
+          "status": "todo",
+          "description": "One committed file that describes the workspace to the agents (stack, build / test / lint / run / e2e commands, port variables, hotspot files, CI provider, tracker project), with a schema and validation; written for Trekky now; the workflow skills read it instead of hard-coding Trekky's commands, so they work in any repo; tests."
+        },
+        {
+          "notionKey": "TRK-43",
+          "title": "Workspace setup (/setup-workspace)",
+          "status": "todo",
+          "description": "Open an empty or existing folder in the desktop app and describe the workspace in the prompt window (e.g. \"mobile app creation studio\"); the AI asks what it needs, researches the stack and its good practices (and scans the code if there is any), then drafts the kit: project instructions, agents (reviewer, test writer, validator), skills (task flow, verify and the v1.2 workflow skills), docs (architecture, ADR template, first ADRs), workspace profile and a CI starter; starts small and grows when needed; shown as a dry run for Davit's approval, then committed (`git init` for an empty folder). Needs TRK-37, TRK-42."
+        },
+        {
+          "notionKey": "TRK-44",
+          "title": "Kit upkeep (/retro)",
+          "status": "todo",
+          "description": "Every story records its stats in `.trekky/` (attempts, must-fix review findings, validation failures, commands that failed); after each story and epic the AI proposes kit changes from them and from what changed in the code (repeating review findings become rules, new modules or tools get docs and skills, stale commands and docs are fixed) as a small PR with the reason for each change; later stats show whether a change helped; the locked core rules are never changed this way. Needs TRK-41."
         }
       ]
     }
