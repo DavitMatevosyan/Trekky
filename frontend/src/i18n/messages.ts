@@ -233,6 +233,17 @@ export const messages = {
     waiting: 'Finish in your browser. Trekky continues here automatically.',
     openAgain: 'Open the browser again',
   },
+  /** The desktop app's update notice (ADR-0024). */
+  updates: {
+    region: 'Update',
+    available: (version: string) => `Trekky ${version} is available.`,
+    install: 'Install and restart',
+    /** Said before installing: Windows Installer asks for administrator consent and closes the app. */
+    hint: 'Trekky closes while it updates, and Windows asks for your permission.',
+    installing: 'Installing…',
+    later: 'Later',
+    failed: 'The update could not be installed. Please try again later.',
+  },
   /** The Windows desktop app's own screens (ADR-0018). */
   desktop: {
     starting: 'Starting Trekky…',

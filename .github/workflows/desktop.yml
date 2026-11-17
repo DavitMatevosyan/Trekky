@@ -1,6 +1,7 @@
-# Trekky for Windows (ADR-0018, ADR-0020): every PR that touches the desktop app or the web app it bundles builds the
-# MSI on Windows and keeps it as an artifact; a tag desktop-v<version> builds it again and drafts a GitHub release with
-# it. The MSI is not signed yet, so Windows SmartScreen warns on install.
+# Trekky for Windows (ADR-0018, ADR-0020, ADR-0024): every PR that touches the desktop app or the web app it bundles
+# builds the MSI on Windows and keeps it as an artifact; a tag desktop-v<version> builds it again, signs it for the
+# updater and drafts a GitHub release with it and the update feed (latest.json). The MSI is not code-signed yet, so
+# Windows SmartScreen warns on a first install.
 name: Desktop
 
 on:
@@ -79,12 +80,12 @@ jobs:
       - name: Install web dependencies
         working-directory: frontend
         run: npm ci
-      - name: Version script (types)
+      - name: Release scripts (types)
         working-directory: desktop
         run: ../frontend/node_modules/.bin/tsc -p scripts
-      - name: Version script (tests)
+      - name: Release scripts (tests)
         working-directory: desktop
-        run: node --test scripts/release.test.mts
+        run: node --test scripts/release.test.mts scripts/update-manifest.test.mts
 
       - name: Install desktop dependencies
         working-directory: desktop
@@ -98,6 +99,7 @@ jobs:
 
       # Builds the web app, the release exe and the MSI. The first-run server is the repository variable
       # TREKKY_DEFAULT_SERVER_URL (the home host's Funnel address) when it is set, else the local dev server.
+      # No secrets here: the build runs the whole npm and cargo tree.
       - name: Build the MSI
         working-directory: desktop
         env:
@@ -117,10 +119,38 @@ jobs:
           if (-not (Test-Path $path)) { throw "The build did not produce $name" }
           "name=$name" >> $env:GITHUB_OUTPUT
           "path=$path" >> $env:GITHUB_OUTPUT
+      # Releases only: sign the MSI for the updater with Trekky's key (repository secrets, ADR-0024), bound to this
+      # version (<msi>.sig), and write the update feed. The key reaches only this step, and only for a desktop-v tag.
+      - name: Sign the MSI for the updater
+        if: github.ref_type == 'tag'
+        working-directory: desktop
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          VERSION: ${{ steps.version.outputs.version }}
+          MSI: ${{ steps.msi.outputs.name }}
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          if (-not $env:TAURI_SIGNING_PRIVATE_KEY) { throw 'A release needs the updater signing key (secret TAURI_SIGNING_PRIVATE_KEY).' }
+          npx tauri signer sign --app-version $env:VERSION "src-tauri/target/release/bundle/msi/$($env:MSI)"
+      - name: Write the update feed
+        if: github.ref_type == 'tag'
+        working-directory: desktop
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ github.ref_name }}
+          MSI: ${{ steps.msi.outputs.name }}
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          node scripts/update-manifest.mts $env:VERSION $env:TAG "src-tauri/target/release/bundle/msi/$($env:MSI)" src-tauri/target/release/bundle/msi/latest.json
       - uses: actions/upload-artifact@v7
         with:
           name: trekky-desktop-${{ steps.version.outputs.version }}-msi
-          path: ${{ steps.msi.outputs.path }}
+          # The MSI, and for a release its .sig and latest.json.
+          path: |
+            ${{ steps.msi.outputs.path }}
+            ${{ steps.msi.outputs.path }}.sig
+            desktop/src-tauri/target/release/bundle/msi/latest.json
           if-no-files-found: error
           retention-days: 14
     outputs:
@@ -140,7 +170,8 @@ jobs:
         with:
           name: trekky-desktop-${{ needs.msi.outputs.version }}-msi
           path: msi
-      # A draft: Davit checks it and publishes it. Unsigned until code signing is set up.
+      # A draft: Claude installs it over the previous version, checks it and publishes it (RELEASING.md). Publishing
+      # makes it the latest release, whose latest.json the installed apps read.
       - name: Create the draft release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -148,9 +179,10 @@ jobs:
           VERSION: ${{ needs.msi.outputs.version }}
           MSI: ${{ needs.msi.outputs.msi }}
         run: |
-          gh release create "$TAG" "msi/$MSI" \
+          test -s msi/latest.json || { echo "The build has no update feed (latest.json)"; exit 1; }
+          gh release create "$TAG" "msi/$MSI" msi/latest.json \
             --repo "$GITHUB_REPOSITORY" \
             --draft \
             --title "Trekky for Windows $VERSION" \
-            --notes "Trekky for Windows $VERSION (MSI). The installer is not signed yet: Windows SmartScreen shows a warning; choose More info, then Run anyway. It upgrades an earlier install in place." \
+            --notes "Trekky for Windows $VERSION (MSI). Installed apps offer this version on their next start. A first install from this page shows a Windows SmartScreen warning, as the installer is not code-signed yet: choose More info, then Run anyway. It upgrades an earlier install in place." \
             --verify-tag

@@ -17,6 +17,16 @@ export interface DesktopShell {
   saveRefreshToken(serverUrl: string, token: string | null): Promise<void>
   /** Calls `listener` with each `trekky://auth/callback?...` URL; returns an unsubscribe. */
   onAuthCallback(listener: (callbackUrl: string) => void): () => void
+  /** A newer version from the release feed, or null; rejects when the feed cannot be read (ADR-0024). */
+  checkForUpdate(): Promise<AvailableUpdate | null>
+  /** Installs the newer version; the app restarts into it. */
+  installUpdate(): Promise<void>
+}
+
+/** A newer version of the desktop app, as the release feed describes it (ADR-0024). */
+export interface AvailableUpdate {
+  version: string
+  notes: string | null
 }
 
 export interface ServerSettings {
@@ -78,6 +88,10 @@ export function createTauriShell(): DesktopShell {
     loadRefreshToken: (serverUrl) => invoke<string | null>('load_refresh_token', { server: serverUrl }),
     saveRefreshToken: async (serverUrl, token) => {
       await invoke<unknown>('save_refresh_token', { server: serverUrl, token })
+    },
+    checkForUpdate: async () => (await invoke<AvailableUpdate | null>('check_for_update')) ?? null,
+    installUpdate: async () => {
+      await invoke<unknown>('install_update')
     },
     onAuthCallback: (listener) => {
       let unlisten: (() => void) | null = null

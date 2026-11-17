@@ -54,6 +54,7 @@ npm run typecheck:e2e    # strict type check of e2e/ with the frontend's TypeScr
 3. The `trekky://` callback.
 4. A restart that is signed in from Credential Manager.
 5. Logout, which removes the stored token.
+6. An update from a feed the test serves (`TREKKY_UPDATE_FEED`): the app offers it and refuses to install it, as it is not signed with Trekky's key (ADR-0024).
 
 The test plays the system browser itself: debug builds write the address they would open to `TREKKY_OPEN_URL_LOG` instead of opening it.
 

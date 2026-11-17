@@ -10,10 +10,18 @@
  *
  * It replaces the app's settings for the run and restores them afterwards; the Credential Manager entry for the test
  * server is removed. Each run creates one user `e2e-desktop-*@example.com`, like the web e2e.
+ *
+ * Updates (TREK-37, ADR-0024): the test serves its own update feed (TREKKY_UPDATE_FEED) announcing version 99.0.0.
+ * By default its signature is not Trekky's: the app must offer it and then refuse it, and TREKKY_UPDATE_LOG stays
+ * empty. To check a correctly signed update (it needs the private key, so only by hand; desktop/RELEASING.md), set
+ * TREKKY_E2E_SIGNED_UPDATE to an MSI whose `<msi>.sig` was made with `tauri signer sign --app-version 99.0.0`: the
+ * app must then download and verify it, which the debug build reports as "verified 99.0.0" instead of installing.
  */
 import assert from 'node:assert/strict'
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process'
 import { existsSync, readFileSync, renameSync, rmSync } from 'node:fs'
+import { createServer, type Server } from 'node:http'
+import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { after, before, test } from 'node:test'
@@ -31,8 +39,14 @@ const CONFIG_BACKUP = `${CONFIG_DIR}.e2e-backup`
 /** The Credential Manager entry the app keeps for SERVER (keyring: `<user>.<service>`). */
 const CREDENTIAL = `${SERVER}.Trekky`
 const PASSWORD = 'correct horse battery staple'
+const UPDATE_LOG = join(tmpdir(), `trekky-e2e-updates-${process.pid}.txt`)
+const NEWER_VERSION = '99.0.0'
+const SIGNED_UPDATE = process.env.TREKKY_E2E_SIGNED_UPDATE
+/** A folder for evidence screenshots of the update notice (ADR-0012); none are taken when unset. */
+const SCREENSHOTS = process.env.TREKKY_E2E_SCREENSHOTS
 
 let driver: ChildProcess | undefined
+let feed: Server | undefined
 let sessionCookie = ''
 
 before(async () => {
@@ -55,8 +69,9 @@ before(async () => {
   sessionCookie = (signUp.headers.getSetCookie().find((cookie) => cookie.startsWith('trekky.session=')) ?? '').split(';')[0] ?? ''
   assert.ok(sessionCookie, 'sign-up set no session cookie')
 
+  const feedUrl = await startUpdateFeed()
   driver = spawn('tauri-driver', ['--port', String(DRIVER_PORT), ...nativeDriverArgs()], {
-    env: { ...process.env, TREKKY_OPEN_URL_LOG: URL_LOG },
+    env: { ...process.env, TREKKY_OPEN_URL_LOG: URL_LOG, TREKKY_UPDATE_FEED: feedUrl, TREKKY_UPDATE_LOG: UPDATE_LOG },
     stdio: 'ignore',
   })
   await waitForDriver()
@@ -64,7 +79,9 @@ before(async () => {
 
 after(() => {
   driver?.kill()
+  feed?.close()
   rmSync(URL_LOG, { force: true })
+  rmSync(UPDATE_LOG, { force: true })
   removeCredential()
   rmSync(CONFIG_DIR, { recursive: true, force: true })
   if (existsSync(CONFIG_BACKUP)) renameSync(CONFIG_BACKUP, CONFIG_DIR)
@@ -97,6 +114,19 @@ test('first run: pick the server, sign in through the browser, start signed in n
     await runToExit(APP, [callback])
     await app.waitForText('You are the Owner of E2E Desktop Org.')
     assert.ok(hasCredential(), 'the refresh token was not stored in Credential Manager')
+
+    // The feed announces a newer version. Signed with Trekky's key it is downloaded and verified; otherwise it is
+    // refused and nothing runs.
+    await app.waitForText(`Trekky ${NEWER_VERSION} is available.`)
+    if (SCREENSHOTS) await app.screenshot(join(SCREENSHOTS, 'update-available.png'))
+    await app.clickButton('Install and restart')
+    if (SIGNED_UPDATE) {
+      assert.equal(await updateLogLine(), `verified ${NEWER_VERSION}`)
+    } else {
+      await app.waitForText('The update could not be installed. Please try again later.')
+      if (SCREENSHOTS) await app.screenshot(join(SCREENSHOTS, 'update-refused.png'))
+      assert.equal(existsSync(UPDATE_LOG), false, "the app accepted an update that is not signed with Trekky's key")
+    }
   } finally {
     await app.end()
   }
@@ -116,6 +146,45 @@ test('first run: pick the server, sign in through the browser, start signed in n
     await again.end()
   }
 })
+
+/** An update feed announcing NEWER_VERSION, with a download whose signature is not Trekky's. Returns its address. */
+async function startUpdateFeed(): Promise<string> {
+  const server = createServer((request, response) => {
+    const origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
+    if (request.url === '/latest.json') {
+      // Without SIGNED_UPDATE, not a signature made with Trekky's key: the app must refuse the download.
+      const signature = SIGNED_UPDATE ? readFileSync(`${SIGNED_UPDATE}.sig`, 'utf8').trim() : Buffer.from('not a minisign signature').toString('base64')
+      response.writeHead(200, { 'Content-Type': 'application/json' })
+      response.end(
+        JSON.stringify({
+          version: NEWER_VERSION,
+          notes: 'e2e',
+          pub_date: new Date().toISOString(),
+          platforms: { 'windows-x86_64': { signature, url: `${origin}/Trekky.msi` } },
+        }),
+      )
+    } else if (request.url === '/Trekky.msi') {
+      response.writeHead(200, { 'Content-Type': 'application/octet-stream' })
+      response.end(SIGNED_UPDATE ? readFileSync(SIGNED_UPDATE) : Buffer.from('not an installer'))
+    } else {
+      response.writeHead(404).end()
+    }
+  })
+  feed = server
+  await new Promise<void>((resolvePromise) => server.listen(0, '127.0.0.1', resolvePromise))
+  return `http://127.0.0.1:${(server.address() as AddressInfo).port}/latest.json`
+}
+
+/** The line the debug app wrote to TREKKY_UPDATE_LOG after verifying an update, waiting up to 60 s for the download. */
+async function updateLogLine(): Promise<string> {
+  const deadline = Date.now() + 60_000
+  while (Date.now() < deadline) {
+    const line = existsSync(UPDATE_LOG) ? readFileSync(UPDATE_LOG, 'utf8').trim() : ''
+    if (line) return line
+    await new Promise((resolve) => setTimeout(resolve, 500))
+  }
+  throw new Error('The app verified no update')
+}
 
 function nativeDriverArgs(): string[] {
   const native = process.env.MSEDGEDRIVER
