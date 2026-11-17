@@ -491,6 +491,23 @@
                   "description": "nextCursor from the previous page"
                 },
                 {
+                  "key": "open",
+                  "value": "true",
+                  "disabled": true,
+                  "description": "Only items whose own status is not Done, also under open epics (TREK-52)"
+                },
+                {
+                  "key": "status",
+                  "value": "todo",
+                  "disabled": true,
+                  "description": "Repeat for any of these statuses: todo, in_progress, in_review, done"
+                },
+                {
+                  "key": "status",
+                  "value": "in_progress",
+                  "disabled": true
+                },
+                {
                   "key": "type",
                   "value": "epic",
                   "disabled": true,
@@ -502,13 +519,37 @@
                   "disabled": true
                 },
                 {
+                  "key": "assignee",
+                  "value": "me",
+                  "disabled": true,
+                  "description": "Repeat: a user id, me, or none for unassigned"
+                },
+                {
+                  "key": "assignee",
+                  "value": "none",
+                  "disabled": true
+                },
+                {
+                  "key": "parent",
+                  "value": "TRK-1",
+                  "disabled": true,
+                  "description": "Items under this epic or story at any depth: its key or id"
+                },
+                {
                   "key": "q",
                   "value": "",
                   "disabled": true,
                   "description": "Key prefix (TRK-1) or title text, case-insensitive"
+                },
+                {
+                  "key": "completedEpics",
+                  "value": "show",
+                  "disabled": true,
+                  "description": "hide (default) leaves out every epic in Done and everything under it; show keeps them"
                 }
               ]
-            }
+            },
+            "description": "Filters (TREK-52), the same on Get board: open, status, type, assignee, parent, q and completedEpics. Different filters combine with AND, repeated values with OR. By default an epic in Done and everything under it are left out. totalCount is how many items match across every page."
           }
         },
         {
@@ -544,11 +585,68 @@
                   "key": "allDone",
                   "value": "true",
                   "disabled": true,
-                  "description": "Every Done card instead of the latest 20"
+                  "description": "Every matching Done card instead of the latest 20"
+                },
+                {
+                  "key": "open",
+                  "value": "true",
+                  "disabled": true,
+                  "description": "Only items whose own status is not Done, also under open epics (TREK-52)"
+                },
+                {
+                  "key": "status",
+                  "value": "todo",
+                  "disabled": true,
+                  "description": "Repeat for any of these statuses: todo, in_progress, in_review, done"
+                },
+                {
+                  "key": "status",
+                  "value": "in_progress",
+                  "disabled": true
+                },
+                {
+                  "key": "type",
+                  "value": "epic",
+                  "disabled": true,
+                  "description": "Repeat to keep only these types, e.g. the parent types an item allows (TRK-11.1)"
+                },
+                {
+                  "key": "type",
+                  "value": "story",
+                  "disabled": true
+                },
+                {
+                  "key": "assignee",
+                  "value": "me",
+                  "disabled": true,
+                  "description": "Repeat: a user id, me, or none for unassigned"
+                },
+                {
+                  "key": "assignee",
+                  "value": "none",
+                  "disabled": true
+                },
+                {
+                  "key": "parent",
+                  "value": "TRK-1",
+                  "disabled": true,
+                  "description": "Items under this epic or story at any depth: its key or id"
+                },
+                {
+                  "key": "q",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Key prefix (TRK-1) or title text, case-insensitive"
+                },
+                {
+                  "key": "completedEpics",
+                  "value": "show",
+                  "disabled": true,
+                  "description": "hide (default) leaves out every epic in Done and everything under it; show keeps them"
                 }
               ]
             },
-            "description": "One column per status in workflow order. count is the column's full size; Done holds the latest 20 cards unless allDone=true. Each column is in board order (rank); Done is last finished first. Each card has an etag to send as If-Match to Move card on board or Change work item status."
+            "description": "One column per status in workflow order, with only the cards that match the filters (the same as on List work items, TREK-52). count is how many cards in the column match; a filtered-out status is an empty column. Done holds the latest 20 matching cards unless allDone=true. Each column is in board order (rank); Done is last finished first. Each card has an etag to send as If-Match to Move card on board or Change work item status."
           }
         },
         {
@@ -718,8 +816,79 @@
               "mode": "raw",
               "raw": "{\n  \"status\": \"in_progress\",\n  \"afterId\": null,\n  \"beforeId\": null\n}"
             },
-            "url": "{{baseUrl}}/api/v1/work-items/{{workItemId}}/move",
-            "description": "A card dropped on the board (US-11 AC3, AC4). status is the column: the current one to reorder, or one the workflow allows (422 with allowedTransitions otherwise; recorded as WorkItemStatusChanged). afterId and beforeId are the cards directly above and below the drop in that column, null at the top or bottom; both null for an empty column. 409 when they are no longer next to each other. Done is last finished first, so afterId and beforeId must be null there (400). A neighbour that is the moved card itself, or afterId equal to beforeId, is also a 400. A reorder alone is not in history and does not change updatedAt; dropping a card where it already is changes nothing. If-Match is required (428) and must be the latest ETag (412 otherwise)."
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/work-items/{{workItemId}}/move",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "work-items",
+                "{{workItemId}}",
+                "move"
+              ],
+              "query": [
+                {
+                  "key": "open",
+                  "value": "true",
+                  "disabled": true,
+                  "description": "Only items whose own status is not Done, also under open epics (TREK-52)"
+                },
+                {
+                  "key": "status",
+                  "value": "todo",
+                  "disabled": true,
+                  "description": "Repeat for any of these statuses: todo, in_progress, in_review, done"
+                },
+                {
+                  "key": "status",
+                  "value": "in_progress",
+                  "disabled": true
+                },
+                {
+                  "key": "type",
+                  "value": "epic",
+                  "disabled": true,
+                  "description": "Repeat to keep only these types, e.g. the parent types an item allows (TRK-11.1)"
+                },
+                {
+                  "key": "type",
+                  "value": "story",
+                  "disabled": true
+                },
+                {
+                  "key": "assignee",
+                  "value": "me",
+                  "disabled": true,
+                  "description": "Repeat: a user id, me, or none for unassigned"
+                },
+                {
+                  "key": "assignee",
+                  "value": "none",
+                  "disabled": true
+                },
+                {
+                  "key": "parent",
+                  "value": "TRK-1",
+                  "disabled": true,
+                  "description": "Items under this epic or story at any depth: its key or id"
+                },
+                {
+                  "key": "q",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Key prefix (TRK-1) or title text, case-insensitive"
+                },
+                {
+                  "key": "completedEpics",
+                  "value": "show",
+                  "disabled": true,
+                  "description": "hide (default) leaves out every epic in Done and everything under it; show keeps them"
+                }
+              ]
+            },
+            "description": "A card dropped on the board (US-11 AC3, AC4). status is the column: the current one to reorder, or one the workflow allows (422 with allowedTransitions otherwise; recorded as WorkItemStatusChanged). afterId and beforeId are the cards directly above and below the drop in that column, null at the top or bottom; both null for an empty column. 409 when they are no longer next to each other. Done is last finished first, so afterId and beforeId must be null there (400). A neighbour that is the moved card itself, or afterId equal to beforeId, is also a 400. A reorder alone is not in history and does not change updatedAt; dropping a card where it already is changes nothing. If-Match is required (428) and must be the latest ETag (412 otherwise). Send the same filters as Get board (TREK-52): afterId and beforeId must be neighbours among the cards those filters show, and the card lands directly below afterId (or above beforeId at the top) for every viewer."
           }
         },
         {
