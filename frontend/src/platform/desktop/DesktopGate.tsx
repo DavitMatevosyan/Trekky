@@ -1,6 +1,9 @@
-import { Fragment, useCallback, useEffect, useState, type ReactNode } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { messages } from '../../i18n/messages.ts'
 import type { ServerSwitch } from '../Platform.ts'
+import { PlatformContext } from '../PlatformContext.ts'
+import { createWebPlatform } from '../webPlatform.ts'
+import { desktopLinks } from './desktopPlatform.ts'
 import { ServerUrlError, type DesktopShell } from './desktopShell.ts'
 import { ServerSetupScreen } from './ServerSetupScreen.tsx'
 import { ServerUnreachableScreen } from './ServerUnreachableScreen.tsx'
@@ -27,6 +30,8 @@ export interface DesktopGateProps {
  */
 export function DesktopGate({ shell, children }: DesktopGateProps) {
   const [state, setState] = useState<GateState>({ kind: 'loading' })
+  // The app's own platform comes with a server; until then the screens here still open links in the system browser.
+  const gatePlatform = useMemo(() => createWebPlatform({ links: desktopLinks(shell) }), [shell])
 
   const check = useCallback(
     async (serverUrl: string, from: 'start' | 'retry') => {
@@ -88,26 +93,30 @@ export function DesktopGate({ shell, children }: DesktopGateProps) {
     case 'setup': {
       const { current } = state
       return (
-        <ServerSetupScreen
-          // A new key per opening, so the field shows initialUrl again.
-          key={`${current ?? ''}|${state.error ?? ''}`}
-          initialUrl={state.initialUrl}
-          error={state.error}
-          busy={state.busy}
-          onSubmit={(input) => void save(input, current)}
-          onCancel={current ? () => void check(current, 'start') : undefined}
-        />
+        <PlatformContext.Provider value={gatePlatform}>
+          <ServerSetupScreen
+            // A new key per opening, so the field shows initialUrl again.
+            key={`${current ?? ''}|${state.error ?? ''}`}
+            initialUrl={state.initialUrl}
+            error={state.error}
+            busy={state.busy}
+            onSubmit={(input) => void save(input, current)}
+            onCancel={current ? () => void check(current, 'start') : undefined}
+          />
+        </PlatformContext.Provider>
       )
     }
     case 'unreachable': {
       const { serverUrl } = state
       return (
-        <ServerUnreachableScreen
-          serverUrl={serverUrl}
-          busy={state.busy}
-          onRetry={() => void check(serverUrl, 'retry')}
-          onChangeServer={() => changeServer(serverUrl)}
-        />
+        <PlatformContext.Provider value={gatePlatform}>
+          <ServerUnreachableScreen
+            serverUrl={serverUrl}
+            busy={state.busy}
+            onRetry={() => void check(serverUrl, 'retry')}
+            onChangeServer={() => changeServer(serverUrl)}
+          />
+        </PlatformContext.Provider>
       )
     }
     case 'ready': {

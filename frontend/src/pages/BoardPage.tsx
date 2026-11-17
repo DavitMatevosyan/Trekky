@@ -97,6 +97,8 @@ function Board({ projectId, projectKey, projectName }: { projectId: string; proj
     useSensor(KeyboardSensor, {
       keyboardCodes: { start: ['Space'], cancel: ['Escape'], end: ['Space', 'Enter', 'Tab'] },
       coordinateGetter: boardKeyboardCoordinates,
+      // dnd-kit scrolls the row to bring a column under the card: smoothly, unless the user asked for less motion.
+      scrollBehavior: prefersReducedMotion() ? 'auto' : 'smooth',
     }),
   )
 
@@ -170,7 +172,16 @@ function Board({ projectId, projectKey, projectName }: { projectId: string; proj
           onDragEnd={drop}
           onDragCancel={() => setDraggingId(null)}
         >
-          <div aria-busy={move.isPending || undefined} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {/* One row at every width (TREK-44): the columns share the width, each at least 14rem (four fit the 64rem
+              page); on a narrow screen the row scrolls sideways instead of stacking. Focusable, so the keyboard can
+              scroll it even to a column without cards (Safari never makes a scroller focusable by itself). */}
+          <div
+            role="group"
+            aria-label={messages.board.columns}
+            tabIndex={0}
+            aria-busy={move.isPending || undefined}
+            className="flex gap-4 overflow-x-auto rounded-xl pb-2 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
             {board.columns.map((column) => (
               <BoardColumn
                 key={column.status}
@@ -197,6 +208,11 @@ function Board({ projectId, projectKey, projectName }: { projectId: string; proj
       )}
     </ProjectView>
   )
+}
+
+/** The user's reduced-motion setting (WCAG 2.3.3); false where the browser cannot tell. */
+function prefersReducedMotion(): boolean {
+  return typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
 interface BoardColumnProps {
@@ -232,7 +248,7 @@ function BoardColumn({ column, projectKey, boardUrl, moving, focusAfterMove, loa
     <section
       ref={setNodeRef}
       aria-labelledby={headingId}
-      className={cn('grid content-start gap-2 rounded-xl border border-border p-3', isOver && 'ring-2 ring-ring')}
+      className={cn('grid min-w-56 flex-1 basis-0 content-start gap-2 rounded-xl border border-border p-3', isOver && 'ring-2 ring-inset ring-ring')}
     >
       <h2 id={headingId} ref={heading} tabIndex={-1} className="text-sm font-semibold">
         {messages.board.columnHeading(label, count)}

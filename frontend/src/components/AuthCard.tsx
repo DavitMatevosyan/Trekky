@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { SourceCodeLink } from './SourceCodeLink.tsx'
 
 /** Centered card for the sign-up and login screens (wireframes: "Sign-up and log in"). */
 export function AuthCard({ title, children, footer }: { title: string; children: ReactNode; footer: ReactNode }) {
@@ -8,6 +9,9 @@ export function AuthCard({ title, children, footer }: { title: string; children:
         <h1 className="mb-6 text-xl font-semibold">{title}</h1>
         {children}
         <p className="mt-6 text-center text-sm text-muted-foreground">{footer}</p>
+        <p className="mt-4 text-center text-xs text-muted-foreground">
+          <SourceCodeLink />
+        </p>
       </div>
     </main>
   )

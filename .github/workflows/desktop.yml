@@ -1,0 +1,156 @@
+# Trekky for Windows (ADR-0018, ADR-0020): every PR that touches the desktop app or the web app it bundles builds the
+# MSI on Windows and keeps it as an artifact; a tag desktop-v<version> builds it again and drafts a GitHub release with
+# it. The MSI is not signed yet, so Windows SmartScreen warns on install.
+name: Desktop
+
+on:
+  pull_request:
+    branches: [dev, staging, main]
+    paths: &paths
+      - desktop/**
+      - frontend/**
+      - .github/workflows/desktop.yml
+  # Builds on dev too, so later PRs can restore its cargo cache (PR caches are not shared between PRs).
+  push:
+    branches: [dev]
+    paths: *paths
+    tags: ['desktop-v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  msi:
+    name: Windows MSI (lint + test + build)
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          check-latest: true
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            desktop/package-lock.json
+
+      # The version from desktop/rust-toolchain.toml, with clippy and rustfmt. It applies to every cargo command run
+      # from desktop/ or below (lint, test, build), because rustup looks for the file upwards from the working folder.
+      - name: Rust toolchain
+        id: rust
+        working-directory: desktop
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          rustup toolchain install
+          "version=$(rustc --version)" >> $env:GITHUB_OUTPUT
+      # The MSI folder is left out: a version bump would otherwise leave the old MSI next to the new one.
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            desktop/src-tauri/target
+            !desktop/src-tauri/target/release/bundle
+          key: cargo-${{ runner.os }}-${{ steps.rust.outputs.version }}-${{ hashFiles('desktop/src-tauri/Cargo.lock') }}
+          restore-keys: cargo-${{ runner.os }}-${{ steps.rust.outputs.version }}-
+
+      # The version in tauri.conf.json, Cargo.toml and package.json agree, and a release tag names it.
+      - name: Version
+        id: version
+        working-directory: desktop
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          $version = if ($env:REF_TYPE -eq 'tag') { node scripts/release.mts $env:REF_NAME } else { node scripts/release.mts }
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Install web dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Version script (types)
+        working-directory: desktop
+        run: ../frontend/node_modules/.bin/tsc -p scripts
+      - name: Version script (tests)
+        working-directory: desktop
+        run: node --test scripts/release.test.mts
+
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: npm ci
+      - name: Lint the shell (fmt + clippy)
+        working-directory: desktop
+        run: npm run lint
+      - name: Test the shell
+        working-directory: desktop
+        run: npm test
+
+      # Builds the web app, the release exe and the MSI. The first-run server is the repository variable
+      # TREKKY_DEFAULT_SERVER_URL (the home host's Funnel address) when it is set, else the local dev server.
+      - name: Build the MSI
+        working-directory: desktop
+        env:
+          DEFAULT_SERVER_URL: ${{ vars.TREKKY_DEFAULT_SERVER_URL }}
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          if ($env:DEFAULT_SERVER_URL) { $env:TREKKY_DEFAULT_SERVER_URL = $env:DEFAULT_SERVER_URL }
+          Remove-Item -Recurse -Force src-tauri/target/release/bundle -ErrorAction SilentlyContinue
+          npm run build
+      - name: Find the MSI
+        id: msi
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          $name = "Trekky_$($env:VERSION)_x64_en-US.msi"
+          $path = "desktop/src-tauri/target/release/bundle/msi/$name"
+          if (-not (Test-Path $path)) { throw "The build did not produce $name" }
+          "name=$name" >> $env:GITHUB_OUTPUT
+          "path=$path" >> $env:GITHUB_OUTPUT
+      - uses: actions/upload-artifact@v7
+        with:
+          name: trekky-desktop-${{ steps.version.outputs.version }}-msi
+          path: ${{ steps.msi.outputs.path }}
+          if-no-files-found: error
+          retention-days: 14
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      msi: ${{ steps.msi.outputs.name }}
+
+  release:
+    name: Draft release
+    if: github.ref_type == 'tag'
+    needs: msi
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: trekky-desktop-${{ needs.msi.outputs.version }}-msi
+          path: msi
+      # A draft: Davit checks it and publishes it. Unsigned until code signing is set up.
+      - name: Create the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ needs.msi.outputs.version }}
+          MSI: ${{ needs.msi.outputs.msi }}
+        run: |
+          gh release create "$TAG" "msi/$MSI" \
+            --repo "$GITHUB_REPOSITORY" \
+            --draft \
+            --title "Trekky for Windows $VERSION" \
+            --notes "Trekky for Windows $VERSION (MSI). The installer is not signed yet: Windows SmartScreen shows a warning; choose More info, then Run anyway. It upgrades an earlier install in place." \
+            --verify-tag
