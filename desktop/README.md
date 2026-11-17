@@ -62,4 +62,6 @@ The test plays the system browser itself: debug builds write the address they wo
 2. Download Microsoft Edge WebDriver matching your WebView2 runtime from `https://msedgedriver.microsoft.com/<version>/edgedriver_win64.zip`. The runtime's version is in Edge's `edge://version`, or in the registry under `EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}`, value `pv`. Set `MSEDGEDRIVER` to the path of `msedgedriver.exe`.
 3. Start the API and `npm run dev` in `../frontend`, then run `npm run build:debug` and `npm run e2e`.
 
+`npm run build:debug` embeds the web app as it is at that moment (the window loads `http://tauri.localhost`, not the dev server), so run it again after every frontend change, or the e2e tests the old screens.
+
 The test sets the app's settings aside and restores them afterwards. It removes the Credential Manager entry for its server (`http://localhost:5173` unless `TREKKY_E2E_SERVER` is set) and leaves one `e2e-desktop-*@example.com` user, like the web e2e. It does not run in CI yet (TREK-36).

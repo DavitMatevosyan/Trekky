@@ -92,6 +92,9 @@ test('first run: pick the server, sign in through the browser, start signed in n
   try {
     // First run: the server screen, then the desktop login page.
     await app.waitForText('Connect to your Trekky server')
+    // The update notice already shows before sign-in, so a version that fixes sign-in can still reach the user.
+    await app.waitForText(`Trekky ${NEWER_VERSION} is available.`)
+    if (SCREENSHOTS) await app.screenshot(join(SCREENSHOTS, 'update-on-first-run.png'))
     await app.fill('Server address', SERVER)
     await app.clickButton('Connect')
     await app.waitForText('Log in with your browser')
