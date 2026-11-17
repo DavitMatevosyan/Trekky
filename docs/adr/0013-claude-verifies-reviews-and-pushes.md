@@ -1,6 +1,6 @@
 # ADR-0013: Claude verifies, reviews and pushes TRK branches
 
-- **Status:** Agreed
+- **Status:** Agreed; partly superseded by ADR-0023 (merging, promoting and deploying)
 - **Date:** 2026-10-30
 - **Deciders:** Davit, Claude
 - **Amends:** ADR-0012: its "only exception to never push" wording and its "no other branch" limit. The rest of ADR-0012 stays in force.

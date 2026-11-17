@@ -1,6 +1,7 @@
 {
   "name": "trekky-notion-import",
   "private": true,
+  "license": "AGPL-3.0-only",
   "type": "module",
   "engines": { "node": ">=22.18" },
   "description": "One-off import of Trekky's task list from Notion (TRK-21). Node 22.18 or later, no dependencies.",
