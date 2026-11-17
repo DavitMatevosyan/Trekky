@@ -34,6 +34,16 @@ public sealed class ParentRulesTests
     }
 
     [Fact]
+    public void No_item_has_more_parents_above_it_than_the_filters_follow()
+    {
+        // TREK-52: the parent and completed-epic filters walk up MaxAncestors parents; a deeper chain would slip past them.
+        int Depth(string type) => ParentRules.AllowedParentTypes(type).Select(parent => 1 + Depth(parent)).DefaultIfEmpty(0).Max();
+
+        Assert.Equal(ParentRules.MaxAncestors, WorkItemTypes.All.Max(Depth));
+        Assert.Equal(ParentRules.MaxAncestors, Depth(WorkItemTypes.SubTask));
+    }
+
+    [Fact]
     public void No_type_can_be_its_own_ancestor()
     {
         // Following allowed parents from any type must end; otherwise a chain of parents could loop.

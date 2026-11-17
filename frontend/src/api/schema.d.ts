@@ -64,7 +64,7 @@ export interface paths {
         };
         /**
          * Get a project's board: one column per status in workflow order (US-11)
-         * @description Done holds the latest 20 cards unless `allDone` is true; `count` is always the column's full size.
+         * @description Filters (TREK-52), the same on the list and the board: `open`, `status`, `type`, `assignee`, `parent`, `q` and `completedEpics`. Different filters combine with AND; repeated values of one filter with OR. By default an epic in Done and everything under it are left out, whatever their own status; `completedEpics=show` keeps them. Unknown values are a 400 naming the parameter. Every column is always there: a filtered-out status is an empty column. Done holds the latest 20 matching cards unless `allDone` is true; `count` is always how many cards in the column match.
          */
         get: operations["GetBoard"];
         put?: never;
@@ -253,7 +253,7 @@ export interface paths {
         };
         /**
          * List a project's work items, newest update first (US-08)
-         * @description Optional filters (TRK-11.1, e.g. parent candidates): repeat `type` to keep only those types; `q` keeps items whose key starts with it or whose title contains it, case-insensitive; an exact key match comes first.
+         * @description Filters (TREK-52), the same on the list and the board: `open`, `status`, `type`, `assignee`, `parent`, `q` and `completedEpics`. Different filters combine with AND; repeated values of one filter with OR. By default an epic in Done and everything under it are left out, whatever their own status; `completedEpics=show` keeps them. Unknown values are a 400 naming the parameter. With `q`, an exact key match comes first. `totalCount` is how many items match across every page.
          */
         get: operations["ListWorkItems"];
         put?: never;
@@ -334,7 +334,7 @@ export interface paths {
         put?: never;
         /**
          * Drop a card on the board: a place in a column, and a new status when the column is another one (US-11)
-         * @description afterId and beforeId are the cards directly above and below the drop (null at the top or bottom); 409 when they are no longer neighbours. Done is always last finished first, so it takes no position. A new status follows the workflow (422 lists allowedTransitions) and is recorded in history; a reorder alone is not. Needs If-Match.
+         * @description afterId and beforeId are the cards directly above and below the drop (null at the top or bottom); 409 when they are no longer neighbours. Send the board's filters (TREK-52) in the query string: the neighbours are checked among the cards those filters show, and the card lands directly below afterId (or above beforeId) for every viewer. Done is always last finished first, so it takes no position. A new status follows the workflow (422 lists allowedTransitions) and is recorded in history; a reorder alone is not. Needs If-Match.
          */
         post: operations["MoveWorkItemOnBoard"];
         delete?: never;
@@ -553,6 +553,8 @@ export interface components {
         WorkItemPage: {
             items: components["schemas"]["WorkItemSummary"][];
             nextCursor: null | string;
+            /** Format: int32 */
+            totalCount: number | string;
         };
         WorkItemSummary: {
             /** Format: uuid */
@@ -654,6 +656,13 @@ export interface operations {
         parameters: {
             query?: {
                 allDone?: boolean;
+                open?: string;
+                status?: string[];
+                type?: string[];
+                assignee?: string[];
+                parent?: string;
+                q?: string;
+                completedEpics?: string;
             };
             header?: never;
             path: {
@@ -670,6 +679,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Board"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
                 };
             };
             /** @description Unauthorized */
@@ -1279,8 +1297,13 @@ export interface operations {
             query?: {
                 limit?: number | string;
                 cursor?: string;
+                open?: string;
+                status?: string[];
                 type?: string[];
+                assignee?: string[];
+                parent?: string;
                 q?: string;
+                completedEpics?: string;
             };
             header?: never;
             path: {
@@ -1645,7 +1668,15 @@ export interface operations {
     };
     MoveWorkItemOnBoard: {
         parameters: {
-            query?: never;
+            query?: {
+                open?: string;
+                status?: string[];
+                type?: string[];
+                assignee?: string[];
+                parent?: string;
+                q?: string;
+                completedEpics?: string;
+            };
             header?: {
                 "If-Match"?: string;
             };
