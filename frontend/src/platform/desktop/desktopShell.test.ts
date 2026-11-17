@@ -1,4 +1,7 @@
-import { checkServer, isDesktop } from './desktopShell.ts'
+import { checkServer, createTauriShell, isDesktop } from './desktopShell.ts'
+
+const invoke = vi.hoisted(() => vi.fn())
+vi.mock('@tauri-apps/api/core', () => ({ invoke }))
 
 describe('checkServer', () => {
   it('is reachable when the health endpoint answers ok', async () => {
@@ -36,5 +39,27 @@ describe('isDesktop', () => {
     expect(isDesktop()).toBe(false)
     ;(window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = {}
     expect(isDesktop()).toBe(true)
+  })
+})
+
+describe('createTauriShell updates (ADR-0024)', () => {
+  beforeEach(() => invoke.mockReset())
+
+  it('asks the shell for an update with check_for_update and passes on what it found', async () => {
+    invoke.mockResolvedValueOnce({ version: '0.2.0', notes: null }).mockResolvedValueOnce(null)
+    const shell = createTauriShell()
+
+    await expect(shell.checkForUpdate()).resolves.toEqual({ version: '0.2.0', notes: null })
+    await expect(shell.checkForUpdate()).resolves.toBeNull()
+    expect(invoke).toHaveBeenCalledWith('check_for_update', undefined)
+  })
+
+  it('installs with install_update and passes a failure on', async () => {
+    invoke.mockResolvedValueOnce(null).mockRejectedValueOnce('bad signature')
+    const shell = createTauriShell()
+
+    await expect(shell.installUpdate()).resolves.toBeUndefined()
+    await expect(shell.installUpdate()).rejects.toBe('bad signature')
+    expect(invoke).toHaveBeenCalledWith('install_update', undefined)
   })
 })
