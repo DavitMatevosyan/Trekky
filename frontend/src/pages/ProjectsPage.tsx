@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { useMe } from '../auth/useMe.ts'
+import { usePermissions } from '../auth/usePermissions.ts'
 import { Button } from '../components/ui/Button.tsx'
 import { messages } from '../i18n/messages.ts'
 import { NewProjectForm } from '../projects/NewProjectForm.tsx'
@@ -9,6 +10,7 @@ import { useProjects } from '../projects/useProjects.ts'
 /** The start page after login: the organization's projects by name (US-05 AC3, wireframes: Projects). */
 export function ProjectsPage() {
   const me = useMe()
+  const can = usePermissions()
   const projects = useProjects()
   const [creating, setCreating] = useState(false)
   const [announcement, setAnnouncement] = useState('')
@@ -34,14 +36,14 @@ export function ProjectsPage() {
             </p>
           )}
         </div>
-        {!creating && (
+        {can.manageProjects && !creating && (
           <Button ref={newProjectButton} onClick={() => setCreating(true)}>
             <span aria-hidden="true">+</span> {messages.projects.newProject}
           </Button>
         )}
       </div>
 
-      {creating && (
+      {can.manageProjects && creating && (
         <NewProjectForm
           onCancel={closeForm}
           onCreated={(project) => {
@@ -57,7 +59,7 @@ export function ProjectsPage() {
 
       {projects.isPending && <p className="text-muted-foreground">{messages.projects.loading}</p>}
       {projects.isError && <p role="alert">{messages.common.unexpectedError}</p>}
-      {projects.isSuccess && items.length === 0 && <p className="text-muted-foreground">{messages.projects.empty}</p>}
+      {projects.isSuccess && items.length === 0 && <p className="text-muted-foreground">{can.manageProjects ? messages.projects.empty : messages.projects.emptyReadOnly}</p>}
 
       {items.length > 0 && (
         <ul aria-label={messages.projects.title} className="divide-y divide-border rounded-xl border border-border">

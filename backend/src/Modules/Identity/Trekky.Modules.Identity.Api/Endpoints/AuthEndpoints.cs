@@ -40,7 +40,7 @@ internal static class AuthEndpoints
             .WithSummary("End the session and revoke the caller's refresh tokens (bearer token or session cookie)");
 
         endpoints.MapGet("/me", GetMeAsync)
-            .RequireAuthorization()
+            .RequireAuthorization(TrekkyPolicies.ReadWork)
             .WithTags("Auth")
             .WithName("GetMe")
             .WithSummary("The current user, organization and role");

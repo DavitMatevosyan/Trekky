@@ -1,6 +1,7 @@
 import { useId, useRef, useState, type FormEvent } from 'react'
 import { ProblemError } from '../api/problem.ts'
 import { useMe } from '../auth/useMe.ts'
+import { usePermissions } from '../auth/usePermissions.ts'
 import { TextAreaField } from '../components/TextAreaField.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { messages } from '../i18n/messages.ts'
@@ -18,6 +19,7 @@ export function WorkItemComments({ workItemId, onChanged }: { workItemId: string
   const headingId = useId()
   const heading = useRef<HTMLHeadingElement>(null)
   const me = useMe()
+  const can = usePermissions()
   const comments = useComments(workItemId)
   const add = useAddComment(workItemId)
   const [body, setBody] = useState('')
@@ -67,7 +69,8 @@ export function WorkItemComments({ workItemId, onChanged }: { workItemId: string
               key={comment.id}
               comment={comment}
               workItemId={workItemId}
-              mine={comment.authorId === me.data?.user.id}
+              // A Viewer's own old comments stay theirs, but they can no longer change them (ADR-0025).
+              mine={can.editWork && comment.authorId === me.data?.user.id}
               onChanged={onChanged}
               // The comment and its buttons are gone; focus stays in the section (WCAG 2.4.3).
               onGone={() => heading.current?.focus()}
@@ -83,27 +86,29 @@ export function WorkItemComments({ workItemId, onChanged }: { workItemId: string
         </Button>
       )}
 
-      <form onSubmit={submit} noValidate className="grid gap-2">
-        <TextAreaField
-          ref={box}
-          label={text.label}
-          name="bodyMd"
-          maxLength={COMMENT_MAX_LENGTH}
-          value={body}
-          onChange={(event) => setBody(event.target.value)}
-          hint={text.hint}
-          error={error ?? undefined}
-          className="min-h-20"
-        />
-        {postFailed && (
-          <p role="alert" className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-            {text.postFailed}
-          </p>
-        )}
-        <Button type="submit" className="justify-self-end" disabled={add.isPending}>
-          {add.isPending ? text.posting : text.post}
-        </Button>
-      </form>
+      {can.editWork && (
+        <form onSubmit={submit} noValidate className="grid gap-2">
+          <TextAreaField
+            ref={box}
+            label={text.label}
+            name="bodyMd"
+            maxLength={COMMENT_MAX_LENGTH}
+            value={body}
+            onChange={(event) => setBody(event.target.value)}
+            hint={text.hint}
+            error={error ?? undefined}
+            className="min-h-20"
+          />
+          {postFailed && (
+            <p role="alert" className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {text.postFailed}
+            </p>
+          )}
+          <Button type="submit" className="justify-self-end" disabled={add.isPending}>
+            {add.isPending ? text.posting : text.post}
+          </Button>
+        </form>
+      )}
     </section>
   )
 }

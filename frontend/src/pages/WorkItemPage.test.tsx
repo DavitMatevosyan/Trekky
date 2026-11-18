@@ -741,3 +741,44 @@ describe('WorkItemPage', () => {
     expect(requestsTo(fetchFn, patchPath)).toHaveLength(0)
   })
 })
+
+describe('WorkItemPage roles (TREK-46)', () => {
+  const ownComment = {
+    id: '0190a000-0000-7000-8000-00000000c001',
+    workItemId: item.id,
+    authorId: me.user.id,
+    author: { id: me.user.id, displayName: me.user.displayName, email: me.user.email },
+    bodyMd: 'Written before I became a viewer',
+    createdAt: '2026-10-21T10:00:00Z',
+    updatedAt: '2026-10-21T10:00:00Z',
+    edited: false,
+    etag: '"c1"',
+  }
+
+  it('shows a viewer the item read-only, even their own old comment', async () => {
+    renderItem({
+      'GET /api/v1/me': () => jsonResponse({ ...me, role: 'viewer' }),
+      [commentsPath]: () => jsonResponse({ items: [ownComment], nextCursor: null }),
+    })
+
+    await screen.findByText('Written before I became a viewer')
+    // The signed-in user's email in the header: the role is known.
+    await waitFor(() => expect(screen.getAllByText(me.user.email).length).toBeGreaterThan(1))
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Delete/ })).not.toBeInTheDocument()
+    // Status and assignee as text, not as (faded) controls.
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+    expect(screen.getByText('Status', { selector: 'dt' }).nextElementSibling).toHaveTextContent('In Progress')
+    expect(screen.getByText('Assignee', { selector: 'dt' }).nextElementSibling).toHaveTextContent('Nobody')
+    expect(screen.queryByRole('textbox', { name: 'Add a comment' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Post comment' })).not.toBeInTheDocument()
+  })
+
+  it('lets a member edit the item and comment', async () => {
+    renderItem({ 'GET /api/v1/me': () => jsonResponse({ ...me, role: 'member' }) })
+
+    expect(await screen.findByRole('button', { name: 'Edit' })).toBeInTheDocument()
+    expect(await screen.findByRole('combobox', { name: 'Status' })).toBeEnabled()
+    expect(screen.getByRole('textbox', { name: 'Add a comment' })).toBeInTheDocument()
+  })
+})
