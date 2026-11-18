@@ -19,5 +19,7 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test-setup.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
+    // The theme tests read the tokens straight from index.css (`?raw`); other CSS stays out of the tests.
+    css: { include: [/\/src\/index\.css/] },
   },
 })
