@@ -145,7 +145,7 @@ describe('BoardPage', () => {
     await screen.findByRole('alert')
 
     await userEvent.click(screen.getByRole('link', { name: 'List' }))
-    await screen.findByText('No items yet. Create one to start tracking work.')
+    await screen.findByText('0 items match')
     await userEvent.click(screen.getByRole('link', { name: 'Board' }))
 
     await screen.findByRole('list', { name: 'Done' })

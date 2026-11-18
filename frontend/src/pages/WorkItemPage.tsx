@@ -48,7 +48,7 @@ function changesFrom(item: VersionedWorkItem['item'], values: WorkItemFormValues
 
 function WorkItemView({ projectKey, current }: { projectKey: string; current: VersionedWorkItem }) {
   const { item } = current
-  // Set by a board card, so the breadcrumb returns to the board instead of the list.
+  // Set by a board card or a list row, so the breadcrumb returns to that board or list with its filters (TREK-53).
   const backTo = (useLocation().state as { backTo?: string } | null)?.backTo
   // Moving to a parent or child keeps the way back.
   const itemLinkState = backTo ? { backTo } : undefined

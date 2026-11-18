@@ -3,6 +3,7 @@ import { asProblem, ProblemError } from '../api/problem.ts'
 import type { components } from '../api/schema.d.ts'
 import { useAuth } from '../auth/AuthContext.ts'
 import { projectsQueryKey } from '../projects/useProjects.ts'
+import { DEFAULT_FILTERS, filterQuery, type WorkItemFilters } from './workItemFilters.ts'
 
 export type WorkItemSummary = components['schemas']['WorkItemSummary']
 export type WorkItemDetail = components['schemas']['WorkItemDetail']
@@ -44,16 +45,21 @@ export function useProjectByKey(key: string) {
   })
 }
 
-/** A project's items, newest update first, 50 at a time (US-08). */
-export function useWorkItems(projectId: string | undefined) {
+/**
+ * A project's items that match `filters`, newest update first, 50 at a time (US-08, TREK-53). While other filters load,
+ * the last matches stay on screen.
+ */
+export function useWorkItems(projectId: string | undefined, filters: WorkItemFilters = DEFAULT_FILTERS) {
   const { api } = useAuth()
+  const query = filterQuery(filters)
   return useInfiniteQuery({
-    queryKey: workItemsQueryKey(projectId ?? ''),
+    queryKey: [...workItemsQueryKey(projectId ?? ''), query] as const,
     enabled: projectId !== undefined,
+    placeholderData: keepPreviousData,
     initialPageParam: undefined as string | undefined,
     queryFn: async ({ pageParam }) => {
       const { data, error } = await api.GET('/api/v1/projects/{projectId}/work-items', {
-        params: { path: { projectId: projectId ?? '' }, query: pageParam ? { cursor: pageParam } : {} },
+        params: { path: { projectId: projectId ?? '' }, query: { ...query, ...(pageParam ? { cursor: pageParam } : {}) } },
       })
       if (!data) throw new ProblemError(asProblem(error))
       return data
