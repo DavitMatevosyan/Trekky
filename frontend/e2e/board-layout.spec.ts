@@ -67,33 +67,39 @@ for (const viewport of [
   { width: 390, height: 844 },
   { width: 700, height: 800 },
 ]) {
-  test(`a card moves by keyboard to a column off screen at ${viewport.width}px`, async ({ page }) => {
-    await boardWithOneCard(page)
-    await page.setViewportSize(viewport)
-    const headings = page.getByRole('heading', { level: 2 })
-    const announced = (text: string) => page.getByRole('status').filter({ hasText: text })
-    const saved = () => expect(page.locator('[aria-busy="true"]')).toHaveCount(0)
-    const link = page.getByRole('link', { name: 'TRK-1' })
+  test.describe(`at ${viewport.width}px`, () => {
+    // The whole test runs at this size: dnd-kit cancels a keyboard drag when the window resizes, and a resize from
+    // setViewportSize can arrive a frame after the pickup on a slow machine.
+    test.use({ viewport })
 
-    // One column at a time, as the workflow allows; the later targets start off screen.
-    const steps = [
-      ['To Do', 'In Progress', ['To Do (0)', 'In Progress (1)', 'In Review (0)', 'Done (0)']],
-      ['In Progress', 'In Review', ['To Do (0)', 'In Progress (0)', 'In Review (1)', 'Done (0)']],
-      ['In Review', 'Done', ['To Do (0)', 'In Progress (0)', 'In Review (0)', 'Done (1)']],
-    ] as const
-    for (const [from, to, counts] of steps) {
-      await link.focus()
-      await page.keyboard.press('Space')
-      await expect(announced(`TRK-1 is over ${from}.`)).toHaveCount(1)
-      await page.keyboard.press('ArrowRight')
-      await expect(announced(`TRK-1 is over ${to}.`)).toHaveCount(1)
-      await page.keyboard.press('Space')
-      await expect(headings).toHaveText([...counts])
-      await saved()
-    }
+    test('a card moves by keyboard to a column off screen', async ({ page }) => {
+      await boardWithOneCard(page)
+      const headings = page.getByRole('heading', { level: 2 })
+      // dnd-kit's live region: on a failure, toHaveText shows what it said instead.
+      const announced = page.locator('[id^="DndLiveRegion"]')
+      const saved = () => expect(page.locator('[aria-busy="true"]')).toHaveCount(0)
+      const link = page.getByRole('link', { name: 'TRK-1' })
 
-    // The card is in Done, keeps the focus and is on screen.
-    await expect(page.getByRole('list', { name: 'Done' }).getByRole('link', { name: 'TRK-1' })).toBeFocused()
-    await expect(link).toBeInViewport()
+      // One column at a time, as the workflow allows; the later targets start off screen.
+      const steps = [
+        ['To Do', 'In Progress', ['To Do (0)', 'In Progress (1)', 'In Review (0)', 'Done (0)']],
+        ['In Progress', 'In Review', ['To Do (0)', 'In Progress (0)', 'In Review (1)', 'Done (0)']],
+        ['In Review', 'Done', ['To Do (0)', 'In Progress (0)', 'In Review (0)', 'Done (1)']],
+      ] as const
+      for (const [from, to, counts] of steps) {
+        await link.focus()
+        await page.keyboard.press('Space')
+        await expect(announced).toHaveText(`TRK-1 is over ${from}.`)
+        await page.keyboard.press('ArrowRight')
+        await expect(announced).toHaveText(`TRK-1 is over ${to}.`)
+        await page.keyboard.press('Space')
+        await expect(headings).toHaveText([...counts])
+        await saved()
+      }
+
+      // The card is in Done, keeps the focus and is on screen.
+      await expect(page.getByRole('list', { name: 'Done' }).getByRole('link', { name: 'TRK-1' })).toBeFocused()
+      await expect(link).toBeInViewport()
+    })
   })
 }
