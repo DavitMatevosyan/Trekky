@@ -68,17 +68,22 @@ export function useWorkItems(projectId: string | undefined, filters: WorkItemFil
   })
 }
 
-/** The project's board (US-11); `allDone` asks for every Done card instead of the latest 20. */
-export function useBoard(projectId: string, allDone: boolean, enabled = true) {
+/**
+ * The project's board with the cards that match `filters` (US-11, TREK-54); `allDone` asks for every Done card instead
+ * of the latest 20. While other filters load, the last board stays on screen.
+ */
+export function useBoard(projectId: string, allDone: boolean, enabled = true, filters: WorkItemFilters = DEFAULT_FILTERS) {
   const { api } = useAuth()
+  const query = filterQuery(filters)
   return useQuery({
-    queryKey: [...boardQueryKey(projectId), allDone] as const,
+    queryKey: [...boardQueryKey(projectId), allDone, query] as const,
     enabled,
+    placeholderData: keepPreviousData,
     // Dropped when the board closes: an old full board must not paint over newer cards on the next visit.
     ...(allDone ? { gcTime: 0 } : {}),
     queryFn: async () => {
       const { data, error } = await api.GET('/api/v1/projects/{projectId}/board', {
-        params: { path: { projectId }, query: allDone ? { allDone } : {} },
+        params: { path: { projectId }, query: { ...query, ...(allDone ? { allDone } : {}) } },
       })
       if (!data) throw new ProblemError(asProblem(error))
       return data
@@ -89,15 +94,17 @@ export function useBoard(projectId: string, allDone: boolean, enabled = true) {
 /**
  * Puts a board card in a column between two cards with the card's ETag (US-11 AC3, AC4). Throws ProblemError: 409 when
  * those cards are no longer next to each other, 412 when someone else changed it, 422 when the workflow does not allow
- * the move. Stays pending until the board has been read again.
+ * the move. Stays pending until the board has been read again. The board's `filters` go along, so the neighbours are
+ * the cards it shows (TREK-54) and the card lands next to them for every viewer.
  */
-export function useMoveBoardCard(projectId: string) {
+export function useMoveBoardCard(projectId: string, filters: WorkItemFilters = DEFAULT_FILTERS) {
   const { api } = useAuth()
   const queryClient = useQueryClient()
+  const query = filterQuery(filters)
   return useMutation({
     mutationFn: async ({ card, to, afterId, beforeId }: BoardMove) => {
       const { data, error } = await api.POST('/api/v1/work-items/{workItemId}/move', {
-        params: { path: { workItemId: card.id }, header: { 'If-Match': card.etag } },
+        params: { path: { workItemId: card.id }, query, header: { 'If-Match': card.etag } },
         body: { status: to, afterId, beforeId },
       })
       if (!data) throw new ProblemError(asProblem(error))

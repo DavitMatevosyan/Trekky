@@ -85,6 +85,12 @@ export function writeFilters(params: URLSearchParams, filters: WorkItemFilters):
   return next
 }
 
+/** Only the filters of a URL's query string, as a query string (`?…` or ''), for links to the other view (TREK-54). */
+export function filterSearch(search: string): string {
+  const query = writeFilters(new URLSearchParams(), readFilters(new URLSearchParams(search))).toString()
+  return query ? `?${query}` : ''
+}
+
 /** The query parameters for GET work-items and GET board. */
 export function filterQuery(filters: WorkItemFilters) {
   const q = filters.q.trim()
