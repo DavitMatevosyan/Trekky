@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 import { Label } from '../components/ui/Label.tsx'
 import { messages } from '../i18n/messages.ts'
 import { cn } from '../lib/cn.ts'
+import { useDebounced } from '../lib/useDebounced.ts'
 import { useResolveParent, type ParentChoice } from './useResolveParent.ts'
 import { useParentCandidates } from './useWorkItems.ts'
 import { typeLabel } from './workItemTypes.ts'
@@ -12,16 +13,6 @@ const SEARCH_DELAY_MS = 250
 
 function choiceLabel(choice: ParentChoice): string {
   return `${choice.key} · ${choice.title}`
-}
-
-/** `value` once it has stopped changing for `delayMs`. */
-function useDebounced(value: string, delayMs: number): string {
-  const [debounced, setDebounced] = useState(value)
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delayMs)
-    return () => clearTimeout(timer)
-  }, [value, delayMs])
-  return debounced
 }
 
 /**

@@ -1,6 +1,7 @@
 import type { KeyboardCoordinateGetter } from '@dnd-kit/core'
 import { ProblemError } from '../api/problem.ts'
-import { applyMove, columnKeyboardCoordinates, dropTarget, isBelow, moveErrorMessage } from './boardMoves.ts'
+import { applyMove, columnKeyboardCoordinates, dropTarget, isBelow, leftNotice, moveErrorMessage } from './boardMoves.ts'
+import { DEFAULT_FILTERS } from './workItemFilters.ts'
 
 const card = { id: 'a', key: 'TRK-1', type: 'task', title: 'One', status: 'todo', parentKey: null, updatedAt: '2026-11-09T10:00:00Z', etag: '"1"', assignee: null }
 const other = { ...card, id: 'b', key: 'TRK-2', status: 'in_progress' }
@@ -186,5 +187,39 @@ describe('columnKeyboardCoordinates', () => {
   it('ignores other keys and a card over no column', () => {
     expect(press('ArrowDown', 'todo')).toBeUndefined()
     expect(press('ArrowRight', null)).toBeUndefined()
+  })
+})
+
+describe('leftNotice', () => {
+  const filters = { ...DEFAULT_FILTERS, statuses: ['todo'] }
+  const epic = { ...card, id: 'e', key: 'TRK-9', type: 'epic' }
+  const onBoard = (...ids: string[]) => new Map(ids.map((id) => [id, true]))
+
+  it('says a card left when it no longer matches the filters', () => {
+    expect(leftNotice({ card, to: 'in_progress', filters }, filters, onBoard('b'), false)).toBe(
+      'TRK-1 no longer matches the filters, so it left the board.',
+    )
+  })
+
+  it('says a completed epic left with its items while completed epics are hidden', () => {
+    expect(leftNotice({ card: epic, to: 'done', filters: DEFAULT_FILTERS }, DEFAULT_FILTERS, onBoard('a'), false)).toBe(
+      'TRK-9 is a completed epic now: it and the items under it left the board.',
+    )
+    const showing = { ...DEFAULT_FILTERS, showCompletedEpics: true, types: ['task'] }
+    expect(leftNotice({ card: epic, to: 'done', filters: showing }, showing, onBoard('a'), false)).toBe(
+      'TRK-9 no longer matches the filters, so it left the board.',
+    )
+  })
+
+  it('says nothing while the board is saving, without a board, or when the card is still there', () => {
+    const dropped = { card, to: 'in_progress', filters }
+    expect(leftNotice(dropped, filters, onBoard('b'), true)).toBeNull()
+    expect(leftNotice(dropped, filters, null, false)).toBeNull()
+    expect(leftNotice(dropped, filters, onBoard('a'), false)).toBeNull()
+    expect(leftNotice(null, filters, onBoard(), false)).toBeNull()
+  })
+
+  it('says nothing once the filters have changed since the drop', () => {
+    expect(leftNotice({ card, to: 'in_progress', filters }, { ...filters }, onBoard(), false)).toBeNull()
   })
 })
