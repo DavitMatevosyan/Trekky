@@ -26,7 +26,19 @@ import { messages } from '../i18n/messages.ts'
 import { cn } from '../lib/cn.ts'
 import { ProjectLoader } from '../projects/ProjectLoader.tsx'
 import { ProjectView } from '../projects/ProjectView.tsx'
-import { applyMove, boardKeyboardCoordinates, DONE, dropTarget, isBelow, moveErrorMessage } from '../workItems/boardMoves.ts'
+import {
+  applyMove,
+  boardKeyboardCoordinates,
+  DONE,
+  dropTarget,
+  isBelow,
+  leftNotice,
+  moveErrorMessage,
+  type DroppedCard,
+} from '../workItems/boardMoves.ts'
+import { FilterBar } from '../workItems/FilterBar.tsx'
+import { useWorkItemFilters } from '../workItems/useWorkItemFilters.ts'
+import { DEFAULT_FILTERS, isDefaultFilters } from '../workItems/workItemFilters.ts'
 import {
   useBoard,
   useMoveBoardCard,
@@ -56,7 +68,10 @@ const collisionDetection: CollisionDetection = (args) => {
 /** Done is last finished first: its cards make no room for a card dragged over them. */
 const keepInPlace: SortingStrategy = () => null
 
-/** A project's board (US-11, wireframes: Board): cards move between columns and within one by mouse, touch or keyboard. */
+/**
+ * A project's board (US-11, wireframes: Board): cards move between columns and within one by mouse, touch or keyboard.
+ * The filter bar (TREK-54) narrows it; its filters live in the URL with "Show all".
+ */
 export function BoardPage() {
   const { projectKey = '' } = useParams()
   return (
@@ -68,15 +83,24 @@ export function BoardPage() {
 }
 
 function Board({ projectId, projectKey, projectName }: { projectId: string; projectKey: string; projectName: string }) {
-  // In the URL, so "Show all" survives opening a card and coming back.
+  // In the URL, so "Show all" and the filters survive opening a card and coming back.
   const [searchParams, setSearchParams] = useSearchParams()
+  const [filters, setFilters] = useWorkItemFilters()
   const { pathname, search } = useLocation()
   const wantsAllDone = searchParams.get(DONE_PARAM) === DONE_ALL
-  const latest = useBoard(projectId, false)
+  const latest = useBoard(projectId, false, true, filters)
   // A separate query, so the board stays on screen while every Done card loads and if that fails.
-  const allDone = useBoard(projectId, true, wantsAllDone)
+  const allDone = useBoard(projectId, true, wantsAllDone, filters)
   const shown = wantsAllDone && allDone.data ? allDone : latest
-  const move = useMoveBoardCard(projectId)
+  // The same board without the filters (completed epics as chosen), for "3 of 12" in each column heading.
+  const narrowed = !isDefaultFilters({ ...filters, showCompletedEpics: false })
+  const unfiltered = useBoard(projectId, false, narrowed, { ...DEFAULT_FILTERS, showCompletedEpics: filters.showCompletedEpics })
+  const totals = narrowed && unfiltered.data ? new Map(unfiltered.data.columns.map((column) => [column.status, Number(column.count)])) : null
+  const move = useMoveBoardCard(projectId, filters)
+  // The card last dropped, to tell the user when it no longer matches the filters and so left the board.
+  const [moved, setMoved] = useState<DroppedCard | null>(null)
+  const columnsGroup = useRef<HTMLDivElement>(null)
+  const searchBox = useRef<HTMLInputElement>(null)
   const [draggingId, setDraggingId] = useState<string | null>(null)
   // A card remounts when it changes column, also when it goes back; the keyboard user's focus has to go with it.
   const focusAfterMove = useRef<string | null>(null)
@@ -88,6 +112,20 @@ function Board({ projectId, projectKey, projectName }: { projectId: string; proj
   const board = shown.data && move.isPending ? applyMove(shown.data, move.variables) : shown.data
   const cards = new Map((board?.columns ?? []).flatMap((column) => column.items.map((card) => [card.id, card] as const)))
   const dragging = draggingId === null ? undefined : cards.get(draggingId)
+  // "Open" leaves Done out; any other filter keeps every column, empty or not.
+  const columns = (board?.columns ?? []).filter((column) => !(filters.open && column.status === DONE))
+  const left = leftNotice(moved, filters, board ? cards : null, move.isPending)
+  // Until the board for new filters is here, the cards on screen are the old filters' ones: no drag may start from
+  // them, or its neighbours would not be the ones the move is checked against.
+  const loadingFilters = shown.isPlaceholderData
+  const nothingMatches = narrowed && board !== undefined && !loadingFilters && columns.every((column) => Number(column.count) === 0)
+  const matchCount = columns.reduce((sum, column) => sum + Number(column.count), 0)
+  const filterSummary =
+    narrowed && board && !loadingFilters ? (nothingMatches ? messages.filters.noMatches : messages.filters.matchCount(matchCount)) : ''
+  useEffect(() => {
+    // The card had the focus; it is gone, so keep the keyboard user on the board (WCAG 2.4.3).
+    if (left && document.activeElement === document.body) columnsGroup.current?.focus()
+  }, [left])
 
   const sensors = useSensors(
     // A small movement or a long press starts a drag, so clicks still open the card and touch still scrolls.
@@ -131,25 +169,41 @@ function Board({ projectId, projectKey, projectName }: { projectId: string; proj
 
   function startDrag({ active }: DragStartEvent) {
     move.reset()
+    setMoved(null)
     setDraggingId(String(active.id))
   }
 
   function drop({ active, over, activatorEvent }: DragEndEvent) {
     setDraggingId(null)
+    if (loadingFilters) return
     const card = cards.get(String(active.id))
     const target = board && card && over ? targetOf(board, card, active, over) : null
     if (!card || !target) return
     if (activatorEvent instanceof KeyboardEvent) focusAfterMove.current = card.id
-    move.mutate({ card, to: target.to, afterId: target.afterId, beforeId: target.beforeId })
+    // onSuccess runs once the board has been read again, so the check for the card sees the new board.
+    move.mutate(
+      { card, to: target.to, afterId: target.afterId, beforeId: target.beforeId },
+      { onSuccess: () => setMoved({ card, to: target.to, filters }) },
+    )
   }
 
   function showAll() {
     if (wantsAllDone) void allDone.refetch()
-    else setSearchParams({ [DONE_PARAM]: DONE_ALL }, { replace: true })
+    else
+      setSearchParams(
+        (current) => {
+          const next = new URLSearchParams(current)
+          next.set(DONE_PARAM, DONE_ALL)
+          return next
+        },
+        { replace: true },
+      )
   }
 
   return (
     <ProjectView projectId={projectId} projectKey={projectKey} projectName={projectName}>
+      <FilterBar projectId={projectId} filters={filters} onChange={setFilters} searchRef={searchBox} />
+
       {!board && latest.isPending && <p className="text-muted-foreground">{messages.board.loading}</p>}
       {shown.isError && !board && <p role="alert">{messages.common.unexpectedError}</p>}
       {shown.isError && board && (
@@ -162,6 +216,33 @@ function Board({ projectId, projectKey, projectName }: { projectId: string; proj
           {moveErrorMessage(move.error, move.variables)}
         </p>
       )}
+      {/* What the filters found, read out after each change like the list's count (WCAG 4.1.3); always there. No
+          role="status": the board's drag announcements already use one. */}
+      <p aria-live="polite" className="sr-only">
+        {filterSummary}
+      </p>
+      {nothingMatches && (
+        <div className="flex flex-wrap items-center gap-2">
+          <p aria-hidden="true" className="text-muted-foreground">
+            {messages.filters.noMatches}
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setFilters(DEFAULT_FILTERS)
+              // The button goes away; the focus goes to the search box instead of the page (WCAG 2.4.3).
+              searchBox.current?.focus()
+            }}
+          >
+            {messages.filters.clearFilters}
+          </Button>
+        </div>
+      )}
+      {/* Polite and always there, so the notice is read out when it appears. */}
+      <p aria-live="polite" className={cn('text-sm', !left && 'sr-only')}>
+        {left ?? ''}
+      </p>
 
       {board && (
         <DndContext
@@ -176,19 +257,24 @@ function Board({ projectId, projectKey, projectName }: { projectId: string; proj
               page); on a narrow screen the row scrolls sideways instead of stacking. Focusable, so the keyboard can
               scroll it even to a column without cards (Safari never makes a scroller focusable by itself). */}
           <div
+            ref={columnsGroup}
             role="group"
             aria-label={messages.board.columns}
             tabIndex={0}
-            aria-busy={move.isPending || undefined}
-            className="flex gap-4 overflow-x-auto rounded-xl pb-2 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-busy={move.isPending || loadingFilters || undefined}
+            className={cn(
+              'flex gap-4 overflow-x-auto rounded-xl pb-2 outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              loadingFilters && 'opacity-60',
+            )}
           >
-            {board.columns.map((column) => (
+            {columns.map((column) => (
               <BoardColumn
                 key={column.status}
                 column={column}
+                total={totals?.get(column.status)}
                 projectKey={projectKey}
                 boardUrl={pathname + search}
-                moving={move.isPending}
+                moving={move.isPending || loadingFilters}
                 focusAfterMove={focusAfterMove}
                 loadingAll={allDone.isFetching}
                 showAllFailed={wantsAllDone && allDone.isError && allDone.data === undefined}
@@ -217,6 +303,8 @@ function prefersReducedMotion(): boolean {
 
 interface BoardColumnProps {
   column: BoardColumnData
+  /** The column's cards without the filters, when the board is filtered: the heading says "3 of 12". */
+  total: number | undefined
   projectKey: string
   /** Where the item page's breadcrumb returns to. */
   boardUrl: string
@@ -230,7 +318,7 @@ interface BoardColumnProps {
   onShowAll: (() => void) | undefined
 }
 
-function BoardColumn({ column, projectKey, boardUrl, moving, focusAfterMove, loadingAll, showAllFailed, onShowAll }: BoardColumnProps) {
+function BoardColumn({ column, total, projectKey, boardUrl, moving, focusAfterMove, loadingAll, showAllFailed, onShowAll }: BoardColumnProps) {
   const headingId = useId()
   const heading = useRef<HTMLHeadingElement>(null)
   const { setNodeRef, isOver } = useDroppable({ id: column.status })
@@ -251,7 +339,7 @@ function BoardColumn({ column, projectKey, boardUrl, moving, focusAfterMove, loa
       className={cn('grid min-w-56 flex-1 basis-0 content-start gap-2 rounded-xl border border-border p-3', isOver && 'ring-2 ring-inset ring-ring')}
     >
       <h2 id={headingId} ref={heading} tabIndex={-1} className="text-sm font-semibold">
-        {messages.board.columnHeading(label, count)}
+        {total === undefined ? messages.board.columnHeading(label, count) : messages.board.columnHeadingFiltered(label, count, total)}
       </h2>
 
       {/* Under the heading, where "Show all" moves the focus and the scroll position, so retrying is one Tab away. */}

@@ -3,6 +3,7 @@ import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { ProblemError } from '../api/problem.ts'
 import { messages } from '../i18n/messages.ts'
 import type { Board, BoardCard, BoardMove } from './useWorkItems.ts'
+import type { WorkItemFilters } from './workItemFilters.ts'
 import { statusLabel, WORK_ITEM_STATUSES } from './workItemTypes.ts'
 
 /** Done is always last finished first (TRK-15.1), so a card dropped there takes no place of its own. */
@@ -84,6 +85,25 @@ export function applyMove(board: Board, { card, to, afterId }: BoardMove): Board
       return column
     }),
   }
+}
+
+/** The card last dropped on the board, where it went, and the filters the board had then (TREK-54). */
+export interface DroppedCard {
+  card: BoardCard
+  to: string
+  filters: WorkItemFilters
+}
+
+/**
+ * Why the card last dropped is no longer on the board, or null when it is (TREK-54): it no longer matches the filters,
+ * or it is an epic now in Done, which takes everything under it along while completed epics are hidden. Only once the
+ * board has been read again (`saving` false), and only under the filters it was dropped with.
+ */
+export function leftNotice(dropped: DroppedCard | null, filters: WorkItemFilters, cardsOnBoard: ReadonlyMap<string, unknown> | null, saving: boolean): string | null {
+  if (!dropped || dropped.filters !== filters || !cardsOnBoard || saving || cardsOnBoard.has(dropped.card.id)) return null
+  return dropped.card.type === 'epic' && dropped.to === DONE && !filters.showCompletedEpics
+    ? messages.board.epicLeft(dropped.card.key)
+    : messages.board.cardLeft(dropped.card.key)
 }
 
 /** Why a card went back, in words the user can act on (US-11 AC3). */

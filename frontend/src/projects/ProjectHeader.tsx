@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
-import { Link, NavLink } from 'react-router'
+import { Link, NavLink, useLocation } from 'react-router'
 import { messages } from '../i18n/messages.ts'
 import { cn } from '../lib/cn.ts'
+import { filterSearch } from '../workItems/workItemFilters.ts'
 
 const tabClass = ({ isActive }: { isActive: boolean }) =>
   cn(
@@ -9,8 +10,12 @@ const tabClass = ({ isActive }: { isActive: boolean }) =>
     isActive ? 'bg-muted text-foreground' : 'text-muted-foreground',
   )
 
-/** The project bar (wireframes: App shell): key and name, the Board and List tabs, and the screen's primary action. */
+/**
+ * The project bar (wireframes: App shell): key and name, the Board and List tabs, and the screen's primary action. The
+ * tabs carry the active filters, so switching views keeps them (TREK-54).
+ */
 export function ProjectHeader({ projectKey, projectName, action }: { projectKey: string; projectName: string; action?: ReactNode }) {
+  const filters = filterSearch(useLocation().search)
   return (
     <div className="flex flex-wrap items-start justify-between gap-4">
       <div className="grid gap-1">
@@ -21,10 +26,10 @@ export function ProjectHeader({ projectKey, projectName, action }: { projectKey:
           <span className="font-mono">{projectKey}</span> · {projectName}
         </h1>
         <nav aria-label={messages.project.views} className="flex gap-1">
-          <NavLink to={`/${projectKey}/board`} className={tabClass}>
+          <NavLink to={`/${projectKey}/board${filters}`} className={tabClass}>
             {messages.project.board}
           </NavLink>
-          <NavLink to={`/${projectKey}`} end className={tabClass}>
+          <NavLink to={`/${projectKey}${filters}`} end className={tabClass}>
             {messages.project.list}
           </NavLink>
         </nav>

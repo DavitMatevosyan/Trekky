@@ -1,6 +1,6 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { fakeApi, jsonResponse, problemResponse, renderApp, requestsTo, validTokens } from '../test/renderApp.tsx'
+import { fakeApi, jsonResponse, me, problemResponse, renderApp, requestsTo, validTokens } from '../test/renderApp.tsx'
 
 const project = { id: '0190a000-0000-7000-8000-0000000000b1', key: 'TRK', name: 'Trekky', itemCount: 2, createdAt: '2026-10-26T10:00:00Z' }
 const epic = {
@@ -72,7 +72,10 @@ describe('ProjectItemsPage', () => {
   })
 
   it('shows an empty state and loads more with the cursor', async () => {
-    const empty = renderItems({ [itemsPath]: () => jsonResponse({ items: [], nextCursor: null }) })
+    const empty = renderItems({
+      'GET /api/v1/projects/by-key/TRK': () => jsonResponse({ ...project, itemCount: 0 }),
+      [itemsPath]: () => jsonResponse({ items: [], nextCursor: null, totalCount: 0 }),
+    })
     expect(await screen.findByText('No items yet. Create one to start tracking work.')).toBeInTheDocument()
     empty.unmount()
 
@@ -300,5 +303,289 @@ describe('ProjectItemsPage', () => {
     await userEvent.click(within(form).getByRole('button', { name: 'Create item' }))
 
     expect(await within(form).findByText('Title is required.')).toBeInTheDocument()
+  })
+})
+
+describe('ProjectItemsPage filters', () => {
+  const listRequests = (fetchFn: typeof fetch) =>
+    requestsTo(fetchFn, itemsPath)
+      .map((request) => new URL(request.url).searchParams)
+      // Without the epic picker's searches.
+      .filter((params) => !params.has('limit'))
+  const lastList = (fetchFn: typeof fetch) => listRequests(fetchFn).at(-1)
+  const filterBar = () => screen.getByRole('search', { name: 'Filters' })
+
+  function renderFiltered(path = '/TRK', handlers: Parameters<typeof fakeApi>[0] = {}) {
+    const fetchFn = fakeApi({
+      'GET /api/v1/projects/by-key/TRK': () => jsonResponse(project),
+      [itemsPath]: () => jsonResponse({ items: [story, epic], nextCursor: null, totalCount: 2 }),
+      ...handlers,
+    })
+    return renderApp({ path, tokens: validTokens, fetchFn })
+  }
+
+  it('asks for the default view first: completed epics hidden, nothing else', async () => {
+    const { fetchFn } = renderFiltered()
+
+    expect(await screen.findByText('2 items match')).toBeInTheDocument()
+    expect(lastList(fetchFn)?.toString()).toBe('')
+    expect(screen.getByRole('checkbox', { name: 'Show completed epics' })).not.toBeChecked()
+    expect(screen.queryByRole('list', { name: 'Active filters' })).not.toBeInTheDocument()
+  })
+
+  it('filters by the quick filters Open and Mine, keeps them in the URL and shows them as chips', async () => {
+    const { fetchFn, router } = renderFiltered('/TRK', {
+      [itemsPath]: (request) =>
+        new URL(request.url).searchParams.get('open') === 'true'
+          ? jsonResponse({ items: [story], nextCursor: null, totalCount: 1 })
+          : jsonResponse({ items: [story, epic], nextCursor: null, totalCount: 2 }),
+    })
+    const quick = within(await screen.findByRole('group', { name: 'Quick filters' }))
+
+    await userEvent.click(quick.getByRole('button', { name: 'Open' }))
+    await userEvent.click(quick.getByRole('button', { name: 'Mine' }))
+
+    expect(quick.getByRole('button', { name: 'Open' })).toHaveAttribute('aria-pressed', 'true')
+    expect(quick.getByRole('button', { name: 'Mine' })).toHaveAttribute('aria-pressed', 'true')
+    expect(quick.getByRole('button', { name: 'Unassigned' })).toHaveAttribute('aria-pressed', 'false')
+    expect(router.state.location.search).toBe('?open=true&assignee=me')
+    await waitFor(() => expect(lastList(fetchFn)?.toString()).toBe('open=true&assignee=me'))
+    expect(await screen.findByText('1 item matches')).toBeInTheDocument()
+    expect(screen.queryByText('v1.0 Dogfood')).not.toBeInTheDocument()
+    const chips = within(screen.getByRole('list', { name: 'Active filters' })).getAllByRole('button')
+    expect(chips.map((chip) => chip.textContent)).toEqual(['Open×', 'Assignee: Me×'])
+  })
+
+  it('reads the filters from the URL, so a shared or reloaded link shows the same list', async () => {
+    const { fetchFn } = renderFiltered('/TRK?open=true&assignee=none&status=in_review&type=bug&parent=TRK-1&q=log&completedEpics=show', {
+      'GET /api/v1/work-items/by-key/TRK-1': () => jsonResponse(detail(epic)),
+    })
+
+    await screen.findByText('2 items match')
+    expect(lastList(fetchFn)?.toString()).toBe('open=true&status=in_review&type=bug&assignee=none&parent=TRK-1&q=log&completedEpics=show')
+    expect(within(filterBar()).getByRole('button', { name: 'Unassigned' })).toHaveAttribute('aria-pressed', 'true')
+    expect(within(filterBar()).getByRole('button', { name: /^Status \(1\)/ })).toBeInTheDocument()
+    expect(within(filterBar()).getByRole('searchbox', { name: 'Search' })).toHaveValue('log')
+    expect(within(filterBar()).getByRole('checkbox', { name: 'Show completed epics' })).toBeChecked()
+    await waitFor(() => expect(within(filterBar()).getByRole('combobox', { name: 'Epic' })).toHaveValue('TRK-1 · v1.0 Dogfood'))
+  })
+
+  it('picks several statuses and types from their dropdowns, and Escape closes one back on its button', async () => {
+    const { fetchFn } = renderFiltered()
+    const status = await within(await screen.findByRole('search')).findByRole('button', { name: /^Status/ })
+
+    await userEvent.click(status)
+    expect(status).toHaveAttribute('aria-expanded', 'true')
+    const options = within(screen.getByRole('group', { name: 'Status' }))
+    await userEvent.click(options.getByRole('checkbox', { name: 'In Review' }))
+    await userEvent.click(options.getByRole('checkbox', { name: 'To Do' }))
+    await userEvent.keyboard('{Escape}')
+
+    expect(status).toHaveAttribute('aria-expanded', 'false')
+    expect(status).toHaveFocus()
+    expect(status).toHaveTextContent('Status (2)')
+    await userEvent.click(within(filterBar()).getByRole('button', { name: /^Type/ }))
+    await userEvent.click(within(screen.getByRole('group', { name: 'Type' })).getByRole('checkbox', { name: 'Bug' }))
+
+    await waitFor(() => expect(lastList(fetchFn)?.toString()).toBe('status=in_review&status=todo&type=bug'))
+  })
+
+  it('offers Me, Unassigned and the other members as assignees', async () => {
+    const other = { id: '0190a000-0000-7000-8000-0000000000bb', displayName: 'Grace', email: 'grace@example.com' }
+    const { fetchFn } = renderFiltered('/TRK', {
+      'GET /api/v1/members': () => jsonResponse({ items: [{ user: me.user, role: 'owner' }, { user: other, role: 'member' }] }),
+    })
+
+    await userEvent.click(await within(await screen.findByRole('search')).findByRole('button', { name: /^Assignee/ }))
+    const group = within(screen.getByRole('group', { name: 'Assignee' }))
+    await waitFor(() => expect(group.getAllByRole('checkbox').map((box) => box.parentElement?.textContent)).toEqual(['Me', 'Unassigned', 'Grace']))
+    await userEvent.click(group.getByRole('checkbox', { name: 'Grace' }))
+
+    await waitFor(() => expect(lastList(fetchFn)?.getAll('assignee')).toEqual([other.id]))
+    expect(screen.getByRole('button', { name: 'Remove filter Assignee: Grace' })).toBeInTheDocument()
+  })
+
+  it('searches once typing pauses, with one history entry for the whole search', async () => {
+    const { fetchFn, router } = renderFiltered('/TRK?open=true')
+    const box = await screen.findByRole('searchbox', { name: 'Search' })
+
+    await userEvent.type(box, 'log')
+    await waitFor(() => expect(router.state.location.search).toBe('?open=true&q=log'))
+    expect(router.state.historyAction).toBe('PUSH')
+    await waitFor(() => expect(lastList(fetchFn)?.get('q')).toBe('log'))
+    expect(listRequests(fetchFn).filter((params) => params.has('q')).map((params) => params.get('q'))).toEqual(['log'])
+
+    // More keys refine the same entry; Back returns to the list before the search.
+    await userEvent.type(box, 'in')
+    await waitFor(() => expect(router.state.location.search).toBe('?open=true&q=login'))
+    expect(router.state.historyAction).toBe('REPLACE')
+    expect(box).toHaveValue('login')
+    await act(() => router.navigate(-1))
+    expect(router.state.location.search).toBe('?open=true')
+    expect(box).toHaveValue('')
+  })
+
+  it('drops a search still waiting to be written when Back is pressed', async () => {
+    const { router } = renderFiltered('/TRK')
+    const quick = within(await screen.findByRole('group', { name: 'Quick filters' }))
+    await userEvent.click(quick.getByRole('button', { name: 'Open' }))
+    const box = screen.getByRole('searchbox', { name: 'Search' })
+
+    await userEvent.type(box, 'x')
+    await act(() => router.navigate(-1))
+    await new Promise((resolve) => setTimeout(resolve, 400))
+
+    expect(router.state.location.search).toBe('')
+    expect(box).toHaveValue('')
+  })
+
+  it('focuses the search box with /, but not while typing elsewhere', async () => {
+    renderFiltered()
+    const box = await screen.findByRole('searchbox', { name: 'Search' })
+    expect(box).toHaveAttribute('aria-keyshortcuts', '/')
+
+    await userEvent.keyboard('/')
+    expect(box).toHaveFocus()
+    expect(box).toHaveValue('')
+
+    await userEvent.click(await screen.findByRole('button', { name: 'New item' }))
+    const title = screen.getByLabelText('Title')
+    await userEvent.type(title, 'a/b')
+    expect(title).toHaveValue('a/b')
+    expect(title).toHaveFocus()
+  })
+
+  it('removes one chip at a time and clears all back to the default', async () => {
+    const { router } = renderFiltered('/TRK?open=true&type=bug&completedEpics=show')
+    const chips = await screen.findByRole('list', { name: 'Active filters' })
+    expect(within(chips).getAllByRole('button').map((chip) => chip.textContent)).toEqual(['Open×', 'Type: Bug×', 'Completed epics shown×'])
+
+    await userEvent.click(within(chips).getByRole('button', { name: 'Remove filter Type: Bug' }))
+    expect(router.state.location.search).toBe('?open=true&completedEpics=show')
+    await waitFor(() => expect(within(chips).getByRole('button', { name: 'Remove filter Completed epics shown' })).toHaveFocus())
+
+    await userEvent.click(screen.getByRole('button', { name: 'Clear all' }))
+    expect(router.state.location.search).toBe('')
+    expect(screen.queryByRole('list', { name: 'Active filters' })).not.toBeInTheDocument()
+    expect(screen.getByRole('searchbox', { name: 'Search' })).toHaveFocus()
+  })
+
+  it('says when nothing matches and clears the filters from there', async () => {
+    const { router } = renderFiltered('/TRK?type=bug', {
+      [itemsPath]: (request) =>
+        new URL(request.url).searchParams.has('type')
+          ? jsonResponse({ items: [], nextCursor: null, totalCount: 0 })
+          : jsonResponse({ items: [story], nextCursor: null, totalCount: 1 }),
+    })
+
+    expect(await screen.findByText('No items match these filters.')).toBeInTheDocument()
+    expect(screen.getByText('0 items match')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
+
+    expect(router.state.location.search).toBe('')
+    expect(screen.getByRole('searchbox', { name: 'Search' })).toHaveFocus()
+    expect(screen.queryByText('Every item is under a completed epic.')).not.toBeInTheDocument()
+    expect(await screen.findByText('Comments on items')).toBeInTheDocument()
+  })
+
+  it('says when every item is under a completed epic, and shows them on request', async () => {
+    const { fetchFn } = renderFiltered('/TRK', {
+      [itemsPath]: (request) =>
+        new URL(request.url).searchParams.get('completedEpics') === 'show'
+          ? jsonResponse({ items: [story, epic], nextCursor: null, totalCount: 2 })
+          : jsonResponse({ items: [], nextCursor: null, totalCount: 0 }),
+    })
+
+    expect(await screen.findByText('Every item is under a completed epic.')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Show completed epics' }))
+
+    expect(await screen.findByText('Comments on items')).toBeInTheDocument()
+    expect(lastList(fetchFn)?.get('completedEpics')).toBe('show')
+    expect(screen.getByRole('checkbox', { name: 'Show completed epics' })).toBeChecked()
+  })
+
+  it('filters by an epic chosen from the searchable picker', async () => {
+    const { fetchFn, router } = renderFiltered('/TRK', {
+      'GET /api/v1/work-items/by-key/TRK-1': () => jsonResponse(detail(epic)),
+      [itemsPath]: (request) => {
+        const params = new URL(request.url).searchParams
+        if (params.getAll('type').includes('epic')) return jsonResponse({ items: [epic], nextCursor: null, totalCount: 1 })
+        return jsonResponse({ items: params.has('parent') ? [story] : [story, epic], nextCursor: null, totalCount: params.has('parent') ? 1 : 2 })
+      },
+    })
+    const picker = await screen.findByRole('combobox', { name: 'Epic' })
+
+    await userEvent.click(picker)
+    await userEvent.click(await screen.findByRole('option', { name: /TRK-1/ }))
+
+    expect(router.state.location.search).toBe('?parent=TRK-1')
+    await waitFor(() => expect(picker).toHaveValue('TRK-1 · v1.0 Dogfood'))
+    await waitFor(() => expect(lastList(fetchFn)?.get('parent')).toBe('TRK-1'))
+    expect(await screen.findByText('1 item matches')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Clear epic' }))
+    expect(router.state.location.search).toBe('')
+    expect(picker).toHaveFocus()
+  })
+
+  it('shows completed epics too when the chosen epic is in Done', async () => {
+    const doneEpic = { ...epic, status: 'done' }
+    const { router } = renderFiltered('/TRK', {
+      'GET /api/v1/work-items/by-key/TRK-1': () => jsonResponse(detail(doneEpic)),
+      [itemsPath]: (request) =>
+        new URL(request.url).searchParams.getAll('type').includes('epic')
+          ? jsonResponse({ items: [doneEpic], nextCursor: null, totalCount: 1 })
+          : jsonResponse({ items: [story], nextCursor: null, totalCount: 1 }),
+    })
+
+    await userEvent.click(await screen.findByRole('combobox', { name: 'Epic' }))
+    await userEvent.click(await screen.findByRole('option', { name: /TRK-1/ }))
+
+    expect(router.state.location.search).toBe('?parent=TRK-1&completedEpics=show')
+    expect(screen.getByRole('checkbox', { name: 'Show completed epics' })).toBeChecked()
+  })
+
+  it('names the signed-in user "Me" in a shared link that filters by their id', async () => {
+    renderFiltered(`/TRK?assignee=${me.user.id}`)
+
+    expect(await screen.findByRole('button', { name: 'Remove filter Assignee: Me' })).toBeInTheDocument()
+  })
+
+  it('moves the focus to the search box after "Show completed epics" in the empty state', async () => {
+    renderFiltered('/TRK', {
+      [itemsPath]: (request) =>
+        new URL(request.url).searchParams.get('completedEpics') === 'show'
+          ? jsonResponse({ items: [story], nextCursor: null, totalCount: 1 })
+          : jsonResponse({ items: [], nextCursor: null, totalCount: 0 }),
+    })
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Show completed epics' }))
+
+    expect(screen.getByRole('searchbox', { name: 'Search' })).toHaveFocus()
+  })
+
+  it('steps back and forward through filter changes', async () => {
+    const { router } = renderFiltered()
+    const quick = within(await screen.findByRole('group', { name: 'Quick filters' }))
+    await userEvent.click(quick.getByRole('button', { name: 'Open' }))
+    await userEvent.click(quick.getByRole('button', { name: 'Unassigned' }))
+
+    await act(() => router.navigate(-1))
+    expect(router.state.location.search).toBe('?open=true')
+    expect(quick.getByRole('button', { name: 'Unassigned' })).toHaveAttribute('aria-pressed', 'false')
+    await act(() => router.navigate(1))
+    expect(quick.getByRole('button', { name: 'Unassigned' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('opens an item with a breadcrumb back to the filtered list', async () => {
+    renderFiltered('/TRK?open=true', {
+      'GET /api/v1/work-items/by-key/TRK-2': () => jsonResponse(detail(story)),
+      [`GET /api/v1/work-items/${story.id}/history`]: () => jsonResponse({ items: [], nextCursor: null }),
+    })
+
+    await userEvent.click(await screen.findByRole('link', { name: 'TRK-2' }))
+
+    const breadcrumb = await screen.findByRole('navigation', { name: 'Breadcrumb' })
+    expect(within(breadcrumb).getByRole('link', { name: 'TRK' })).toHaveAttribute('href', '/TRK?open=true')
   })
 })

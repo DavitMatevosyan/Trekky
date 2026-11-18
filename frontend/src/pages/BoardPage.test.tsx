@@ -145,7 +145,7 @@ describe('BoardPage', () => {
     await screen.findByRole('alert')
 
     await userEvent.click(screen.getByRole('link', { name: 'List' }))
-    await screen.findByText('No items yet. Create one to start tracking work.')
+    await screen.findByText('0 items match')
     await userEvent.click(screen.getByRole('link', { name: 'Board' }))
 
     await screen.findByRole('list', { name: 'Done' })
@@ -275,5 +275,135 @@ describe('BoardPage', () => {
     renderBoard({ 'GET /api/v1/projects/by-key/TRK': () => problemResponse(404, { title: 'Project not found' }) })
 
     expect(await screen.findByRole('alert')).toHaveTextContent('This project does not exist.')
+  })
+})
+
+describe('BoardPage filters', () => {
+  const boardRequests = (fetchFn: typeof fetch) => requestsTo(fetchFn, boardPath).map((request) => new URL(request.url).searchParams.toString())
+
+  function renderFilteredBoard(path: string, handlers: Parameters<typeof fakeApi>[0] = {}) {
+    const fetchFn = fakeApi({
+      'GET /api/v1/projects/by-key/TRK': () => jsonResponse(project),
+      // Filtered: only the bug; unfiltered: the whole board.
+      [boardPath]: (request) => {
+        const params = new URL(request.url).searchParams
+        if (!params.has('type') && !params.has('open') && !params.has('status')) return jsonResponse(board())
+        return jsonResponse({
+          columns: [
+            column('todo', params.getAll('type').includes('bug') ? [card(1, 'todo', 'bug', 'Key not shown')] : []),
+            column('in_progress', []),
+            column('in_review', []),
+            column('done', []),
+          ],
+        })
+      },
+      ...handlers,
+    })
+    return renderApp({ path, tokens: validTokens, fetchFn })
+  }
+
+  it('asks for the cards that match the URL filters and counts them against the unfiltered board', async () => {
+    const { fetchFn } = renderFilteredBoard('/TRK/board?type=bug')
+
+    await screen.findByRole('heading', { name: 'To Do (1 of 2)' })
+    expect(screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent)).toEqual([
+      'To Do (1 of 2)',
+      'In Progress (0 of 1)',
+      'In Review (0 of 0)',
+      'Done (0 of 0)',
+    ])
+    expect(boardRequests(fetchFn)).toEqual(expect.arrayContaining(['type=bug', '']))
+    expect(screen.getByRole('search', { name: 'Filters' })).toBeInTheDocument()
+    // Read out after the change, like the list's count.
+    expect(screen.getByText('1 item matches')).toHaveAttribute('aria-live', 'polite')
+    expect(screen.getByRole('button', { name: 'Remove filter Type: Bug' })).toBeInTheDocument()
+  })
+
+  it('shows plain counts and asks for one board when nothing is filtered', async () => {
+    const { fetchFn } = renderFilteredBoard('/TRK/board')
+
+    await screen.findByRole('heading', { name: 'To Do (2)' })
+    expect(boardRequests(fetchFn)).toEqual([''])
+  })
+
+  it('hides the Done column with Open, and keeps every column for a status filter', async () => {
+    const { router } = renderFilteredBoard('/TRK/board')
+    const quick = within(await screen.findByRole('group', { name: 'Quick filters' }))
+
+    await userEvent.click(quick.getByRole('button', { name: 'Open' }))
+
+    expect(router.state.location.search).toBe('?open=true')
+    await waitFor(() =>
+      expect(screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent)).toEqual([
+        'To Do (0 of 2)',
+        'In Progress (0 of 1)',
+        'In Review (0 of 0)',
+      ]),
+    )
+
+    await userEvent.click(quick.getByRole('button', { name: 'Open' }))
+    await userEvent.click(within(screen.getByRole('search')).getByRole('button', { name: /^Status/ }))
+    await userEvent.click(within(screen.getByRole('group', { name: 'Status' })).getByRole('checkbox', { name: 'Done' }))
+    await waitFor(() => expect(screen.getAllByRole('heading', { level: 2 })).toHaveLength(4))
+  })
+
+  it('keeps the filters when "Show all" is asked for, and sends them with it', async () => {
+    const latest = column('done', Array.from({ length: 20 }, (_, i) => card(30 - i, 'done')), 21)
+    const { fetchFn, router } = renderFilteredBoard('/TRK/board?type=task', {
+      [boardPath]: () => jsonResponse(board(latest)),
+    })
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Show all' }))
+
+    await waitFor(() => expect(router.state.location.search).toBe('?type=task&done=all'))
+    await waitFor(() => expect(boardRequests(fetchFn)).toContain('type=task&allDone=true'))
+    expect(screen.getByRole('button', { name: 'Remove filter Type: Task' })).toBeInTheDocument()
+  })
+
+  it('says when nothing matches, clears the filters from there and keeps the focus in the bar', async () => {
+    const { router } = renderFilteredBoard('/TRK/board?type=epic')
+
+    // Shown, and read out from the board's polite live region.
+    const shown = await screen.findAllByText('No items match these filters.')
+    expect(shown.map((element) => element.getAttribute('aria-live'))).toEqual(['polite', null])
+    await userEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
+
+    expect(router.state.location.search).toBe('')
+    expect(screen.getByRole('searchbox', { name: 'Search' })).toHaveFocus()
+    expect(await screen.findByRole('heading', { name: 'To Do (2)' })).toBeInTheDocument()
+    expect(screen.queryByText('No items match these filters.')).not.toBeInTheDocument()
+  })
+
+  it('marks the board busy while the cards for new filters load', async () => {
+    let answer: (response: Response) => void = () => {}
+    renderFilteredBoard('/TRK/board', {
+      [boardPath]: (request) =>
+        new URL(request.url).searchParams.has('type') ? new Promise<Response>((resolve) => (answer = resolve)) : jsonResponse(board()),
+    })
+    await screen.findByRole('heading', { name: 'To Do (2)' })
+
+    await userEvent.click(within(screen.getByRole('search')).getByRole('button', { name: /^Type/ }))
+    await userEvent.click(within(screen.getByRole('group', { name: 'Type' })).getByRole('checkbox', { name: 'Bug' }))
+
+    await waitFor(() => expect(screen.getByRole('group', { name: 'Board columns' })).toHaveAttribute('aria-busy', 'true'))
+    answer(jsonResponse(board()))
+    await waitFor(() => expect(screen.getByRole('group', { name: 'Board columns' })).not.toHaveAttribute('aria-busy'))
+  })
+
+  it('keeps the filters when switching between Board and List, but not "Show all"', async () => {
+    const { router } = renderFilteredBoard('/TRK/board?type=bug&done=all', {
+      [`GET /api/v1/projects/${project.id}/work-items`]: () => jsonResponse({ items: [], nextCursor: null, totalCount: 0 }),
+    })
+    const views = await screen.findByRole('navigation', { name: 'Project views' })
+
+    expect(within(views).getByRole('link', { name: 'List' })).toHaveAttribute('href', '/TRK?type=bug')
+    await userEvent.click(within(views).getByRole('link', { name: 'List' }))
+
+    expect(router.state.location.search).toBe('?type=bug')
+    expect(await screen.findByRole('button', { name: 'Remove filter Type: Bug' })).toBeInTheDocument()
+    expect(within(screen.getByRole('navigation', { name: 'Project views' })).getByRole('link', { name: 'Board' })).toHaveAttribute(
+      'href',
+      '/TRK/board?type=bug',
+    )
   })
 })
