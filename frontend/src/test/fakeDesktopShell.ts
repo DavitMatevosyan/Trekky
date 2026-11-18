@@ -36,6 +36,8 @@ export function fakeDesktopShell(overrides: Partial<DesktopShell> = {}): FakeDes
       if (token === null) credentials.delete(server)
       else credentials.set(server, token)
     }),
+    checkForUpdate: vi.fn().mockResolvedValue(null),
+    installUpdate: vi.fn().mockResolvedValue(undefined),
     onAuthCallback: (listener) => {
       listeners.add(listener)
       return () => listeners.delete(listener)

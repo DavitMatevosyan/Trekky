@@ -3,6 +3,8 @@
  * dependencies (https://www.w3.org/TR/webdriver2/).
  */
 
+import { writeFileSync } from 'node:fs'
+
 /** The key W3C uses for an element reference in responses. */
 const ELEMENT_KEY = 'element-6066-11e4-a52e-4f735466cecf'
 
@@ -54,6 +56,12 @@ export class AppSession {
   /** Closes the app. */
   async end(): Promise<void> {
     await call(this.driverUrl, 'DELETE', `/session/${this.id}`).catch(() => undefined)
+  }
+
+  /** Saves a PNG of the window to `file`. */
+  async screenshot(file: string): Promise<void> {
+    const png = await call<string>(this.driverUrl, 'GET', `/session/${this.id}/screenshot`)
+    writeFileSync(file, Buffer.from(png, 'base64'))
   }
 
   /** The visible text of the page. */

@@ -132,6 +132,8 @@ describe('ProjectItemsPage', () => {
     expect(options.map((option) => option.textContent)).toEqual(['TRK-2StoryComments on items', 'TRK-1Epicv1.0 Dogfood'])
     const candidates = requestsTo(fetchFn, itemsPath).map((request) => new URL(request.url).searchParams)
     expect(candidates.at(-1)?.getAll('type')).toEqual(['epic', 'story'])
+    // TREK-52: the list hides epics in Done by default; they stay parent candidates.
+    expect(candidates.at(-1)?.get('completedEpics')).toBe('show')
     await userEvent.click(options[1] as HTMLElement)
     expect(parent).toHaveValue('TRK-1 · v1.0 Dogfood')
     await userEvent.click(within(form).getByRole('button', { name: 'Create item' }))

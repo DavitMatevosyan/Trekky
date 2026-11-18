@@ -225,9 +225,17 @@ internal sealed class WorkItemService(
     }
 
     public async Task<WorkItemResult> MoveAsync(
-        Guid workItemId, string status, Guid? afterId, Guid? beforeId, string ifMatch, Guid actorId, CancellationToken cancellationToken)
+        Guid workItemId,
+        string status,
+        Guid? afterId,
+        Guid? beforeId,
+        WorkItemFilter filter,
+        string ifMatch,
+        Guid actorId,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(status);
+        ArgumentNullException.ThrowIfNull(filter);
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
 
         // Locked until commit, so two moves of the same item cannot both pass the transition check.
@@ -271,24 +279,37 @@ internal sealed class WorkItemService(
                 .Select(w => new RankedCard(w.Id, w.Rank))
                 .ToListAsync(cancellationToken);
 
-            // The neighbours the client saw must still be next to each other, or the card would land somewhere else.
-            var above = afterId is null ? -1 : column.FindIndex(card => card.Id == afterId);
-            var below = above + 1 < column.Count ? column[above + 1] : null;
-            if ((afterId is not null && above == -1) || below?.Id != beforeId)
+            // The board the client dropped on shows only the cards that match its filter (TREK-52), so the neighbours it
+            // saw must still be next to each other among those, or the card would land somewhere else. Cards the filter
+            // hides may sit between them.
+            var shown = await (await MatchingAsync(item.ProjectId, filter, cancellationToken))
+                .Where(w => w.Status == status && w.Id != item.Id)
+                .OrderBy(w => w.Rank)
+                .Select(w => w.Id)
+                .ToListAsync(cancellationToken);
+            var aboveShown = afterId is null ? -1 : shown.IndexOf(afterId.Value);
+            Guid? belowShown = aboveShown + 1 < shown.Count ? shown[aboveShown + 1] : null;
+            if ((afterId is not null && aboveShown == -1) || belowShown != beforeId)
             {
                 return new WorkItemResult(WorkItemOutcome.BoardChanged);
             }
 
+            // Directly below the card above, or directly above the card below at the top of what is shown: between two
+            // cards that are next to each other in the whole column, so viewers who see every card see it there too.
+            var above = afterId is { } aboveId ? column.FindIndex(card => card.Id == aboveId)
+                : beforeId is { } belowId ? column.FindIndex(card => card.Id == belowId) - 1
+                : -1;
             var aboveRank = above == -1 ? null : column[above].Rank;
+            var belowRank = above + 1 < column.Count ? column[above + 1].Rank : null;
             if (!statusChanges
                 && (aboveRank is null || string.CompareOrdinal(aboveRank, item.Rank) < 0)
-                && (below is null || string.CompareOrdinal(item.Rank, below.Rank) < 0))
+                && (belowRank is null || string.CompareOrdinal(item.Rank, belowRank) < 0))
             {
                 // Dropped where it already was: no write, and the ETag stays valid.
                 return await SucceededAsync(workItemId, cancellationToken);
             }
 
-            rank = BoardRank.Between(aboveRank, below?.Rank);
+            rank = BoardRank.Between(aboveRank, belowRank);
         }
 
         if (statusChanges)
@@ -316,12 +337,11 @@ internal sealed class WorkItemService(
             return null;
         }
 
-        IQueryable<WorkItem> query = db.WorkItems.AsNoTracking().Where(w => w.ProjectId == projectId);
-        if (filter.Types.Count > 0)
-        {
-            var types = filter.Types;
-            query = query.Where(w => types.Contains(w.Type));
-        }
+        // One snapshot across the reads, so the total agrees with the page.
+        await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead, cancellationToken);
+
+        var query = await MatchingAsync(projectId, filter, cancellationToken);
+        var totalCount = await query.CountAsync(cancellationToken);
 
         // A search that is a key of this project (TRK-1): that item comes first on the first page, so it can always be
         // found by its key however many other keys start the same way (TRK-10, TRK-100, ...). Later pages leave it out.
@@ -335,17 +355,6 @@ internal sealed class WorkItemService(
             }
 
             query = query.Where(w => !(w.ProjectKey == keyProject && w.Number == keyNumber));
-        }
-
-        if (filter.Query is { } search)
-        {
-            // LIKE wildcards in the search are literal characters, not patterns.
-            var escaped = search.Replace(@"\", @"\\", StringComparison.Ordinal)
-                .Replace("%", @"\%", StringComparison.Ordinal)
-                .Replace("_", @"\_", StringComparison.Ordinal);
-            query = query.Where(w =>
-                EF.Functions.ILike(w.Title, "%" + escaped + "%", @"\")
-                || EF.Functions.ILike(w.ProjectKey + "-" + w.Number.ToString(), escaped + "%", @"\"));
         }
 
         if (after is not null)
@@ -366,11 +375,12 @@ internal sealed class WorkItemService(
             : new WorkItemCursor(page[^1].Item.UpdatedAt, page[^1].Item.Id).Encode();
         var shown = exact is null ? page : page.Prepend(exact).ToList();
         var assignees = await AssigneesAsync(shown, cancellationToken);
-        return new WorkItemPage(shown.Select(row => ToSummary(row, assignees)).ToList(), next);
+        return new WorkItemPage(shown.Select(row => ToSummary(row, assignees)).ToList(), next, totalCount);
     }
 
-    public async Task<Board?> GetBoardAsync(Guid projectId, bool allDone, CancellationToken cancellationToken)
+    public async Task<Board?> GetBoardAsync(Guid projectId, WorkItemFilter filter, bool allDone, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(filter);
         if (await projects.FindAsync(projectId, cancellationToken) is null)
         {
             return null;
@@ -379,7 +389,8 @@ internal sealed class WorkItemService(
         // One snapshot across the reads, so a card moving to Done meanwhile cannot show in two columns.
         await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead, cancellationToken);
 
-        var inProject = db.WorkItems.AsNoTracking().Where(w => w.ProjectId == projectId);
+        // Every column reads the same filter, so a filtered-out status is an empty column and counts are of matches (TREK-52).
+        var inProject = await MatchingAsync(projectId, filter, cancellationToken);
         var notDone = await Summaries(inProject
                 .Where(w => w.Status != WorkItemStatuses.Done)
                 .OrderBy(w => w.Rank)
@@ -487,6 +498,104 @@ internal sealed class WorkItemService(
         => items.Select(w => new SummaryRow(
             w,
             db.WorkItems.Where(p => p.Id == w.ParentId).Select(p => (int?)p.Number).FirstOrDefault()));
+
+    /// <summary>
+    /// The project's items that match <paramref name="filter"/> (TRK-11.1, TREK-52), unordered. The list and the board both
+    /// read this, so a filter means the same on both.
+    /// </summary>
+    private async Task<IQueryable<WorkItem>> MatchingAsync(Guid projectId, WorkItemFilter filter, CancellationToken cancellationToken)
+    {
+        var query = db.WorkItems.AsNoTracking().Where(w => w.ProjectId == projectId);
+        if (filter.Types.Count > 0)
+        {
+            var types = filter.Types;
+            query = query.Where(w => types.Contains(w.Type));
+        }
+
+        if (filter.Statuses.Count > 0)
+        {
+            var statuses = filter.Statuses;
+            query = query.Where(w => statuses.Contains(w.Status));
+        }
+
+        if (filter.OnlyOpen)
+        {
+            // Each item on its own: a Done task under an open epic goes too.
+            query = query.Where(w => w.Status != WorkItemStatuses.Done);
+        }
+
+        if (filter.Assignees.Count > 0)
+        {
+            var ids = filter.AssigneeIds;
+            var unassigned = filter.IncludesUnassigned;
+            query = query.Where(w => (w.AssigneeId != null && ids.Contains(w.AssigneeId.Value)) || (unassigned && w.AssigneeId == null));
+        }
+
+        if (filter.Parent is not null)
+        {
+            // A parent that is not in this project has nothing under it here.
+            query = await ParentIdAsync(projectId, filter, cancellationToken) is { } parentId
+                ? UnderParent(query, parentId)
+                : query.Where(_ => false);
+        }
+
+        if (!filter.KeepsCompletedEpics)
+        {
+            query = WithoutCompletedEpics(query);
+        }
+
+        if (filter.Query is { } search)
+        {
+            // LIKE wildcards in the search are literal characters, not patterns.
+            var escaped = search.Replace(@"\", @"\\", StringComparison.Ordinal)
+                .Replace("%", @"\%", StringComparison.Ordinal)
+                .Replace("_", @"\_", StringComparison.Ordinal);
+            query = query.Where(w =>
+                EF.Functions.ILike(w.Title, "%" + escaped + "%", @"\")
+                || EF.Functions.ILike(w.ProjectKey + "-" + w.Number.ToString(), escaped + "%", @"\"));
+        }
+
+        return query;
+    }
+
+    /// <summary>The filter's parent: its id as given, or the id of the item with its key in this project; <c>null</c> when there is none.</summary>
+    private async Task<Guid?> ParentIdAsync(Guid projectId, WorkItemFilter filter, CancellationToken cancellationToken)
+    {
+        if (filter.ParentId is { } id)
+        {
+            return id;
+        }
+
+        return filter.TryGetParentKey(out var projectKey, out var number)
+            ? await db.WorkItems
+                .Where(w => w.ProjectId == projectId && w.ProjectKey == projectKey && w.Number == number)
+                .Select(w => (Guid?)w.Id)
+                .FirstOrDefaultAsync(cancellationToken)
+            : null;
+    }
+
+    /// <summary>
+    /// Items with <paramref name="parentId"/> among their parents. Walks up <see cref="ParentRules.MaxAncestors"/> parents
+    /// with key lookups, one EXISTS per level, instead of a recursive query: the type rules cap how deep items go.
+    /// </summary>
+    private IQueryable<WorkItem> UnderParent(IQueryable<WorkItem> items, Guid parentId)
+        => items.Where(w => w.ParentId == parentId
+            || db.WorkItems.Any(p1 => p1.Id == w.ParentId
+                && (p1.ParentId == parentId
+                    || db.WorkItems.Any(p2 => p2.Id == p1.ParentId && p2.ParentId == parentId))));
+
+    /// <summary>
+    /// Leaves out every Epic in Done and everything under it, at any depth and whatever its own status (TREK-52). An Epic
+    /// has no parent, so it is always the top of its chain; this walks up <see cref="ParentRules.MaxAncestors"/> parents.
+    /// </summary>
+    private IQueryable<WorkItem> WithoutCompletedEpics(IQueryable<WorkItem> items)
+        => items.Where(w => !(w.Type == WorkItemTypes.Epic && w.Status == WorkItemStatuses.Done)
+            && !db.WorkItems.Any(p1 => p1.Id == w.ParentId
+                && ((p1.Type == WorkItemTypes.Epic && p1.Status == WorkItemStatuses.Done)
+                    || db.WorkItems.Any(p2 => p2.Id == p1.ParentId
+                        && ((p2.Type == WorkItemTypes.Epic && p2.Status == WorkItemStatuses.Done)
+                            || db.WorkItems.Any(p3 => p3.Id == p2.ParentId
+                                && p3.Type == WorkItemTypes.Epic && p3.Status == WorkItemStatuses.Done))))));
 
     private async Task<WorkItemResult> SucceededAsync(Guid workItemId, CancellationToken cancellationToken)
         => await GetAsync(workItemId, cancellationToken) is { } item

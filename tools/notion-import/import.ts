@@ -99,7 +99,11 @@ async function existingItems(call: Call, projectId: string): Promise<Map<string,
   let cursor: string | null = null
   do {
     const query: string = cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''
-    const page = await call<{ items: Item[]; nextCursor: string | null }>('GET', `/api/v1/projects/${projectId}/work-items?limit=100${query}`)
+    // Every item, also the ones under a finished epic, which the list leaves out by default (TREK-52).
+    const page = await call<{ items: Item[]; nextCursor: string | null }>(
+      'GET',
+      `/api/v1/projects/${projectId}/work-items?limit=100&completedEpics=show${query}`,
+    )
     if (page.status !== 200) throw new ApiError(`Listing items failed (${page.status}).`)
     for (const item of page.body.items) items.set(existingMatchKey(item.title), item)
     cursor = page.body.nextCursor

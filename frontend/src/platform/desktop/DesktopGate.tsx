@@ -7,6 +7,7 @@ import { desktopLinks } from './desktopPlatform.ts'
 import { ServerUrlError, type DesktopShell } from './desktopShell.ts'
 import { ServerSetupScreen } from './ServerSetupScreen.tsx'
 import { ServerUnreachableScreen } from './ServerUnreachableScreen.tsx'
+import { UpdateBanner } from './UpdateBanner.tsx'
 
 type GateState =
   | { kind: 'loading' }
@@ -29,6 +30,16 @@ export interface DesktopGateProps {
  * retry until it does. The app is mounted only for a reachable server, and remounted from scratch after a change.
  */
 export function DesktopGate({ shell, children }: DesktopGateProps) {
+  // The update notice sits above every screen, signed in or not, and lives as long as the app (ADR-0024).
+  return (
+    <>
+      <UpdateBanner shell={shell} />
+      <GateScreens shell={shell}>{children}</GateScreens>
+    </>
+  )
+}
+
+function GateScreens({ shell, children }: DesktopGateProps) {
   const [state, setState] = useState<GateState>({ kind: 'loading' })
   // The app's own platform comes with a server; until then the screens here still open links in the system browser.
   const gatePlatform = useMemo(() => createWebPlatform({ links: desktopLinks(shell) }), [shell])

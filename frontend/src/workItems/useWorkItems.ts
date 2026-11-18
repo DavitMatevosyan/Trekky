@@ -135,7 +135,8 @@ const CANDIDATE_LIMIT = 20
 
 /**
  * Items that could be the parent (TRK-11.1): the project's items of the allowed `types` whose key starts with or whose
- * title contains `search`, newest update first. Keeps showing the last results while the next search loads.
+ * title contains `search`, newest update first. Keeps showing the last results while the next search loads. Epics in Done
+ * stay candidates (the list hides them by default, TREK-52): an item may already sit under one.
  */
 export function useParentCandidates(projectId: string, types: readonly string[], search: string, enabled: boolean) {
   const { api } = useAuth()
@@ -145,7 +146,7 @@ export function useParentCandidates(projectId: string, types: readonly string[],
     placeholderData: keepPreviousData,
     queryFn: async () => {
       const { data, error } = await api.GET('/api/v1/projects/{projectId}/work-items', {
-        params: { path: { projectId }, query: { type: [...types], q: search || undefined, limit: CANDIDATE_LIMIT } },
+        params: { path: { projectId }, query: { type: [...types], q: search || undefined, limit: CANDIDATE_LIMIT, completedEpics: 'show' } },
       })
       if (!data) throw new ProblemError(asProblem(error))
       return data.items

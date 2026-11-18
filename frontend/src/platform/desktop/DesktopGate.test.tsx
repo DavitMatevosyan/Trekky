@@ -30,6 +30,20 @@ function renderGate(shell: DesktopShell) {
 }
 
 describe('DesktopGate', () => {
+  it('offers an update on the first-run screen already, and Later lasts once the app opens', async () => {
+    const shell = fakeShell({ checkForUpdate: vi.fn().mockResolvedValue({ version: '0.2.0', notes: null }) })
+    renderGate(shell)
+
+    expect(await screen.findByText('Trekky 0.2.0 is available.')).toBeInTheDocument()
+    expect(await screen.findByLabelText('Server address')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Later' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Connect' }))
+
+    expect(await screen.findByText('App on https://default.example.com')).toBeInTheDocument()
+    expect(screen.queryByText('Trekky 0.2.0 is available.')).not.toBeInTheDocument()
+    expect(shell.checkForUpdate).toHaveBeenCalledOnce()
+  })
+
   it('first run: offers the default server, saves it and opens the app once it answers', async () => {
     const shell = fakeShell()
     renderGate(shell)
