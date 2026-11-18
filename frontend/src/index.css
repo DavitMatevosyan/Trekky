@@ -8,8 +8,9 @@
  * meets WCAG AA in both themes: text 4.5:1, input borders and the focus ring 3:1 (1.4.11). src/theme/themeTokens.test.ts
  * checks them. `border` is decorative (panels, dividers) and does not need 3:1.
  *
- * Type and status colours (TREK-57, TREK-59) go in the same two blocks as --type-<type>-{tint,accent,text} and
- * --status-<status>-{tint,accent,text}, mapped below as --color-type-… and --color-status-….
+ * Each work item type has three shades per theme (TREK-57): tint (badge and row background), accent (stripe and icon)
+ * and text (badge text), as --type-<type>-{tint,accent,text}. Status colours (TREK-59) will follow the same pattern as
+ * --status-<status>-…. src/workItems/workItemTypes.ts maps each type to its classes.
  */
 
 /* Light: warm paper beige, slightly lighter panels, warm grey-brown text and borders. */
@@ -28,6 +29,25 @@
   --border: oklch(0.875 0.022 78);
   --input: oklch(0.6 0.03 70);
   --ring: oklch(0.47 0.06 60);
+  /* Work item types (TREK-57): same lightness and chroma, own hue; SubTask quieter than Task. */
+  --type-epic-tint: oklch(0.925 0.035 300);
+  --type-epic-accent: oklch(0.56 0.12 300);
+  --type-epic-text: oklch(0.42 0.1 300);
+  --type-story-tint: oklch(0.925 0.035 150);
+  --type-story-accent: oklch(0.56 0.12 150);
+  --type-story-text: oklch(0.42 0.1 150);
+  --type-task-tint: oklch(0.925 0.035 245);
+  --type-task-accent: oklch(0.56 0.12 245);
+  --type-task-text: oklch(0.42 0.1 245);
+  --type-subtask-tint: oklch(0.925 0.019 210);
+  --type-subtask-accent: oklch(0.56 0.066 210);
+  --type-subtask-text: oklch(0.42 0.055 210);
+  --type-bug-tint: oklch(0.925 0.035 25);
+  --type-bug-accent: oklch(0.56 0.12 25);
+  --type-bug-text: oklch(0.42 0.1 25);
+  --type-tech-debt-tint: oklch(0.925 0.035 75);
+  --type-tech-debt-accent: oklch(0.56 0.12 75);
+  --type-tech-debt-text: oklch(0.42 0.1 75);
   color-scheme: light;
 }
 
@@ -47,6 +67,25 @@
   --border: oklch(0.33 0.013 70);
   --input: oklch(0.58 0.02 72);
   --ring: oklch(0.78 0.04 75);
+  /* Work item types (TREK-57), tuned to look as subtle on charcoal as on beige. */
+  --type-epic-tint: oklch(0.29 0.035 300);
+  --type-epic-accent: oklch(0.7 0.11 300);
+  --type-epic-text: oklch(0.85 0.07 300);
+  --type-story-tint: oklch(0.29 0.035 150);
+  --type-story-accent: oklch(0.7 0.11 150);
+  --type-story-text: oklch(0.85 0.07 150);
+  --type-task-tint: oklch(0.29 0.035 245);
+  --type-task-accent: oklch(0.7 0.11 245);
+  --type-task-text: oklch(0.85 0.07 245);
+  --type-subtask-tint: oklch(0.29 0.019 210);
+  --type-subtask-accent: oklch(0.7 0.061 210);
+  --type-subtask-text: oklch(0.85 0.039 210);
+  --type-bug-tint: oklch(0.29 0.035 25);
+  --type-bug-accent: oklch(0.7 0.11 25);
+  --type-bug-text: oklch(0.85 0.07 25);
+  --type-tech-debt-tint: oklch(0.29 0.035 75);
+  --type-tech-debt-accent: oklch(0.7 0.11 75);
+  --type-tech-debt-text: oklch(0.85 0.07 75);
   color-scheme: dark;
 }
 
@@ -65,6 +104,24 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-type-epic-tint: var(--type-epic-tint);
+  --color-type-epic-accent: var(--type-epic-accent);
+  --color-type-epic-text: var(--type-epic-text);
+  --color-type-story-tint: var(--type-story-tint);
+  --color-type-story-accent: var(--type-story-accent);
+  --color-type-story-text: var(--type-story-text);
+  --color-type-task-tint: var(--type-task-tint);
+  --color-type-task-accent: var(--type-task-accent);
+  --color-type-task-text: var(--type-task-text);
+  --color-type-subtask-tint: var(--type-subtask-tint);
+  --color-type-subtask-accent: var(--type-subtask-accent);
+  --color-type-subtask-text: var(--type-subtask-text);
+  --color-type-bug-tint: var(--type-bug-tint);
+  --color-type-bug-accent: var(--type-bug-accent);
+  --color-type-bug-text: var(--type-bug-text);
+  --color-type-tech-debt-tint: var(--type-tech-debt-tint);
+  --color-type-tech-debt-accent: var(--type-tech-debt-accent);
+  --color-type-tech-debt-text: var(--type-tech-debt-text);
 }
 
 @layer base {
