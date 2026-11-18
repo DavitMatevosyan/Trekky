@@ -1,5 +1,9 @@
 import css from '../index.css?raw'
 import { contrastRatio, parseOklch, withAlpha, type Oklch } from '../lib/contrast.ts'
+import { typeStyle, WORK_ITEM_TYPES } from '../workItems/workItemTypes.ts'
+
+/** The token name of each type (`tech-debt` for `tech_debt`). */
+const TYPE_TOKENS = WORK_ITEM_TYPES.map((type) => typeStyle(type).token ?? type)
 
 /**
  * The `--name: oklch(…)` tokens declared in the CSS block that starts with `selector {`. A token in any other form
@@ -54,12 +58,23 @@ const pairs: Pair[] = [
   ['primary-foreground', 'primary', TEXT],
   // A pressed filter toggle while hovered (bg-primary/90 over the page).
   ['primary-foreground', 'background', TEXT, ['primary', 0.9]],
+  // Work item types (TREK-57): badge text on its tint, the icon on the tint, and the stripe and icon against every panel.
+  ...TYPE_TOKENS.flatMap((type): Pair[] => [
+    [`type-${type}-text`, `type-${type}-tint`, TEXT],
+    [`type-${type}-accent`, `type-${type}-tint`, UI],
+    ...surfaces.map((bg): Pair => [`type-${type}-accent`, bg, UI]),
+    // A tinted row or card (an Epic, TREK-58): its text, key link and errors sit on the tint.
+    ...['foreground', 'muted-foreground', 'primary', 'destructive'].map((fg): Pair => [fg, `type-${type}-tint`, TEXT]),
+    // The stripe on a row while hovered (hover:bg-muted).
+    [`type-${type}-accent`, 'muted', UI],
+  ]),
 ]
 
 describe('theme tokens', () => {
   it.each(Object.entries(themes))('%s defines every token in the same set', (_, theme) => {
     expect([...theme.keys()].sort()).toEqual([...themes.light.keys()].sort())
-    expect(theme.size).toBe(14)
+    // 14 base tokens (TREK-56) and three shades for each of the six types (TREK-57).
+    expect(theme.size).toBe(14 + 3 * TYPE_TOKENS.length)
   })
 
   for (const [name, theme] of Object.entries(themes)) {
