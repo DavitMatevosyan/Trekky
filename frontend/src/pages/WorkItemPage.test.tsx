@@ -479,6 +479,27 @@ describe('WorkItemPage', () => {
     const commentPath = (n: number) => `/api/v1/comments/0190a000-0000-7000-8000-00000000c${String(n).padStart(3, '0')}`
     const commentRows = async () => within(await screen.findByRole('list', { name: 'Comments' })).getAllByRole('listitem')
 
+    it('waits in the history for the newest comment, also right after a reload', async () => {
+      // The page opens with a comment whose event is still in the outbox: the first history read does not have it yet,
+      // so the history checks again until it arrives.
+      const posted = comment(7, 'Agreed.')
+      const commented = historyEvent(2, 'CommentAdded', { commentId: posted.id, excerpt: 'Agreed.' }, posted.updatedAt)
+      let reads = 0
+      renderItem({
+        [commentsPath]: () => jsonResponse({ items: [posted], nextCursor: null }),
+        [historyPath]: () => {
+          reads += 1
+          return jsonResponse({ items: reads > 1 ? [commented, createdEvent] : [createdEvent], nextCursor: null })
+        },
+      })
+
+      const history = () => within(screen.getByRole('list', { name: 'History' })).getAllByRole('listitem')
+      await waitFor(() => expect(history()[0]).toHaveTextContent('Davit commented “Agreed.”'), { timeout: 3000 })
+      expect(history()).toHaveLength(2)
+      // Read only once the comments were in, then once more for the late event: no read with the item's older time.
+      expect(reads).toBe(2)
+    })
+
     it('shows the comments oldest first with author, time and Markdown', async () => {
       renderItem({
         [commentsPath]: () =>
