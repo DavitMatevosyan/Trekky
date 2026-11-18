@@ -25,6 +25,18 @@ export function useComments(workItemId: string) {
   })
 }
 
+/**
+ * When the newest loaded comment last changed, or null without comments. A comment's event carries the same time, so
+ * the history can wait for it (a comment does not change the item's own updatedAt).
+ */
+export function newestCommentAt(pages: readonly CommentPage[] | undefined): string | null {
+  let newest: string | null = null
+  for (const comment of pages?.flatMap((page) => page.items) ?? []) {
+    if (newest === null || Date.parse(comment.updatedAt) > Date.parse(newest)) newest = comment.updatedAt
+  }
+  return newest
+}
+
 /** Replaces a comment's body with its ETag (US-12 AC2). Throws ProblemError: 400 field errors, 403 not the author, 412 changed meanwhile. */
 export function useEditComment(workItemId: string) {
   const { api } = useAuth()

@@ -5,10 +5,13 @@ import { messages } from '../i18n/messages.ts'
 import { actorName, historySentence } from './historySentence.ts'
 import { useWorkItemHistory } from './useWorkItemHistory.ts'
 
-/** The item's history, newest first: who, when and what changed, one sentence per event (US-09 AC2). */
-export function WorkItemHistory({ workItemId, updatedAt }: { workItemId: string; updatedAt: string }) {
+/**
+ * The item's history, newest first: who, when and what changed, one sentence per event (US-09 AC2). `updatedAt` is the
+ * newest change the history must show; `ready` holds the first read back until the caller knows it.
+ */
+export function WorkItemHistory({ workItemId, updatedAt, ready = true }: { workItemId: string; updatedAt: string; ready?: boolean }) {
   const headingId = useId()
-  const history = useWorkItemHistory(workItemId, updatedAt)
+  const history = useWorkItemHistory(workItemId, updatedAt, ready)
   // Each retry of a query with no data goes back to pending. Counting settled reads keeps one steady state until a read
   // succeeds, so the alert is not removed and announced again by every retry.
   const loadFailed = history.errorUpdateCount > 0 && history.dataUpdatedAt === 0
