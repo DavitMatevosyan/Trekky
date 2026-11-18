@@ -7,6 +7,7 @@ mod links;
 mod navigation;
 mod server;
 mod tokens;
+mod updates;
 
 use std::path::PathBuf;
 
@@ -16,6 +17,18 @@ use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_opener::OpenerExt;
 
 use server::ServerSettings;
+
+/// A newer version from the release feed, if any (ADR-0024).
+#[tauri::command]
+async fn check_for_update(app: AppHandle) -> Result<Option<updates::AvailableUpdate>, String> {
+    updates::check(&app).await
+}
+
+/// Installs the newer version and restarts into it.
+#[tauri::command]
+async fn install_update(app: AppHandle) -> Result<(), String> {
+    updates::install(&app).await
+}
 
 /// The event the web app listens to for a sign-in callback; its payload is the full `trekky://auth/callback?...` URL.
 const AUTH_CALLBACK_EVENT: &str = "auth-callback";
@@ -101,6 +114,7 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         // The window shows only the app; a page trying to load anything else stays where it is.
         .plugin(
             tauri::plugin::Builder::<tauri::Wry>::new("navigation-guard")
@@ -112,7 +126,9 @@ pub fn run() {
             set_server_url,
             open_in_browser,
             load_refresh_token,
-            save_refresh_token
+            save_refresh_token,
+            check_for_update,
+            install_update
         ])
         .setup(|app| {
             // The main window is created here ("create": false in tauri.conf.json) so it can refuse new windows:

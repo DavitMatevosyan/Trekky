@@ -29,21 +29,33 @@ internal interface IWorkItemService
     /// Puts the card in column <paramref name="status"/> between <paramref name="afterId"/> and <paramref name="beforeId"/>
     /// if <paramref name="ifMatch"/> is the current ETag (US-11 AC3, AC4). A new status follows the workflow and records
     /// <c>WorkItemStatusChanged</c>; a reorder alone records no event and leaves <c>updatedAt</c> as it is. Done ignores
-    /// position. <see cref="WorkItemOutcome.BoardChanged"/> when the neighbours are no longer next to each other there.
-    /// Input must be validated.
+    /// position. <see cref="WorkItemOutcome.BoardChanged"/> when the neighbours are no longer next to each other among the
+    /// cards <paramref name="filter"/> shows (the board's filter, TREK-52); the card goes directly below
+    /// <paramref name="afterId"/>, or directly above <paramref name="beforeId"/> at the top. Input must be validated.
     /// </summary>
     Task<WorkItemResult> MoveAsync(
-        Guid workItemId, string status, Guid? afterId, Guid? beforeId, string ifMatch, Guid actorId, CancellationToken cancellationToken);
+        Guid workItemId,
+        string status,
+        Guid? afterId,
+        Guid? beforeId,
+        WorkItemFilter filter,
+        string ifMatch,
+        Guid actorId,
+        CancellationToken cancellationToken);
 
-    /// <summary>The project's items that match <paramref name="filter"/>, newest update first; <c>null</c> when the project does not exist.</summary>
+    /// <summary>
+    /// The project's items that match <paramref name="filter"/>, newest update first, with how many match in all;
+    /// <c>null</c> when the project does not exist. The filter must be validated.
+    /// </summary>
     Task<WorkItemPage?> ListAsync(
         Guid projectId, WorkItemFilter filter, int limit, WorkItemCursor? after, CancellationToken cancellationToken);
 
     /// <summary>
-    /// The project's board, each column in rank order (US-11 AC4). Done is last finished
-    /// first and holds the latest 20 unless <paramref name="allDone"/> is set; <c>null</c> when the project does not exist.
+    /// The project's board with only the cards that match <paramref name="filter"/> (TREK-52), each column in rank order
+    /// (US-11 AC4); every column is there and counts only matches. Done is last finished first and holds the latest 20
+    /// unless <paramref name="allDone"/> is set; <c>null</c> when the project does not exist. The filter must be validated.
     /// </summary>
-    Task<Board?> GetBoardAsync(Guid projectId, bool allDone, CancellationToken cancellationToken);
+    Task<Board?> GetBoardAsync(Guid projectId, WorkItemFilter filter, bool allDone, CancellationToken cancellationToken);
 
     /// <summary>The item, or <c>null</c> when it does not exist or belongs to another organization.</summary>
     Task<VersionedWorkItem?> GetAsync(Guid workItemId, CancellationToken cancellationToken);

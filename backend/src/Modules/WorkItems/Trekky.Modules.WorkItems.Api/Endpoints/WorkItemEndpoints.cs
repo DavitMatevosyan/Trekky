@@ -24,6 +24,10 @@ internal static class WorkItemEndpoints
 
     private static readonly JsonDocumentOptions NoDuplicateFields = new() { AllowDuplicateProperties = false };
 
+    /// <summary>The filters the list and the board share (TREK-52).</summary>
+    private const string FiltersDescription =
+        "Filters (TREK-52), the same on the list and the board: `open`, `status`, `type`, `assignee`, `parent`, `q` and `completedEpics`. Different filters combine with AND; repeated values of one filter with OR. By default an epic in Done and everything under it are left out, whatever their own status; `completedEpics=show` keeps them. Unknown values are a 400 naming the parameter.";
+
     public static IEndpointRouteBuilder MapWorkItemEndpoints(this IEndpointRouteBuilder endpoints)
     {
         var inProject = endpoints.MapGroup("/projects/{projectId:guid}/work-items")
@@ -38,21 +42,24 @@ internal static class WorkItemEndpoints
             .WithSummary("Create a work item in To Do with the project's next key (US-06)")
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
-        inProject.MapGet("/", (Guid projectId, int? limit, string? cursor, [FromQuery(Name = "type")] string[]? types,
-                    [FromQuery(Name = "q")] string? search, IValidator<WorkItemFilter> validator, IWorkItemService service,
+        inProject.MapGet("/", (Guid projectId, int? limit, string? cursor, [AsParameters] WorkItemFilterParameters filter,
+                    IValidator<WorkItemFilter> validator, IWorkItemService service, ClaimsPrincipal principal,
                     CancellationToken cancellationToken)
-                => ListAsync(projectId, limit, cursor, WorkItemFilter.From(types, search), validator, service, cancellationToken))
+                => ListAsync(projectId, limit, cursor, filter, validator, service, principal, cancellationToken))
             .WithName("ListWorkItems")
             .WithSummary("List a project's work items, newest update first (US-08)")
             .WithDescription(
-                "Optional filters (TRK-11.1, e.g. parent candidates): repeat `type` to keep only those types; `q` keeps items whose key starts with it or whose title contains it, case-insensitive; an exact key match comes first.");
+                $"{FiltersDescription} With `q`, an exact key match comes first. `totalCount` is how many items match across every page.");
 
-        endpoints.MapGet("/projects/{projectId:guid}/board", (Guid projectId, bool? allDone, IWorkItemService service, CancellationToken cancellationToken)
-                => GetBoardAsync(projectId, allDone ?? false, service, cancellationToken))
+        endpoints.MapGet("/projects/{projectId:guid}/board", (Guid projectId, bool? allDone, [AsParameters] WorkItemFilterParameters filter,
+                    IValidator<WorkItemFilter> validator, IWorkItemService service, ClaimsPrincipal principal,
+                    CancellationToken cancellationToken)
+                => GetBoardAsync(projectId, allDone ?? false, filter, validator, service, principal, cancellationToken))
             .WithTags("WorkItems")
             .WithName("GetBoard")
             .WithSummary("Get a project's board: one column per status in workflow order (US-11)")
-            .WithDescription("Done holds the latest 20 cards unless `allDone` is true; `count` is always the column's full size.")
+            .WithDescription(
+                $"{FiltersDescription} Every column is always there: a filtered-out status is an empty column. Done holds the latest 20 matching cards unless `allDone` is true; `count` is always how many cards in the column match.")
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
@@ -97,13 +104,14 @@ internal static class WorkItemEndpoints
             .ProducesProblem(StatusCodes.Status428PreconditionRequired);
 
         items.MapPost("/{workItemId:guid}/move", (Guid workItemId, [FromHeader(Name = "If-Match")] string? ifMatch,
-                    MoveWorkItemRequest request, IValidator<MoveWorkItemRequest> validator, IWorkItemService service,
-                    ClaimsPrincipal principal, HttpResponse response, CancellationToken cancellationToken)
-                => MoveAsync(workItemId, ifMatch, request, validator, service, principal, response, cancellationToken))
+                    MoveWorkItemRequest request, [AsParameters] WorkItemFilterParameters filter, IValidator<MoveWorkItemRequest> validator,
+                    IValidator<WorkItemFilter> filterValidator, IWorkItemService service, ClaimsPrincipal principal,
+                    HttpResponse response, CancellationToken cancellationToken)
+                => MoveAsync(workItemId, ifMatch, request, filter, validator, filterValidator, service, principal, response, cancellationToken))
             .WithName("MoveWorkItemOnBoard")
             .WithSummary("Drop a card on the board: a place in a column, and a new status when the column is another one (US-11)")
             .WithDescription(
-                "afterId and beforeId are the cards directly above and below the drop (null at the top or bottom); 409 when they are no longer neighbours. Done is always last finished first, so it takes no position. A new status follows the workflow (422 lists allowedTransitions) and is recorded in history; a reorder alone is not. Needs If-Match.")
+                "afterId and beforeId are the cards directly above and below the drop (null at the top or bottom); 409 when they are no longer neighbours. Send the board's filters (TREK-52) in the query string: the neighbours are checked among the cards those filters show, and the card lands directly below afterId (or above beforeId) for every viewer. Done is always last finished first, so it takes no position. A new status follows the workflow (422 lists allowedTransitions) and is recorded in history; a reorder alone is not. Needs If-Match.")
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status412PreconditionFailed)
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
@@ -142,16 +150,23 @@ internal static class WorkItemEndpoints
         return TypedResults.Created($"/api/v1/work-items/{created.Item.Id}", created.Item);
     }
 
-    private static async Task<Results<Ok<WorkItemPage>, ValidationProblem, ProblemHttpResult>> ListAsync(
+    private static async Task<Results<Ok<WorkItemPage>, ValidationProblem, ProblemHttpResult, UnauthorizedHttpResult>> ListAsync(
         Guid projectId,
         int? limit,
         string? cursor,
-        WorkItemFilter filter,
+        WorkItemFilterParameters parameters,
         IValidator<WorkItemFilter> validator,
         IWorkItemService service,
+        ClaimsPrincipal principal,
         CancellationToken cancellationToken)
     {
+        if (!Guid.TryParse(principal.FindFirstValue(TrekkyClaimTypes.Subject), out var callerId))
+        {
+            return TypedResults.Unauthorized();
+        }
+
         // Every query-string problem in one answer.
+        var filter = parameters.ToFilter(callerId);
         var errors = (await validator.ValidateAsync(filter, cancellationToken)).ToDictionary();
         var pageSize = limit ?? WorkItemCursor.DefaultLimit;
         if (pageSize is < 1 or > WorkItemCursor.MaxLimit)
@@ -173,10 +188,28 @@ internal static class WorkItemEndpoints
         return page is null ? ProjectNotFound() : TypedResults.Ok(page);
     }
 
-    private static async Task<Results<Ok<Board>, ProblemHttpResult>> GetBoardAsync(
-        Guid projectId, bool allDone, IWorkItemService service, CancellationToken cancellationToken)
+    private static async Task<Results<Ok<Board>, ValidationProblem, ProblemHttpResult, UnauthorizedHttpResult>> GetBoardAsync(
+        Guid projectId,
+        bool allDone,
+        WorkItemFilterParameters parameters,
+        IValidator<WorkItemFilter> validator,
+        IWorkItemService service,
+        ClaimsPrincipal principal,
+        CancellationToken cancellationToken)
     {
-        var board = await service.GetBoardAsync(projectId, allDone, cancellationToken);
+        if (!Guid.TryParse(principal.FindFirstValue(TrekkyClaimTypes.Subject), out var callerId))
+        {
+            return TypedResults.Unauthorized();
+        }
+
+        var filter = parameters.ToFilter(callerId);
+        var validation = await validator.ValidateAsync(filter, cancellationToken);
+        if (!validation.IsValid)
+        {
+            return TypedResults.ValidationProblem(validation.ToDictionary());
+        }
+
+        var board = await service.GetBoardAsync(projectId, filter, allDone, cancellationToken);
         return board is null ? ProjectNotFound() : TypedResults.Ok(board);
     }
 
@@ -305,7 +338,9 @@ internal static class WorkItemEndpoints
         Guid workItemId,
         string? ifMatch,
         MoveWorkItemRequest request,
+        WorkItemFilterParameters parameters,
         IValidator<MoveWorkItemRequest> validator,
+        IValidator<WorkItemFilter> filterValidator,
         IWorkItemService service,
         ClaimsPrincipal principal,
         HttpResponse response,
@@ -316,10 +351,18 @@ internal static class WorkItemEndpoints
             return TypedResults.Unauthorized();
         }
 
-        var validation = await validator.ValidateAsync(MoveWorkItemRequestValidator.ContextFor(request, workItemId), cancellationToken);
-        if (!validation.IsValid)
+        // Body and query-string problems in one answer.
+        var filter = parameters.ToFilter(actorId);
+        var errors = (await validator.ValidateAsync(MoveWorkItemRequestValidator.ContextFor(request, workItemId), cancellationToken)).ToDictionary();
+        foreach (var (field, messages) in (await filterValidator.ValidateAsync(filter, cancellationToken)).ToDictionary())
         {
-            return TypedResults.ValidationProblem(validation.ToDictionary());
+            // The body and the query string both have a status; keep both errors rather than one hiding the other.
+            errors[field] = errors.TryGetValue(field, out var bodyMessages) ? [.. bodyMessages, .. messages] : messages;
+        }
+
+        if (errors.Count > 0)
+        {
+            return TypedResults.ValidationProblem(errors);
         }
 
         if (string.IsNullOrEmpty(ifMatch))
@@ -328,7 +371,7 @@ internal static class WorkItemEndpoints
         }
 
         var result = await service.MoveAsync(
-            workItemId, request.Status!, request.AfterId, request.BeforeId, ifMatch, actorId, cancellationToken);
+            workItemId, request.Status!, request.AfterId, request.BeforeId, filter, ifMatch, actorId, cancellationToken);
         return Saved(result, response);
     }
 

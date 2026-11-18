@@ -224,26 +224,23 @@ paths:
       tags: [WorkItems]
       operationId: listWorkItems
       summary: List a project's work items, newest update first (US-08)
+      description: |
+        Filters (TREK-52) are the same as on the board. Different filters combine with AND; repeated values of one filter
+        with OR. By default an epic in Done and everything under it are left out (`completedEpics`). When `q` is a key of
+        this project, that item comes first on the first page and later pages leave it out.
       parameters:
         - $ref: '#/components/parameters/Limit'
         - $ref: '#/components/parameters/Cursor'
-        - name: type
-          in: query
-          required: false
-          description: Repeat to keep only these types, e.g. the parent candidates for an item (TRK-11.1).
-          schema:
-            type: array
-            items: { $ref: '#/components/schemas/WorkItemType' }
-          style: form
-          explode: true
-        - name: q
-          in: query
-          required: false
-          description: Keeps items whose key starts with it or whose title contains it, case-insensitive. When it is a key of this project, that item comes first on the first page and later pages leave it out.
-          schema: { type: string, maxLength: 200 }
+        - $ref: '#/components/parameters/FilterOpen'
+        - $ref: '#/components/parameters/FilterStatus'
+        - $ref: '#/components/parameters/FilterType'
+        - $ref: '#/components/parameters/FilterAssignee'
+        - $ref: '#/components/parameters/FilterParent'
+        - $ref: '#/components/parameters/FilterQuery'
+        - $ref: '#/components/parameters/FilterCompletedEpics'
       responses:
         '200':
-          description: A page of work items.
+          description: A page of work items, with how many match across every page.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/WorkItemPage' }
@@ -280,18 +277,27 @@ paths:
       tags: [WorkItems]
       operationId: getBoard
       summary: Board columns, each in rank order (TRK-17); Done is last finished first (US-11, v1.0)
+      description: Takes the list's filters (TREK-52). Every column is always there; a filtered-out status is an empty column.
       parameters:
         - name: allDone
           in: query
           required: false
-          description: Return every Done card instead of the latest 20.
+          description: Return every matching Done card instead of the latest 20.
           schema: { type: boolean, default: false }
+        - $ref: '#/components/parameters/FilterOpen'
+        - $ref: '#/components/parameters/FilterStatus'
+        - $ref: '#/components/parameters/FilterType'
+        - $ref: '#/components/parameters/FilterAssignee'
+        - $ref: '#/components/parameters/FilterParent'
+        - $ref: '#/components/parameters/FilterQuery'
+        - $ref: '#/components/parameters/FilterCompletedEpics'
       responses:
         '200':
-          description: One column per status in workflow order. Done holds the latest 20 cards unless allDone is true; count is always the column's full size.
+          description: One column per status in workflow order. Done holds the latest 20 matching cards unless allDone is true; count is always how many cards in the column match.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Board' }
+        '400': { $ref: '#/components/responses/ValidationProblem' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
 
@@ -422,9 +428,18 @@ paths:
         Position is given by neighbours in the target column; the server computes the rank (TRK-17). A status change
         follows the same rules as `/status` and records `WorkItemStatusChanged`; a reorder alone records no event and
         keeps `updatedAt`. Done is last finished first, so it takes no position. Dropping a card where it already is
-        changes nothing, ETag included.
+        changes nothing, ETag included. Send the board's filters (TREK-52): the neighbours must be next to each other
+        among the cards those filters show (cards hidden between them do not count), and the card lands directly below
+        `afterId`, or directly above `beforeId` at the top, so viewers who see every card see it there too.
       parameters:
         - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/FilterOpen'
+        - $ref: '#/components/parameters/FilterStatus'
+        - $ref: '#/components/parameters/FilterType'
+        - $ref: '#/components/parameters/FilterAssignee'
+        - $ref: '#/components/parameters/FilterParent'
+        - $ref: '#/components/parameters/FilterQuery'
+        - $ref: '#/components/parameters/FilterCompletedEpics'
       requestBody:
         required: true
         content:
@@ -631,6 +646,64 @@ components:
       required: false
       description: Opaque value from the previous page's `nextCursor`.
       schema: { type: string }
+    FilterOpen:
+      name: open
+      in: query
+      required: false
+      description: true keeps only items whose own status is not Done, also under open epics (TREK-52).
+      schema: { type: boolean, default: false }
+    FilterStatus:
+      name: status
+      in: query
+      required: false
+      description: Repeat to keep any of these statuses (TREK-52).
+      schema:
+        type: array
+        items: { $ref: '#/components/schemas/WorkItemStatus' }
+      style: form
+      explode: true
+    FilterType:
+      name: type
+      in: query
+      required: false
+      description: Repeat to keep any of these types, e.g. the parent candidates for an item (TRK-11.1).
+      schema:
+        type: array
+        items: { $ref: '#/components/schemas/WorkItemType' }
+      style: form
+      explode: true
+    FilterAssignee:
+      name: assignee
+      in: query
+      required: false
+      description: Repeat to keep items assigned to any of these, at most 50 (TREK-52). A user id, `me` for the caller, or `none` for unassigned.
+      schema:
+        type: array
+        maxItems: 50
+        items:
+          oneOf:
+            - { type: string, format: uuid }
+            - { type: string, enum: [me, none] }
+      style: form
+      explode: true
+    FilterParent:
+      name: parent
+      in: query
+      required: false
+      description: Keeps the items under this item at any depth, e.g. an epic's stories, tasks and subtasks (TREK-52). Its key, in any case, or its id; a key not in this project matches nothing.
+      schema: { type: string, examples: [TRK-42] }
+    FilterQuery:
+      name: q
+      in: query
+      required: false
+      description: Keeps items whose key starts with it or whose title contains it, case-insensitive.
+      schema: { type: string, maxLength: 200 }
+    FilterCompletedEpics:
+      name: completedEpics
+      in: query
+      required: false
+      description: hide leaves out every epic in Done and everything under it at any depth, whatever their own status; items under an open epic and items with no epic stay. show keeps them (TREK-52).
+      schema: { type: string, enum: [hide, show], default: hide }
     IfMatch:
       name: If-Match
       in: header
@@ -867,12 +940,16 @@ components:
         email: { type: [string, 'null'], format: email }
     WorkItemPage:
       type: object
-      required: [items, nextCursor]
+      required: [items, nextCursor, totalCount]
       properties:
         items:
           type: array
           items: { $ref: '#/components/schemas/WorkItemSummary' }
         nextCursor: { type: [string, 'null'] }
+        totalCount:
+          type: integer
+          minimum: 0
+          description: How many items match the filters across every page (TREK-52).
     Board:
       type: object
       required: [columns]

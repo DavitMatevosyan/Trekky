@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "The main window: core APIs only (including listening to the auth-callback event). The app's own commands (server settings, open_in_browser, refresh token load/save) are allowed by default.",
+  "description": "The main window: core APIs only (including listening to the auth-callback event). The app's own commands (server settings, open_in_browser, refresh token load/save, check_for_update, install_update) are allowed by default; the updater plugin's own JavaScript API is not granted, as only these Rust commands use it.",
   "windows": ["main"],
   "permissions": ["core:default"]
 }

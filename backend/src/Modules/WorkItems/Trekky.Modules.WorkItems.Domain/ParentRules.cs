@@ -16,6 +16,12 @@ internal static class ParentRules
         [WorkItemTypes.TechDebt] = [WorkItemTypes.Epic],
     };
 
+    /// <summary>
+    /// The most parents above any item: Epic, Story, Task, SubTask is the longest chain. Filters that walk up from an item
+    /// (TREK-52) follow this many parents and no more; ParentRulesTests keeps it in step with the table.
+    /// </summary>
+    public const int MaxAncestors = 3;
+
     /// <summary>The types an item of <paramref name="type"/> may have as its parent, top of the hierarchy first.</summary>
     public static IReadOnlyList<string> AllowedParentTypes(string type) => AllowedParents[type];
 
