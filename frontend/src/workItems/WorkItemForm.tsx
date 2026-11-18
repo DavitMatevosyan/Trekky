@@ -127,7 +127,7 @@ export function WorkItemForm({
   const parentFieldError = parentError?.text === pendingParent ? parentError.message : errors.parent
 
   return (
-    <form aria-labelledby={headingId} className="grid gap-4 rounded-xl border border-border bg-card p-4" onSubmit={(event) => void submit(event)} noValidate>
+    <form aria-labelledby={headingId} className="grid gap-4 rounded-xl border border-border bg-surface p-4" onSubmit={(event) => void submit(event)} noValidate>
       <h2 id={headingId} className="text-lg font-semibold">
         {heading}
       </h2>

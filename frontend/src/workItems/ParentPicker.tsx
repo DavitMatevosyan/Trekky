@@ -204,7 +204,7 @@ export function ParentPicker({
           aria-label={messages.workItemForm.parent}
           hidden={!open || options.length === 0}
           onMouseDown={keepFocus}
-          className="absolute z-10 mt-1 max-h-64 w-full overflow-y-auto rounded-md border border-border bg-card py-1 text-sm shadow-md"
+          className="absolute z-10 mt-1 max-h-64 w-full overflow-y-auto rounded-md border border-border bg-surface-raised py-1 text-sm shadow-md"
         >
           {options.map((option, index) => (
             <li
@@ -235,7 +235,7 @@ export function ParentPicker({
           <p
             aria-hidden="true"
             onMouseDown={keepFocus}
-            className="absolute z-10 mt-1 w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-muted-foreground shadow-md"
+            className="absolute z-10 mt-1 w-full rounded-md border border-border bg-surface-raised px-3 py-2 text-sm text-muted-foreground shadow-md"
           >
             {emptyMessage}
           </p>

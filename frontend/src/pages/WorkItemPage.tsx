@@ -158,7 +158,7 @@ function WorkItemView({ projectKey, current }: { projectKey: string; current: Ve
             {item.children.length === 0 ? (
               <p className="text-sm text-muted-foreground">{messages.workItem.noChildren}</p>
             ) : (
-              <ul aria-labelledby="children-heading" className="divide-y divide-border rounded-xl border border-border text-sm">
+              <ul aria-labelledby="children-heading" className="divide-y divide-border rounded-xl border border-border bg-surface text-sm">
                 {item.children.map((child) => (
                   <li key={child.id} className="flex items-center gap-3 px-3 py-2">
                     <Link to={`/${projectKey}/items/${child.key}`} state={itemLinkState} className="font-mono font-semibold underline-offset-4 hover:underline">
@@ -174,7 +174,7 @@ function WorkItemView({ projectKey, current }: { projectKey: string; current: Ve
           </section>
         </div>
 
-        <section aria-labelledby="details-heading" className="grid content-start gap-3 rounded-xl border border-border p-4 text-sm">
+        <section aria-labelledby="details-heading" className="grid content-start gap-3 rounded-xl border border-border bg-surface p-4 text-sm">
           <h2 id="details-heading" className="sr-only">
             {messages.workItem.details}
           </h2>

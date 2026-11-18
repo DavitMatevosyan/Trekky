@@ -60,7 +60,7 @@ export function ProjectsPage() {
       {projects.isSuccess && items.length === 0 && <p className="text-muted-foreground">{messages.projects.empty}</p>}
 
       {items.length > 0 && (
-        <ul aria-label={messages.projects.title} className="divide-y divide-border rounded-xl border border-border">
+        <ul aria-label={messages.projects.title} className="divide-y divide-border rounded-xl border border-border bg-surface">
           {items.map((project) => (
             <li key={project.id} className="flex items-center gap-4 px-4 py-3">
               <span className="w-16 font-mono text-sm font-semibold">{project.key}</span>

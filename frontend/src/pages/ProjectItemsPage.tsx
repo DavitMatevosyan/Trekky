@@ -90,7 +90,7 @@ function ProjectItems({ projectId, projectKey, projectName, itemCount }: Project
       )}
 
       {rows.length > 0 && (
-        <div className={cn('overflow-x-auto rounded-xl border border-border', items.isPlaceholderData && 'opacity-60')} aria-busy={items.isPlaceholderData || undefined}>
+        <div className={cn('overflow-x-auto rounded-xl border border-border bg-surface', items.isPlaceholderData && 'opacity-60')} aria-busy={items.isPlaceholderData || undefined}>
           <table className="w-full text-left text-sm">
             <caption className="sr-only">{messages.project.items}</caption>
             <thead className="border-b border-border text-muted-foreground">

@@ -30,6 +30,11 @@ export const messages = {
     mainNav: 'Main',
     sourceCode: 'Source code (AGPL-3.0)',
   },
+  /** The theme switch in the app bar (TREK-56). */
+  theme: {
+    label: 'Theme',
+    choices: { light: 'Light', dark: 'Dark', system: 'System' },
+  },
   /** Labels for the API's role values (`owner`, `admin`, ...); unknown values are shown as sent. */
   roles: { owner: 'Owner', admin: 'Admin', member: 'Member', viewer: 'Viewer' } as Record<string, string | undefined>,
   projects: {
