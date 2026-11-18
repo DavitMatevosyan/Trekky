@@ -5,6 +5,7 @@ import { MarkdownText } from '../components/MarkdownText.tsx'
 import { RelativeTime } from '../components/RelativeTime.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { messages } from '../i18n/messages.ts'
+import { newestCommentAt, useComments } from '../workItems/useComments.ts'
 import { useUpdateWorkItem, useWorkItem, type UpdateWorkItemInput, type VersionedWorkItem } from '../workItems/useWorkItems.ts'
 import { AssigneeSelect } from '../workItems/AssigneeSelect.tsx'
 import { StatusSelect } from '../workItems/StatusSelect.tsx'
@@ -56,6 +57,12 @@ function WorkItemView({ projectKey, current }: { projectKey: string; current: Ve
   const [announcement, setAnnouncement] = useState('')
   // A comment change is not an edit of the item, but its event joins the history: the history waits for it like for an edit.
   const [lastCommentAt, setLastCommentAt] = useState<string | null>(null)
+  // A comment does not change the item's updatedAt, so the history also waits for the newest comment it knows of: the
+  // ones posted on this page (lastCommentAt) and, after a reload, the loaded comments (the same cached query as the
+  // comment list; the history reads once they are in). Comments come oldest first, 50 a page, so on an item with more
+  // than 50 a reload only knows the loaded ones; a comment deleted just before a reload is gone from the list too.
+  // Both need the item's own last-activity time from the server.
+  const comments = useComments(item.id)
   const editButton = useRef<HTMLButtonElement>(null)
   const statusLabelId = useId()
   const assigneeLabelId = useId()
@@ -232,7 +239,12 @@ function WorkItemView({ projectKey, current }: { projectKey: string; current: Ve
           window.setTimeout(() => setAnnouncement(message), 50)
         }}
       />
-      <WorkItemHistory key={item.id} workItemId={item.id} updatedAt={later(item.updatedAt, lastCommentAt)} />
+      <WorkItemHistory
+        key={item.id}
+        workItemId={item.id}
+        updatedAt={later(later(item.updatedAt, lastCommentAt), newestCommentAt(comments.data?.pages))}
+        ready={!comments.isPending}
+      />
     </article>
   )
 }

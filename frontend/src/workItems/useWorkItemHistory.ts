@@ -19,12 +19,13 @@ function isBehind(newestEventAt: string | undefined, updatedAt: string): boolean
  * a change starts again from the newest page and the attempts count from that change. Until the change's event has
  * arrived the query checks again, a bounded number of times: a change may have no event, and must not poll forever.
  */
-export function useWorkItemHistory(workItemId: string, updatedAt: string) {
+export function useWorkItemHistory(workItemId: string, updatedAt: string, enabled = true) {
   const { api } = useAuth()
   return useInfiniteQuery({
     queryKey: ['work-items', 'history', workItemId, updatedAt] as const,
     initialPageParam: undefined as string | undefined,
     placeholderData: keepPreviousData,
+    enabled,
     queryFn: async ({ pageParam }) => {
       const { data, error } = await api.GET('/api/v1/work-items/{workItemId}/history', {
         params: { path: { workItemId }, query: pageParam ? { cursor: pageParam } : {} },
