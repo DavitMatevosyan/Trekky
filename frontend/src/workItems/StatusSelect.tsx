@@ -1,6 +1,7 @@
 import { useEffect, useId } from 'react'
 import { ProblemError } from '../api/problem.ts'
 import { messages } from '../i18n/messages.ts'
+import { StatusIcon } from './StatusIcon.tsx'
 import { useChangeWorkItemStatus, type VersionedWorkItem } from './useWorkItems.ts'
 import { statusLabel, WORK_ITEM_STATUSES } from './workItemTypes.ts'
 
@@ -43,29 +44,36 @@ export function StatusSelect({
   const known = WORK_ITEM_STATUSES.filter((status) => status === item.status || item.allowedTransitions.includes(status))
   const options = known.includes(item.status) ? known : [item.status, ...known]
   const error = change.error ? errorMessage(change.error) : null
+  // While saving, show where the item is going; afterwards the item itself says where it is.
+  const shown = change.isPending ? change.variables : item.status
 
   return (
     <div className="grid gap-1">
-      <select
-        aria-labelledby={labelledBy}
-        // While saving, show where the item is going; afterwards the item itself says where it is.
-        value={change.isPending ? change.variables : item.status}
-        disabled={disabled || change.isPending || item.allowedTransitions.length === 0}
-        aria-busy={change.isPending || undefined}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={error ? errorId : undefined}
-        onChange={(event) => {
-          const to = event.target.value
-          if (to !== item.status) change.mutate(to, { onSuccess: (moved) => onMoved(moved.item.status) })
-        }}
-        className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive"
-      >
-        {options.map((status) => (
-          <option key={status} value={status}>
-            {statusLabel(status)}
-          </option>
-        ))}
-      </select>
+      {/* TREK-59: the shown status's dot inside the select, as the type select shows its icon. */}
+      <div className="relative has-[select:disabled]:[&>span]:opacity-50">
+        <span className="pointer-events-none absolute inset-y-0 left-2 flex items-center">
+          <StatusIcon status={shown} />
+        </span>
+        <select
+          aria-labelledby={labelledBy}
+          value={shown}
+          disabled={disabled || change.isPending || item.allowedTransitions.length === 0}
+          aria-busy={change.isPending || undefined}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? errorId : undefined}
+          onChange={(event) => {
+            const to = event.target.value
+            if (to !== item.status) change.mutate(to, { onSuccess: (moved) => onMoved(moved.item.status) })
+          }}
+          className="h-8 w-full rounded-md border border-input bg-background py-0 pr-2 pl-7 text-sm shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive"
+        >
+          {options.map((status) => (
+            <option key={status} value={status}>
+              {statusLabel(status)}
+            </option>
+          ))}
+        </select>
+      </div>
       {error && (
         <p id={errorId} role="alert" className="text-xs text-destructive">
           {error}

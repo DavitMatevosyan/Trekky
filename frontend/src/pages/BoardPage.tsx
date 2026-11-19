@@ -47,6 +47,7 @@ import {
   type BoardCard as BoardCardData,
   type BoardColumn as BoardColumnData,
 } from '../workItems/useWorkItems.ts'
+import { StatusIcon } from '../workItems/StatusIcon.tsx'
 import { TypeBadge } from '../workItems/TypeBadge.tsx'
 import { statusLabel, typeAccent, typeCard, typeOverlay, WORK_ITEM_STATUSES } from '../workItems/workItemTypes.ts'
 
@@ -344,7 +345,9 @@ function BoardColumn({ column, total, projectKey, boardUrl, moving, readOnly, fo
       aria-labelledby={headingId}
       className={cn('grid min-w-56 flex-1 basis-0 content-start gap-2 rounded-xl border border-border bg-surface p-3', isOver && 'ring-2 ring-inset ring-ring')}
     >
-      <h2 id={headingId} ref={heading} tabIndex={-1} className="text-sm font-semibold">
+      <h2 id={headingId} ref={heading} tabIndex={-1} className="flex items-center gap-1.5 text-sm font-semibold">
+        {/* TREK-59: the status's dot; decorative, the heading names the status. */}
+        <StatusIcon status={column.status} />
         {total === undefined ? messages.board.columnHeading(label, count) : messages.board.columnHeadingFiltered(label, count, total)}
       </h2>
 

@@ -105,7 +105,8 @@ describe('desktop sign-in', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Log in with your browser' }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Something went wrong. Please try again.')
+    // FormError's alert region is always on the page: wait for its text, not for the region.
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Something went wrong. Please try again.'))
     expect(screen.queryByText('Finish in your browser. Trekky continues here automatically.')).not.toBeInTheDocument()
   })
 
