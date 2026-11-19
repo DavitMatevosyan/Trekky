@@ -7,7 +7,7 @@ using Npgsql;
 namespace Trekky.Api.Tests;
 
 /// <summary>
-/// TREK-46: Owner, Admin, Member and Viewer are checked by the API on every endpoint (ADR-0025). Viewers only read;
+/// TREK-46: Owner, Admin, Member and Viewer are checked by the API on every endpoint (ADR-0026). Viewers only read;
 /// Members create and edit work items and comments; Admins and Owners also create projects.
 /// </summary>
 [Collection(ApiCollection.Name)]

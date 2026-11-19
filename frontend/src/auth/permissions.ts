@@ -1,5 +1,5 @@
 /**
- * What a role may do, mirroring the API's role policies (ADR-0025). The API is the guard and answers 403 otherwise;
+ * What a role may do, mirroring the API's role policies (ADR-0026). The API is the guard and answers 403 otherwise;
  * this only keeps the UI from offering what would be refused.
  */
 export interface Permissions {

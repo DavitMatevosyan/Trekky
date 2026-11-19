@@ -26,6 +26,91 @@ export function typeLabel(type: string): string {
   return isWorkItemType(type) ? messages.workItemTypes[type] : type
 }
 
+/**
+ * How a type looks (TREK-57, ADR-0025): Tailwind classes on the type's theme tokens in index.css. `token` names the
+ * tokens (`--type-<token>-{tint,accent,text}`); the class names are spelled out so Tailwind finds them.
+ */
+export interface TypeStyle {
+  /** The tokens' name, or null for the neutral style of an unknown type. */
+  token: string | null
+  /** Tinted background, type-coloured text and a 1px border in the accent. */
+  badge: string
+  /** The icon in the accent colour. */
+  icon: string
+  /** The 3px left stripe on cards and rows. */
+  stripe: string
+  /** The faint background of a row or card that should stand out (an Epic). */
+  tint: string
+}
+
+const TYPE_STYLES: Record<WorkItemType, TypeStyle> = {
+  epic: {
+    token: 'epic',
+    badge: 'bg-type-epic-tint text-type-epic-text border-type-epic-accent',
+    icon: 'text-type-epic-accent',
+    stripe: 'border-l-[3px] border-l-type-epic-accent',
+    tint: 'bg-type-epic-tint',
+  },
+  story: {
+    token: 'story',
+    badge: 'bg-type-story-tint text-type-story-text border-type-story-accent',
+    icon: 'text-type-story-accent',
+    stripe: 'border-l-[3px] border-l-type-story-accent',
+    tint: 'bg-type-story-tint',
+  },
+  task: {
+    token: 'task',
+    badge: 'bg-type-task-tint text-type-task-text border-type-task-accent',
+    icon: 'text-type-task-accent',
+    stripe: 'border-l-[3px] border-l-type-task-accent',
+    tint: 'bg-type-task-tint',
+  },
+  subtask: {
+    token: 'subtask',
+    badge: 'bg-type-subtask-tint text-type-subtask-text border-type-subtask-accent',
+    icon: 'text-type-subtask-accent',
+    stripe: 'border-l-[3px] border-l-type-subtask-accent',
+    tint: 'bg-type-subtask-tint',
+  },
+  bug: {
+    token: 'bug',
+    badge: 'bg-type-bug-tint text-type-bug-text border-type-bug-accent',
+    icon: 'text-type-bug-accent',
+    stripe: 'border-l-[3px] border-l-type-bug-accent',
+    tint: 'bg-type-bug-tint',
+  },
+  tech_debt: {
+    token: 'tech-debt',
+    badge: 'bg-type-tech-debt-tint text-type-tech-debt-text border-type-tech-debt-accent',
+    icon: 'text-type-tech-debt-accent',
+    stripe: 'border-l-[3px] border-l-type-tech-debt-accent',
+    tint: 'bg-type-tech-debt-tint',
+  },
+}
+
+/** An unknown type (one the API added later) looks neutral rather than borrowing another type's colour. */
+const NEUTRAL_STYLE: TypeStyle = {
+  token: null,
+  badge: 'bg-muted text-muted-foreground border-border',
+  icon: 'text-muted-foreground',
+  // input, not border: a stripe still meets 3:1 against the panels when the type is unknown.
+  stripe: 'border-l-[3px] border-l-input',
+  tint: '',
+}
+
+/** The look of a type value; unknown values get the neutral style. */
+export function typeStyle(type: string): TypeStyle {
+  return isWorkItemType(type) ? TYPE_STYLES[type] : NEUTRAL_STYLE
+}
+
+/**
+ * The type's 3px left stripe, for a card or row (TREK-57). Put it after any all-sides border colour (`border-border`)
+ * in `cn(...)`: tailwind-merge drops a side colour that comes before an all-sides one.
+ */
+export function typeAccent(type: string): string {
+  return typeStyle(type).stripe
+}
+
 /** Label for a status value; unknown values are shown as sent. */
 export function statusLabel(status: string): string {
   return messages.workItemStatuses[status] ?? status

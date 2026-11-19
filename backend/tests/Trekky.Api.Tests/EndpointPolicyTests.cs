@@ -7,7 +7,7 @@ using Trekky.SharedKernel;
 
 namespace Trekky.Api.Tests;
 
-/// <summary>TREK-46: every endpoint names the role policy for its action (ADR-0025), and each policy lets in exactly its roles.</summary>
+/// <summary>TREK-46: every endpoint names the role policy for its action (ADR-0026), and each policy lets in exactly its roles.</summary>
 [Collection(ApiCollection.Name)]
 public sealed class EndpointPolicyTests(TrekkyApiFactory factory)
 {

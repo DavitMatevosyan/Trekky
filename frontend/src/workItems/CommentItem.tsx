@@ -118,7 +118,7 @@ export function CommentItem({ comment, workItemId, mine, onChanged, onGone }: Co
   }
 
   return (
-    <li className="grid gap-1 rounded-xl border border-border px-3 py-2">
+    <li className="grid gap-1 rounded-xl border border-border bg-surface px-3 py-2">
       <div className="flex flex-wrap items-baseline justify-between gap-x-2">
         <p id={headerId} className="flex flex-wrap items-baseline gap-x-2 text-sm">
           <span className="font-medium">{comment.author?.displayName ?? text.formerMember}</span>

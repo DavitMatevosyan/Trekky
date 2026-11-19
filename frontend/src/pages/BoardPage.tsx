@@ -287,7 +287,7 @@ function Board({ projectId, projectKey, projectName }: { projectId: string; proj
           </div>
           <DragOverlay dropAnimation={null}>
             {dragging && (
-              <div className="grid cursor-grabbing gap-1 rounded-lg border border-border bg-background p-2 text-sm shadow-lg">
+              <div className="grid cursor-grabbing gap-1 rounded-lg border border-border bg-surface-raised p-2 text-sm shadow-lg">
                 <CardHeader keyLabel={<span className="font-mono font-semibold">{dragging.key}</span>} type={dragging.type} />
                 <p className="line-clamp-3 break-words">{dragging.title}</p>
               </div>
@@ -341,7 +341,7 @@ function BoardColumn({ column, total, projectKey, boardUrl, moving, readOnly, fo
     <section
       ref={setNodeRef}
       aria-labelledby={headingId}
-      className={cn('grid min-w-56 flex-1 basis-0 content-start gap-2 rounded-xl border border-border p-3', isOver && 'ring-2 ring-inset ring-ring')}
+      className={cn('grid min-w-56 flex-1 basis-0 content-start gap-2 rounded-xl border border-border bg-surface p-3', isOver && 'ring-2 ring-inset ring-ring')}
     >
       <h2 id={headingId} ref={heading} tabIndex={-1} className="text-sm font-semibold">
         {total === undefined ? messages.board.columnHeading(label, count) : messages.board.columnHeadingFiltered(label, count, total)}
@@ -418,7 +418,7 @@ function BoardCard({ card, projectKey, boardUrl, moving, readOnly, focusAfterMov
       {...(readOnly ? {} : listeners)}
       style={{ transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined, transition }}
       className={cn(
-        'relative grid gap-1 rounded-lg border border-border p-2 text-sm hover:bg-muted',
+        'relative grid gap-1 rounded-lg border border-border bg-surface-raised p-2 text-sm hover:bg-muted',
         // Only a card that can be dragged blocks text selection and the long-press menu, which would fight the drag.
         !readOnly && 'cursor-grab touch-manipulation select-none [-webkit-touch-callout:none]',
         isDragging && 'opacity-40',

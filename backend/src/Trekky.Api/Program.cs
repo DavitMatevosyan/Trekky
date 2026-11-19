@@ -12,7 +12,7 @@ builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
 builder.Services.AddTrekkyPersistence();
 
-// Every endpoint names one of the role policies (ADR-0025) or opts out with AllowAnonymous; one that names neither
+// Every endpoint names one of the role policies (ADR-0026) or opts out with AllowAnonymous; one that names neither
 // still needs a signed-in member of an organization (the fallback).
 builder.Services.AddAuthorizationBuilder().AddTrekkyPolicies();
 

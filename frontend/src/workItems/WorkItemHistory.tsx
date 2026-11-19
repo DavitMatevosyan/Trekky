@@ -28,7 +28,7 @@ export function WorkItemHistory({ workItemId, updatedAt, ready = true }: { workI
       {history.isSuccess && !loadFailed && events.length === 0 && <p className="text-sm text-muted-foreground">{messages.workItemHistory.empty}</p>}
 
       {events.length > 0 && (
-        <ul aria-labelledby={headingId} className="divide-y divide-border rounded-xl border border-border text-sm">
+        <ul aria-labelledby={headingId} className="divide-y divide-border rounded-xl border border-border bg-surface text-sm">
           {events.map((event) => (
             <li key={event.eventId} className="flex flex-wrap items-baseline justify-between gap-x-4 px-3 py-2">
               <span className="min-w-0 break-words">

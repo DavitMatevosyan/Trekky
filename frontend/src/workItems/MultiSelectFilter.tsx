@@ -76,7 +76,7 @@ export function MultiSelectFilter({
           id={panelId}
           role="group"
           aria-label={label}
-          className="absolute left-0 z-20 mt-1 grid max-h-72 min-w-48 gap-1 overflow-y-auto rounded-md border border-border bg-card p-2 text-sm shadow-md"
+          className="absolute left-0 z-20 mt-1 grid max-h-72 min-w-48 gap-1 overflow-y-auto rounded-md border border-border bg-surface-raised p-2 text-sm shadow-md"
         >
           {error && <p className="px-1 text-xs text-destructive">{error}</p>}
           {options.map((option) => (

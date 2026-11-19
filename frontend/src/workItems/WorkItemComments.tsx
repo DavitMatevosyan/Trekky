@@ -69,7 +69,7 @@ export function WorkItemComments({ workItemId, onChanged }: { workItemId: string
               key={comment.id}
               comment={comment}
               workItemId={workItemId}
-              // A Viewer's own old comments stay theirs, but they can no longer change them (ADR-0025).
+              // A Viewer's own old comments stay theirs, but they can no longer change them (ADR-0026).
               mine={can.editWork && comment.authorId === me.data?.user.id}
               onChanged={onChanged}
               // The comment and its buttons are gone; focus stays in the section (WCAG 2.4.3).

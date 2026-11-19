@@ -3,7 +3,7 @@ using System.Collections.Frozen;
 namespace Trekky.SharedKernel;
 
 /// <summary>
-/// The authorization policies every endpoint picks from, one per kind of action (ADR-0025). Each names the roles it
+/// The authorization policies every endpoint picks from, one per kind of action (ADR-0026). Each names the roles it
 /// lets through; the API checks them, so hiding a button in the UI is never the only guard.
 /// </summary>
 public static class TrekkyPolicies

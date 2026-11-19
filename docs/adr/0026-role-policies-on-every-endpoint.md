@@ -1,4 +1,4 @@
-# ADR-0025: Every endpoint names the role policy for its action
+# ADR-0026: Every endpoint names the role policy for its action
 
 - **Status:** Agreed. The requirement is Davit's (TREK-45 and TREK-46: Owner, Admin, Member and Viewer checked on every endpoint, a policy per action, one organization per user); the policy set, the Admin-only project creation and the claim-based check were decided by Claude under ADR-0023.
 - **Date:** 2026-11-18

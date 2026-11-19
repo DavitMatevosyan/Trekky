@@ -6,6 +6,7 @@ import { App } from '../App.tsx'
 import { AuthSession } from '../auth/AuthSession.ts'
 import type { Tokens } from '../auth/Tokens.ts'
 import { routes } from '../routes.tsx'
+import { ThemeProvider } from '../theme/ThemeProvider.tsx'
 
 export const validTokens: Tokens = { accessToken: 'access-1', refreshToken: 'refresh-1', expiresAt: Date.now() + 15 * 60_000 }
 
@@ -64,7 +65,12 @@ export function renderApp({
   if (tokens) session.setTokens(tokens)
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
   const router = createMemoryRouter(routes, { initialEntries: [path] })
-  const view = render(<App platform={platform} session={session} queryClient={queryClient} router={router} />)
+  // As main.tsx does: the theme provider sits around the app.
+  const view = render(
+    <ThemeProvider>
+      <App platform={platform} session={session} queryClient={queryClient} router={router} />
+    </ThemeProvider>,
+  )
   return { ...view, session, router, fetchFn }
 }
 
