@@ -1,9 +1,11 @@
 import css from '../index.css?raw'
 import { contrastRatio, parseOklch, withAlpha, type Oklch } from '../lib/contrast.ts'
-import { typeStyle, WORK_ITEM_TYPES } from '../workItems/workItemTypes.ts'
+import { statusStyle, typeStyle, WORK_ITEM_STATUSES, WORK_ITEM_TYPES } from '../workItems/workItemTypes.ts'
 
 /** The token name of each type (`tech-debt` for `tech_debt`). */
 const TYPE_TOKENS = WORK_ITEM_TYPES.map((type) => typeStyle(type).token ?? type)
+/** The token name of each status (`in-progress` for `in_progress`). */
+const STATUS_TOKENS = WORK_ITEM_STATUSES.map((status) => statusStyle(status).token ?? status)
 
 /**
  * The `--name: oklch(…)` tokens declared in the CSS block that starts with `selector {`. A token in any other form
@@ -79,13 +81,22 @@ const pairs: Pair[] = [
     ['type-epic-accent', bg, UI, ['type-epic-tint', alpha]],
     ['ring', bg, UI, ['type-epic-tint', alpha]],
   ]),
+  // Statuses (TREK-59): chip text on its tint, the dot on its tint, against every panel (board headings, the status
+  // select), on muted as a guard for any future row-hover use, and Done's check against its disc.
+  ...STATUS_TOKENS.flatMap((status): Pair[] => [
+    [`status-${status}-text`, `status-${status}-tint`, TEXT],
+    [`status-${status}-accent`, `status-${status}-tint`, UI],
+    ...surfaces.map((bg): Pair => [`status-${status}-accent`, bg, UI]),
+    [`status-${status}-accent`, 'muted', UI],
+  ]),
+  ['surface', 'status-done-accent', UI],
 ]
 
 describe('theme tokens', () => {
   it.each(Object.entries(themes))('%s defines every token in the same set', (_, theme) => {
     expect([...theme.keys()].sort()).toEqual([...themes.light.keys()].sort())
-    // 14 base tokens (TREK-56) and three shades for each of the six types (TREK-57).
-    expect(theme.size).toBe(14 + 3 * TYPE_TOKENS.length)
+    // 14 base tokens (TREK-56), three shades for each of the six types (TREK-57) and of the four statuses (TREK-59).
+    expect(theme.size).toBe(14 + 3 * TYPE_TOKENS.length + 3 * STATUS_TOKENS.length)
   })
 
   for (const [name, theme] of Object.entries(themes)) {

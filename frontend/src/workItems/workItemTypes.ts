@@ -143,6 +143,33 @@ export function typeAccent(type: string): string {
   return typeStyle(type).stripe
 }
 
+/**
+ * How a status looks (TREK-59, ADR-0025): Tailwind classes on the status tokens in index.css, quieter than the type
+ * colours so types stay the main colour signal. Spelled out so Tailwind finds them.
+ */
+export interface StatusStyle {
+  /** The tokens' name (`--status-<token>-…`), or null for the neutral style of an unknown status. */
+  token: string | null
+  /** The chip: tinted background and status-coloured text. */
+  chip: string
+  /** The status icon in the accent colour. */
+  icon: string
+}
+
+const STATUS_STYLES: Record<string, StatusStyle | undefined> = {
+  todo: { token: 'todo', chip: 'bg-status-todo-tint text-status-todo-text', icon: 'text-status-todo-accent' },
+  in_progress: { token: 'in-progress', chip: 'bg-status-in-progress-tint text-status-in-progress-text', icon: 'text-status-in-progress-accent' },
+  in_review: { token: 'in-review', chip: 'bg-status-in-review-tint text-status-in-review-text', icon: 'text-status-in-review-accent' },
+  done: { token: 'done', chip: 'bg-status-done-tint text-status-done-text', icon: 'text-status-done-accent' },
+}
+
+const NEUTRAL_STATUS: StatusStyle = { token: null, chip: 'bg-muted text-muted-foreground', icon: 'text-muted-foreground' }
+
+/** The look of a status value; unknown values get the neutral style. */
+export function statusStyle(status: string): StatusStyle {
+  return STATUS_STYLES[status] ?? NEUTRAL_STATUS
+}
+
 /** Label for a status value; unknown values are shown as sent. */
 export function statusLabel(status: string): string {
   return messages.workItemStatuses[status] ?? status
