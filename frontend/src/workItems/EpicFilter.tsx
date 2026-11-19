@@ -2,6 +2,7 @@ import { useId, useRef, useState, type KeyboardEvent } from 'react'
 import { messages } from '../i18n/messages.ts'
 import { cn } from '../lib/cn.ts'
 import { useDebounced } from '../lib/useDebounced.ts'
+import { TypeIcon } from './TypeIcon.tsx'
 import { useParentCandidates, useWorkItem } from './useWorkItems.ts'
 
 const SEARCH_DELAY_MS = 250
@@ -152,13 +153,14 @@ export function EpicFilter({
             id={optionId(option.id)}
             role="option"
             aria-selected={index === active}
-            className={cn('flex cursor-pointer gap-2 px-3 py-1.5', index === active && 'bg-muted outline-2 -outline-offset-2 outline-ring')}
+            className={cn('flex cursor-pointer items-center gap-2 px-3 py-1.5', index === active && 'bg-muted outline-2 -outline-offset-2 outline-ring')}
             onMouseDown={(event) => {
               event.preventDefault()
               choose(option)
             }}
             onMouseEnter={() => setActive(index)}
           >
+            <TypeIcon type={option.type} className="size-3.5" />
             <span className="font-mono font-semibold">{option.key}</span>
             <span className="truncate">{option.title}</span>
           </li>

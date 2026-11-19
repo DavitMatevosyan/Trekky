@@ -76,8 +76,9 @@ describe('BoardPage', () => {
 
     const link = await screen.findByRole('link', { name: 'TRK-1' })
     expect(link).toHaveAttribute('aria-roledescription', 'movable card')
+    // The card's type first (TREK-58), then how to move it.
     expect(link).toHaveAccessibleDescription(
-      'Press Enter to open this card. To move it, press Space, use the left and right arrow keys to change column and the up and down arrow keys to change its place, then press Space to drop it or Escape to cancel.',
+      'Bug Press Enter to open this card. To move it, press Space, use the left and right arrow keys to change column and the up and down arrow keys to change its place, then press Space to drop it or Escape to cancel.',
     )
   })
 
@@ -416,7 +417,8 @@ describe('BoardPage roles (TREK-46)', () => {
     await screen.findByText(me.user.email)
     const link = await screen.findByRole('link', { name: 'TRK-1' })
     expect(link).not.toHaveAttribute('aria-roledescription')
-    expect(link).not.toHaveAccessibleDescription()
+    // Only the card's type (TREK-58), no instructions for moving it.
+    expect(link).toHaveAccessibleDescription('Bug')
     expect(link.closest('li')).not.toHaveClass('cursor-grab')
     expect(screen.queryByRole('button', { name: 'New item' })).not.toBeInTheDocument()
   })

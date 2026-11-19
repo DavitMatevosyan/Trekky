@@ -47,7 +47,8 @@ import {
   type BoardCard as BoardCardData,
   type BoardColumn as BoardColumnData,
 } from '../workItems/useWorkItems.ts'
-import { statusLabel, typeLabel, WORK_ITEM_STATUSES } from '../workItems/workItemTypes.ts'
+import { TypeBadge } from '../workItems/TypeBadge.tsx'
+import { statusLabel, typeAccent, typeCard, typeOverlay, WORK_ITEM_STATUSES } from '../workItems/workItemTypes.ts'
 
 const DONE_PARAM = 'done'
 const DONE_ALL = 'all'
@@ -287,7 +288,7 @@ function Board({ projectId, projectKey, projectName }: { projectId: string; proj
           </div>
           <DragOverlay dropAnimation={null}>
             {dragging && (
-              <div className="grid cursor-grabbing gap-1 rounded-lg border border-border bg-surface-raised p-2 text-sm shadow-lg">
+              <div className={cn('grid cursor-grabbing gap-1 rounded-lg border border-border p-2 text-sm shadow-lg', typeOverlay(dragging.type), typeAccent(dragging.type))}>
                 <CardHeader keyLabel={<span className="font-mono font-semibold">{dragging.key}</span>} type={dragging.type} />
                 <p className="line-clamp-3 break-words">{dragging.title}</p>
               </div>
@@ -407,6 +408,8 @@ function BoardCard({ card, projectKey, boardUrl, moving, readOnly, focusAfterMov
     disabled: { draggable: moving || readOnly, droppable: card.status === DONE },
   })
   const link = useRef<HTMLAnchorElement | null>(null)
+  // The link is the card's one tab stop: keyboard users hear the type with it, not only when browsing.
+  const typeId = useId()
   useEffect(() => {
     // Only when the card's own remount dropped the focus: not if the user has moved on while it saved.
     if (focusAfterMove.current === card.id && document.activeElement === document.body) link.current?.focus()
@@ -418,13 +421,17 @@ function BoardCard({ card, projectKey, boardUrl, moving, readOnly, focusAfterMov
       {...(readOnly ? {} : listeners)}
       style={{ transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined, transition }}
       className={cn(
-        'relative grid gap-1 rounded-lg border border-border bg-surface-raised p-2 text-sm hover:bg-muted',
+        'relative grid gap-1 rounded-lg border border-border p-2 text-sm',
         // Only a card that can be dragged blocks text selection and the long-press menu, which would fight the drag.
         !readOnly && 'cursor-grab touch-manipulation select-none [-webkit-touch-callout:none]',
+        // TREK-58: the type's background and stripe; the stripe after the all-sides border colour, or it is dropped.
+        typeCard(card.type),
+        typeAccent(card.type),
         isDragging && 'opacity-40',
       )}
     >
       <CardHeader
+        typeLabelId={typeId}
         keyLabel={
           // The key is the link and the keyboard handle; it stretches over the card, so the card has one tab stop.
           <Link
@@ -435,7 +442,8 @@ function BoardCard({ card, projectKey, boardUrl, moving, readOnly, focusAfterMov
             to={`/${projectKey}/items/${card.key}`}
             state={{ backTo: boardUrl }}
             draggable={false}
-            aria-describedby={readOnly ? undefined : attributes['aria-describedby']}
+            // The type always (TREK-58); how to move the card only when it can be moved (TREK-46).
+            aria-describedby={readOnly ? typeId : `${typeId} ${attributes['aria-describedby']}`}
             aria-roledescription={readOnly ? undefined : messages.board.draggableCard}
             className="font-mono font-semibold underline-offset-4 after:absolute after:inset-0 hover:underline"
           >
@@ -462,11 +470,12 @@ function targetOf(board: BoardData, card: BoardCardData, active: Active, over: O
   return dropTarget(board, card, over.id, isBelow(active.rect.current.translated, over.rect))
 }
 
-function CardHeader({ keyLabel, type }: { keyLabel: ReactNode; type: string }) {
+/** The card's type as a compact badge next to its key (TREK-58); screen readers hear the type, then the key. */
+function CardHeader({ keyLabel, type, typeLabelId }: { keyLabel: ReactNode; type: string; typeLabelId?: string }) {
   return (
-    <div className="flex items-baseline justify-between gap-2">
+    <div className="flex items-center gap-2">
+      <TypeBadge type={type} compact labelId={typeLabelId} />
       {keyLabel}
-      <span className="text-muted-foreground">{typeLabel(type)}</span>
     </div>
   )
 }

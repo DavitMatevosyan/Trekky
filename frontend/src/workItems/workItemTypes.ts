@@ -104,6 +104,38 @@ export function typeStyle(type: string): TypeStyle {
 }
 
 /**
+ * A list row's background and hover by type (TREK-58): an Epic sits on a faint tint of its colour, so epics stand out
+ * from their children, and darkens to the full tint on hover (the tint is as light as `muted`, the usual hover).
+ */
+export function typeRow(type: string): string {
+  // No hover ring here: on a table row the dividers and the stripe hide two of its sides.
+  return type === 'epic' ? 'bg-type-epic-tint/50 hover:bg-type-epic-tint' : 'hover:bg-muted'
+}
+
+/** On a card the tint alone barely changes on hover, so an Epic card also gets a thin ring in its accent. */
+const EPIC_HOVER_RING = 'hover:ring-1 hover:ring-inset hover:ring-type-epic-accent'
+
+/**
+ * A board card's background and hover by type (TREK-58): an Epic a little more tinted than its row, a SubTask flat on
+ * the column (a step quieter than a Task), the rest raised.
+ */
+export function typeCard(type: string): string {
+  if (type === 'epic') return `bg-type-epic-tint/70 hover:bg-type-epic-tint ${EPIC_HOVER_RING}`
+  if (type === 'subtask') return 'bg-surface hover:bg-muted'
+  return 'bg-surface-raised hover:bg-muted'
+}
+
+/**
+ * The card being dragged (TREK-58): it floats above other cards, so it is opaque (an Epic at its full tint) and has no
+ * hover, looking the same whether it is dragged by mouse, touch or keyboard.
+ */
+export function typeOverlay(type: string): string {
+  if (type === 'epic') return 'bg-type-epic-tint'
+  if (type === 'subtask') return 'bg-surface'
+  return 'bg-surface-raised'
+}
+
+/**
  * The type's 3px left stripe, for a card or row (TREK-57). Put it after any all-sides border colour (`border-border`)
  * in `cn(...)`: tailwind-merge drops a side colour that comes before an all-sides one.
  */
