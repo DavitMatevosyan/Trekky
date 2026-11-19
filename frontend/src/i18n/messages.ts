@@ -30,12 +30,18 @@ export const messages = {
     mainNav: 'Main',
     sourceCode: 'Source code (AGPL-3.0)',
   },
+  /** The theme switch in the app bar (TREK-56). */
+  theme: {
+    label: 'Theme',
+    choices: { light: 'Light', dark: 'Dark', system: 'System' },
+  },
   /** Labels for the API's role values (`owner`, `admin`, ...); unknown values are shown as sent. */
   roles: { owner: 'Owner', admin: 'Admin', member: 'Member', viewer: 'Viewer' } as Record<string, string | undefined>,
   projects: {
     title: 'Projects',
     welcome: (organization: string, role: string) => `You are the ${role} of ${organization}.`,
     empty: 'No projects yet. Create one to start tracking work.',
+    emptyReadOnly: 'No projects yet.',
     newProject: 'New project',
     loading: 'Loading projects…',
     loadMore: 'Load more',
@@ -59,6 +65,7 @@ export const messages = {
     items: 'Work items',
     loadingItems: 'Loading items…',
     empty: 'No items yet. Create one to start tracking work.',
+    emptyReadOnly: 'No items yet.',
     loadMore: 'Load more',
     created: (key: string, title: string) => `Created ${key} · ${title}.`,
     columns: { key: 'Key', type: 'Type', title: 'Title', status: 'Status', assignee: 'Assignee', parent: 'Parent', updated: 'Updated' },

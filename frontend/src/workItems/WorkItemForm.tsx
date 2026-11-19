@@ -7,6 +7,7 @@ import { TextAreaField } from '../components/TextAreaField.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { messages } from '../i18n/messages.ts'
 import { ParentPicker, type ParentChoice } from './ParentPicker.tsx'
+import { TypeIcon } from './TypeIcon.tsx'
 import { useResolveParent } from './useResolveParent.ts'
 import { ALLOWED_PARENT_TYPES, isWorkItemType, parentHint, typeLabel, WORK_ITEM_TYPES, type WorkItemType } from './workItemTypes.ts'
 
@@ -127,7 +128,7 @@ export function WorkItemForm({
   const parentFieldError = parentError?.text === pendingParent ? parentError.message : errors.parent
 
   return (
-    <form aria-labelledby={headingId} className="grid gap-4 rounded-xl border border-border bg-card p-4" onSubmit={(event) => void submit(event)} noValidate>
+    <form aria-labelledby={headingId} className="grid gap-4 rounded-xl border border-border bg-surface p-4" onSubmit={(event) => void submit(event)} noValidate>
       <h2 id={headingId} className="text-lg font-semibold">
         {heading}
       </h2>
@@ -136,6 +137,7 @@ export function WorkItemForm({
         label={messages.workItemForm.type}
         name="type"
         className="w-48"
+        icon={<TypeIcon type={values.type} />}
         options={TYPE_OPTIONS}
         value={values.type}
         onChange={(event) => {

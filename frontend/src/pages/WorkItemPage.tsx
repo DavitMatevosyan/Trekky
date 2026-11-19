@@ -1,6 +1,7 @@
 import { useId, useRef, useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router'
 import { ProblemError } from '../api/problem.ts'
+import { usePermissions } from '../auth/usePermissions.ts'
 import { MarkdownText } from '../components/MarkdownText.tsx'
 import { RelativeTime } from '../components/RelativeTime.tsx'
 import { Button } from '../components/ui/Button.tsx'
@@ -12,7 +13,8 @@ import { StatusSelect } from '../workItems/StatusSelect.tsx'
 import { WorkItemComments } from '../workItems/WorkItemComments.tsx'
 import { WorkItemForm, type WorkItemFormValues } from '../workItems/WorkItemForm.tsx'
 import { WorkItemHistory } from '../workItems/WorkItemHistory.tsx'
-import { isWorkItemType, statusLabel, typeLabel } from '../workItems/workItemTypes.ts'
+import { TypeBadge } from '../workItems/TypeBadge.tsx'
+import { isWorkItemType, statusLabel } from '../workItems/workItemTypes.ts'
 
 /** The later of two ISO times. */
 function later(a: string, b: string | null): string {
@@ -63,6 +65,7 @@ function WorkItemView({ projectKey, current }: { projectKey: string; current: Ve
   // than 50 a reload only knows the loaded ones; a comment deleted just before a reload is gone from the list too.
   // Both need the item's own last-activity time from the server.
   const comments = useComments(item.id)
+  const can = usePermissions()
   const editButton = useRef<HTMLButtonElement>(null)
   const statusLabelId = useId()
   const assigneeLabelId = useId()
@@ -103,10 +106,10 @@ function WorkItemView({ projectKey, current }: { projectKey: string; current: Ve
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <h1 className="flex flex-wrap items-center gap-3 text-2xl font-semibold">
-          <span className="rounded-md border border-border px-2 py-0.5 text-sm font-medium">{typeLabel(item.type)}</span>
+          <TypeBadge type={item.type} className="px-2 text-sm" />
           <span>{item.title}</span>
         </h1>
-        {!editing && (
+        {can.editWork && !editing && (
           <Button ref={editButton} variant="outline" onClick={() => setEditing(true)}>
             {messages.workItem.edit}
           </Button>
@@ -117,7 +120,7 @@ function WorkItemView({ projectKey, current }: { projectKey: string; current: Ve
         {announcement}
       </p>
 
-      {editing && (
+      {can.editWork && editing && (
         <WorkItemForm
           // A new version (after a 412 reload) starts the form again from the latest values.
           key={current.etag}
@@ -158,13 +161,13 @@ function WorkItemView({ projectKey, current }: { projectKey: string; current: Ve
             {item.children.length === 0 ? (
               <p className="text-sm text-muted-foreground">{messages.workItem.noChildren}</p>
             ) : (
-              <ul aria-labelledby="children-heading" className="divide-y divide-border rounded-xl border border-border text-sm">
+              <ul aria-labelledby="children-heading" className="divide-y divide-border rounded-xl border border-border bg-surface text-sm">
                 {item.children.map((child) => (
                   <li key={child.id} className="flex items-center gap-3 px-3 py-2">
                     <Link to={`/${projectKey}/items/${child.key}`} state={itemLinkState} className="font-mono font-semibold underline-offset-4 hover:underline">
                       {child.key}
                     </Link>
-                    <span className="text-muted-foreground">{typeLabel(child.type)}</span>
+                    <TypeBadge type={child.type} compact />
                     <span className="flex-1">{child.title}</span>
                     <span className="whitespace-nowrap">{statusLabel(child.status)}</span>
                   </li>
@@ -174,7 +177,7 @@ function WorkItemView({ projectKey, current }: { projectKey: string; current: Ve
           </section>
         </div>
 
-        <section aria-labelledby="details-heading" className="grid content-start gap-3 rounded-xl border border-border p-4 text-sm">
+        <section aria-labelledby="details-heading" className="grid content-start gap-3 rounded-xl border border-border bg-surface p-4 text-sm">
           <h2 id="details-heading" className="sr-only">
             {messages.workItem.details}
           </h2>
@@ -183,33 +186,43 @@ function WorkItemView({ projectKey, current }: { projectKey: string; current: Ve
               {messages.workItem.status}
             </dt>
             <dd>
-              <StatusSelect
-                current={current}
-                labelledBy={statusLabelId}
-                // A move gives the item a new version, which would restart the open form and lose what was typed.
-                disabled={editing}
-                onMoved={(status) => setAnnouncement(messages.workItem.statusChanged(item.key, statusLabel(status)))}
-              />
+              {/* A Viewer reads the value as text: a disabled select is faded and says nothing more (ADR-0026). */}
+              {can.editWork ? (
+                <StatusSelect
+                  current={current}
+                  labelledBy={statusLabelId}
+                  // A move gives the item a new version, which would restart the open form and lose what was typed.
+                  disabled={editing}
+                  onMoved={(status) => setAnnouncement(messages.workItem.statusChanged(item.key, statusLabel(status)))}
+                />
+              ) : (
+                statusLabel(item.status)
+              )}
             </dd>
             <dt id={assigneeLabelId} className="self-center text-muted-foreground">
               {messages.workItem.assignee}
             </dt>
             <dd>
-              <AssigneeSelect
-                current={current}
-                labelledBy={assigneeLabelId}
-                // Like status: a save gives the item a new version, which would restart an open edit form.
-                disabled={editing}
-                onAssigned={(name) =>
-                  setAnnouncement(name === null ? messages.workItem.unassigned(item.key) : messages.workItem.assigned(item.key, name))
-                }
-              />
+              {can.editWork ? (
+                <AssigneeSelect
+                  current={current}
+                  labelledBy={assigneeLabelId}
+                  // Like status: a save gives the item a new version, which would restart an open edit form.
+                  disabled={editing}
+                  onAssigned={(name) =>
+                    setAnnouncement(name === null ? messages.workItem.unassigned(item.key) : messages.workItem.assigned(item.key, name))
+                  }
+                />
+              ) : (
+                (item.assignee?.displayName ?? messages.workItem.nobody)
+              )}
             </dd>
             <dt className="text-muted-foreground">{messages.workItem.parent}</dt>
             <dd>
               {item.parent ? (
                 <Link to={`/${projectKey}/items/${item.parent.key}`} state={itemLinkState} className="underline-offset-4 hover:underline">
-                  <span className="font-mono">{item.parent.key}</span> {typeLabel(item.parent.type)}
+                  {/* Key first, then the type, so the link reads "TRK-1 Epic". */}
+                  <span className="font-mono">{item.parent.key}</span> <TypeBadge type={item.parent.type} compact className="align-middle" />
                 </Link>
               ) : (
                 messages.workItem.noParent

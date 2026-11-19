@@ -45,7 +45,7 @@ export function NewProjectForm({ onCreated, onCancel }: { onCreated: (project: P
   const formError = formErrorFor(createProject.error, problem, keyTaken)
 
   return (
-    <form aria-labelledby="new-project-title" className="grid gap-4 rounded-xl border border-border bg-card p-4" onSubmit={onSubmit} noValidate>
+    <form aria-labelledby="new-project-title" className="grid gap-4 rounded-xl border border-border bg-surface p-4" onSubmit={onSubmit} noValidate>
       <h2 id="new-project-title" className="text-lg font-semibold">
         {messages.newProject.title}
       </h2>

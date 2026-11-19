@@ -71,6 +71,19 @@ describe('ProjectItemsPage', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/TRK/items/TRK-2'))
   })
 
+  it('does not ask a viewer to create an item when the project has none (TREK-46)', async () => {
+    renderItems({
+      'GET /api/v1/me': () => jsonResponse({ ...me, role: 'viewer' }),
+      'GET /api/v1/projects/by-key/TRK': () => jsonResponse({ ...project, itemCount: 0 }),
+      [itemsPath]: () => jsonResponse({ items: [], nextCursor: null, totalCount: 0 }),
+    })
+
+    // The signed-in user's email in the header: the role is known.
+    await screen.findByText(me.user.email)
+    expect(await screen.findByText('No items yet.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'New item' })).not.toBeInTheDocument()
+  })
+
   it('shows an empty state and loads more with the cursor', async () => {
     const empty = renderItems({
       'GET /api/v1/projects/by-key/TRK': () => jsonResponse({ ...project, itemCount: 0 }),

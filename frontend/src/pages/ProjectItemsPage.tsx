@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router'
+import { usePermissions } from '../auth/usePermissions.ts'
 import { RelativeTime } from '../components/RelativeTime.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { messages } from '../i18n/messages.ts'
@@ -10,7 +11,8 @@ import { FilterBar } from '../workItems/FilterBar.tsx'
 import { useWorkItemFilters } from '../workItems/useWorkItemFilters.ts'
 import { DEFAULT_FILTERS, isDefaultFilters, type WorkItemFilters } from '../workItems/workItemFilters.ts'
 import { useWorkItems } from '../workItems/useWorkItems.ts'
-import { statusLabel, typeLabel } from '../workItems/workItemTypes.ts'
+import { TypeBadge } from '../workItems/TypeBadge.tsx'
+import { statusLabel, typeAccent, typeRow } from '../workItems/workItemTypes.ts'
 
 /**
  * A project's items as a list, newest update first (US-08, wireframes: List view), with "New item" (US-06) and the filter
@@ -45,6 +47,7 @@ interface ProjectItemsProps {
 function ProjectItems({ projectId, projectKey, projectName, itemCount }: ProjectItemsProps) {
   const [filters, setFilters] = useWorkItemFilters()
   const items = useWorkItems(projectId, filters)
+  const can = usePermissions()
   const navigate = useNavigate()
   const { search } = useLocation()
 
@@ -74,7 +77,7 @@ function ProjectItems({ projectId, projectKey, projectName, itemCount }: Project
         // Nothing at all only when the project has no items; otherwise the filters (or the default one) hide them.
         <div className="grid justify-items-start gap-2">
           <p className="text-muted-foreground">
-            {filtered ? messages.filters.noMatches : itemCount > 0 ? messages.filters.allUnderCompletedEpics : messages.project.empty}
+            {filtered ? messages.filters.noMatches : itemCount > 0 ? messages.filters.allUnderCompletedEpics : can.editWork ? messages.project.empty : messages.project.emptyReadOnly}
           </p>
           {filtered && (
             <Button variant="outline" size="sm" onClick={() => showFiltered(DEFAULT_FILTERS)}>
@@ -90,7 +93,7 @@ function ProjectItems({ projectId, projectKey, projectName, itemCount }: Project
       )}
 
       {rows.length > 0 && (
-        <div className={cn('overflow-x-auto rounded-xl border border-border', items.isPlaceholderData && 'opacity-60')} aria-busy={items.isPlaceholderData || undefined}>
+        <div className={cn('overflow-x-auto rounded-xl border border-border bg-surface', items.isPlaceholderData && 'opacity-60')} aria-busy={items.isPlaceholderData || undefined}>
           <table className="w-full text-left text-sm">
             <caption className="sr-only">{messages.project.items}</caption>
             <thead className="border-b border-border text-muted-foreground">
@@ -111,13 +114,16 @@ function ProjectItems({ projectId, projectKey, projectName, itemCount }: Project
                 const state = { backTo: `/${projectKey}${search}` }
                 return (
                   // US-08 AC3: the whole row opens the item; the key is the link for keyboard and screen-reader users.
-                  <tr key={item.id} className="cursor-pointer hover:bg-muted" onClick={() => void navigate(href, { state })}>
-                    <td className="px-4 py-2 font-mono whitespace-nowrap">
+                  <tr key={item.id} className={cn('cursor-pointer', typeRow(item.type))} onClick={() => void navigate(href, { state })}>
+                    {/* TREK-58: the type's stripe down the row's left edge. */}
+                    <td className={cn('px-4 py-2 font-mono whitespace-nowrap', typeAccent(item.type))}>
                       <Link to={href} state={state} className="font-semibold underline-offset-4 hover:underline" onClick={(e) => e.stopPropagation()}>
                         {item.key}
                       </Link>
                     </td>
-                    <td className="px-4 py-2 whitespace-nowrap">{typeLabel(item.type)}</td>
+                    <td className="px-4 py-2 whitespace-nowrap">
+                      <TypeBadge type={item.type} />
+                    </td>
                     <td className="px-4 py-2">{item.title}</td>
                     <td className="px-4 py-2 whitespace-nowrap">{statusLabel(item.status)}</td>
                     <td className="px-4 py-2 whitespace-nowrap">{item.assignee?.displayName ?? messages.workItem.nobody}</td>

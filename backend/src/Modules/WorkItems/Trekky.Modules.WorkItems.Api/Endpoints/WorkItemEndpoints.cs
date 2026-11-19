@@ -39,6 +39,8 @@ internal static class WorkItemEndpoints
                     IWorkItemService service, ClaimsPrincipal principal, HttpResponse response, CancellationToken cancellationToken)
                 => CreateAsync(projectId, request, validator, service, principal, response, cancellationToken))
             .WithName("CreateWorkItem")
+            .RequireAuthorization(TrekkyPolicies.EditWork)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .WithSummary("Create a work item in To Do with the project's next key (US-06)")
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
@@ -47,6 +49,7 @@ internal static class WorkItemEndpoints
                     CancellationToken cancellationToken)
                 => ListAsync(projectId, limit, cursor, filter, validator, service, principal, cancellationToken))
             .WithName("ListWorkItems")
+            .RequireAuthorization(TrekkyPolicies.ReadWork)
             .WithSummary("List a project's work items, newest update first (US-08)")
             .WithDescription(
                 $"{FiltersDescription} With `q`, an exact key match comes first. `totalCount` is how many items match across every page.");
@@ -57,6 +60,7 @@ internal static class WorkItemEndpoints
                 => GetBoardAsync(projectId, allDone ?? false, filter, validator, service, principal, cancellationToken))
             .WithTags("WorkItems")
             .WithName("GetBoard")
+            .RequireAuthorization(TrekkyPolicies.ReadWork)
             .WithSummary("Get a project's board: one column per status in workflow order (US-11)")
             .WithDescription(
                 $"{FiltersDescription} Every column is always there: a filtered-out status is an empty column. Done holds the latest 20 matching cards unless `allDone` is true; `count` is always how many cards in the column match.")
@@ -72,11 +76,13 @@ internal static class WorkItemEndpoints
                     CancellationToken cancellationToken)
                 => GetAsync(workItemId, service, response, cancellationToken))
             .WithName("GetWorkItem")
+            .RequireAuthorization(TrekkyPolicies.ReadWork)
             .WithSummary("Get a work item with its parent and children (US-09)");
 
         items.MapGet("/by-key/{key}", (string key, IWorkItemService service, HttpResponse response, CancellationToken cancellationToken)
                 => GetByKeyAsync(key, service, response, cancellationToken))
             .WithName("GetWorkItemByKey")
+            .RequireAuthorization(TrekkyPolicies.ReadWork)
             .WithSummary("Get a work item by its key, e.g. TRK-42 (US-09 AC3)");
 
         items.MapPatch("/{workItemId:guid}", (Guid workItemId, [FromHeader(Name = "If-Match")] string? ifMatch, HttpRequest request,
@@ -84,6 +90,8 @@ internal static class WorkItemEndpoints
                     CancellationToken cancellationToken)
                 => UpdateAsync(workItemId, ifMatch, request, validator, service, principal, response, cancellationToken))
             .WithName("UpdateWorkItem")
+            .RequireAuthorization(TrekkyPolicies.EditWork)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .WithSummary("Edit title, description, type, parent or assignee (US-07, US-13)")
             .WithDescription("JSON merge patch: only the fields sent change; null clears descriptionMd, parentId or assigneeId. The assignee must be a member (422). Needs If-Match.")
             .Accepts<UpdateWorkItemRequest>(MergePatchContentType)
@@ -97,6 +105,8 @@ internal static class WorkItemEndpoints
                     ClaimsPrincipal principal, HttpResponse response, CancellationToken cancellationToken)
                 => ChangeStatusAsync(workItemId, ifMatch, request, validator, service, principal, response, cancellationToken))
             .WithName("ChangeWorkItemStatus")
+            .RequireAuthorization(TrekkyPolicies.EditWork)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .WithSummary("Move an item through the workflow (US-10)")
             .WithDescription("Only allowed moves succeed; otherwise 422 lists allowedTransitions. Needs If-Match.")
             .ProducesProblem(StatusCodes.Status412PreconditionFailed)
@@ -109,6 +119,8 @@ internal static class WorkItemEndpoints
                     HttpResponse response, CancellationToken cancellationToken)
                 => MoveAsync(workItemId, ifMatch, request, filter, validator, filterValidator, service, principal, response, cancellationToken))
             .WithName("MoveWorkItemOnBoard")
+            .RequireAuthorization(TrekkyPolicies.EditWork)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .WithSummary("Drop a card on the board: a place in a column, and a new status when the column is another one (US-11)")
             .WithDescription(
                 "afterId and beforeId are the cards directly above and below the drop (null at the top or bottom); 409 when they are no longer neighbours. Send the board's filters (TREK-52) in the query string: the neighbours are checked among the cards those filters show, and the card lands directly below afterId (or above beforeId) for every viewer. Done is always last finished first, so it takes no position. A new status follows the workflow (422 lists allowedTransitions) and is recorded in history; a reorder alone is not. Needs If-Match.")

@@ -1,50 +1,127 @@
 @import 'tailwindcss';
 
-/* shadcn/ui theme tokens (neutral). Text meets WCAG AA (4.5:1) and input borders 3:1 (1.4.11) in both themes. */
+/* Dark is a class on <html> (TREK-56): set by public/theme.js before the page paints, and by the theme switch. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * The two themes (TREK-56, ADR-0025). Components use only these tokens, never raw colours. Every pair the app paints
+ * meets WCAG AA in both themes: text 4.5:1, input borders and the focus ring 3:1 (1.4.11). src/theme/themeTokens.test.ts
+ * checks them. `border` is decorative (panels, dividers) and does not need 3:1.
+ *
+ * Each work item type has three shades per theme (TREK-57): tint (badge and row background), accent (stripe and icon)
+ * and text (badge text), as --type-<type>-{tint,accent,text}. Status colours (TREK-59) will follow the same pattern as
+ * --status-<status>-…. src/workItems/workItemTypes.ts maps each type to its classes.
+ */
+
+/* Light: warm paper beige, slightly lighter panels, warm grey-brown text and borders. */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.48 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.5 0.21 27);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.62 0 0);
-  --ring: oklch(0.45 0 0);
+  --background: oklch(0.965 0.016 85);
+  --surface: oklch(0.982 0.011 85);
+  --surface-raised: oklch(0.993 0.006 85);
+  --foreground: oklch(0.27 0.02 60);
+  --muted: oklch(0.925 0.02 80);
+  --muted-foreground: oklch(0.47 0.03 65);
+  --accent: oklch(0.905 0.03 78);
+  --accent-foreground: oklch(0.25 0.02 60);
+  --primary: oklch(0.32 0.03 55);
+  --primary-foreground: oklch(0.975 0.012 85);
+  --destructive: oklch(0.5 0.19 28);
+  --border: oklch(0.875 0.022 78);
+  --input: oklch(0.6 0.03 70);
+  --ring: oklch(0.47 0.06 60);
+  /* Work item types (TREK-57): same lightness and chroma, own hue; SubTask quieter than Task. */
+  --type-epic-tint: oklch(0.925 0.035 300);
+  --type-epic-accent: oklch(0.56 0.12 300);
+  --type-epic-text: oklch(0.42 0.1 300);
+  --type-story-tint: oklch(0.925 0.035 150);
+  --type-story-accent: oklch(0.56 0.12 150);
+  --type-story-text: oklch(0.42 0.1 150);
+  --type-task-tint: oklch(0.925 0.035 245);
+  --type-task-accent: oklch(0.56 0.12 245);
+  --type-task-text: oklch(0.42 0.1 245);
+  --type-subtask-tint: oklch(0.925 0.019 210);
+  --type-subtask-accent: oklch(0.56 0.066 210);
+  --type-subtask-text: oklch(0.42 0.055 210);
+  --type-bug-tint: oklch(0.925 0.035 25);
+  --type-bug-accent: oklch(0.56 0.12 25);
+  --type-bug-text: oklch(0.42 0.1 25);
+  --type-tech-debt-tint: oklch(0.925 0.035 75);
+  --type-tech-debt-accent: oklch(0.56 0.12 75);
+  --type-tech-debt-text: oklch(0.42 0.1 75);
   color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.75 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --destructive: oklch(0.72 0.17 22);
-    --border: oklch(1 0 0 / 12%);
-    --input: oklch(1 0 0 / 45%);
-    --ring: oklch(0.7 0 0);
-    color-scheme: dark;
-  }
+/* Dark: warm charcoal, raised panels a step lighter, warm off-white text. */
+:root.dark {
+  --background: oklch(0.18 0.01 70);
+  --surface: oklch(0.215 0.011 70);
+  --surface-raised: oklch(0.25 0.012 70);
+  --foreground: oklch(0.93 0.015 80);
+  --muted: oklch(0.285 0.013 70);
+  --muted-foreground: oklch(0.75 0.02 75);
+  --accent: oklch(0.32 0.016 72);
+  --accent-foreground: oklch(0.95 0.015 80);
+  --primary: oklch(0.9 0.025 80);
+  --primary-foreground: oklch(0.22 0.012 70);
+  --destructive: oklch(0.72 0.16 25);
+  --border: oklch(0.33 0.013 70);
+  --input: oklch(0.58 0.02 72);
+  --ring: oklch(0.78 0.04 75);
+  /* Work item types (TREK-57), tuned to look as subtle on charcoal as on beige. */
+  --type-epic-tint: oklch(0.29 0.035 300);
+  --type-epic-accent: oklch(0.7 0.11 300);
+  --type-epic-text: oklch(0.85 0.07 300);
+  --type-story-tint: oklch(0.29 0.035 150);
+  --type-story-accent: oklch(0.7 0.11 150);
+  --type-story-text: oklch(0.85 0.07 150);
+  --type-task-tint: oklch(0.29 0.035 245);
+  --type-task-accent: oklch(0.7 0.11 245);
+  --type-task-text: oklch(0.85 0.07 245);
+  --type-subtask-tint: oklch(0.29 0.019 210);
+  --type-subtask-accent: oklch(0.7 0.061 210);
+  --type-subtask-text: oklch(0.85 0.039 210);
+  --type-bug-tint: oklch(0.29 0.035 25);
+  --type-bug-accent: oklch(0.7 0.11 25);
+  --type-bug-text: oklch(0.85 0.07 25);
+  --type-tech-debt-tint: oklch(0.29 0.035 75);
+  --type-tech-debt-accent: oklch(0.7 0.11 75);
+  --type-tech-debt-text: oklch(0.85 0.07 75);
+  color-scheme: dark;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
   --color-foreground: var(--foreground);
-  --color-card: var(--card);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-destructive: var(--destructive);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-type-epic-tint: var(--type-epic-tint);
+  --color-type-epic-accent: var(--type-epic-accent);
+  --color-type-epic-text: var(--type-epic-text);
+  --color-type-story-tint: var(--type-story-tint);
+  --color-type-story-accent: var(--type-story-accent);
+  --color-type-story-text: var(--type-story-text);
+  --color-type-task-tint: var(--type-task-tint);
+  --color-type-task-accent: var(--type-task-accent);
+  --color-type-task-text: var(--type-task-text);
+  --color-type-subtask-tint: var(--type-subtask-tint);
+  --color-type-subtask-accent: var(--type-subtask-accent);
+  --color-type-subtask-text: var(--type-subtask-text);
+  --color-type-bug-tint: var(--type-bug-tint);
+  --color-type-bug-accent: var(--type-bug-accent);
+  --color-type-bug-text: var(--type-bug-text);
+  --color-type-tech-debt-tint: var(--type-tech-debt-tint);
+  --color-type-tech-debt-accent: var(--type-tech-debt-accent);
+  --color-type-tech-debt-text: var(--type-tech-debt-text);
 }
 
 @layer base {

@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { fakeApi, jsonResponse, problemResponse, renderApp, requestsTo, validTokens } from '../test/renderApp.tsx'
+import { fakeApi, jsonResponse, me, problemResponse, renderApp, requestsTo, validTokens } from '../test/renderApp.tsx'
 
 const trekky = { id: '0190a000-0000-7000-8000-0000000000b1', key: 'TRK', name: 'Trekky', itemCount: 0, createdAt: '2026-10-26T10:00:00Z' }
 const website = { id: '0190a000-0000-7000-8000-0000000000b2', key: 'WEB', name: 'Website', itemCount: 1, createdAt: '2026-10-26T10:00:00Z' }
@@ -123,5 +123,32 @@ describe('ProjectsPage', () => {
 
     expect(screen.queryByRole('form', { name: 'New project' })).not.toBeInTheDocument()
     expect(requestsTo(fetchFn, 'POST /api/v1/projects')).toHaveLength(0)
+  })
+})
+
+describe('ProjectsPage roles (TREK-46)', () => {
+  it.each(['owner', 'admin'])('offers "New project" to an %s', async (role) => {
+    renderProjects({ 'GET /api/v1/me': () => jsonResponse({ ...me, role }) })
+
+    expect(await screen.findByRole('button', { name: 'New project' })).toBeInTheDocument()
+  })
+
+  it.each(['member', 'viewer'])('does not offer "New project" to a %s, who still sees the projects', async (role) => {
+    renderProjects({
+      'GET /api/v1/me': () => jsonResponse({ ...me, role }),
+      'GET /api/v1/projects': () => jsonResponse({ items: [trekky], nextCursor: null }),
+    })
+
+    // The role is known once the summary shows it.
+    await screen.findByTestId('org-summary')
+    expect(within(await screen.findByRole('list', { name: 'Projects' })).getByRole('link', { name: 'Trekky' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'New project' })).not.toBeInTheDocument()
+  })
+
+  it('does not ask a viewer to create a project when there are none', async () => {
+    renderProjects({ 'GET /api/v1/me': () => jsonResponse({ ...me, role: 'viewer' }) })
+
+    await screen.findByTestId('org-summary')
+    expect(await screen.findByText('No projects yet.')).toBeInTheDocument()
   })
 })
