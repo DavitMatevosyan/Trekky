@@ -13,6 +13,7 @@ import { StatusSelect } from '../workItems/StatusSelect.tsx'
 import { WorkItemComments } from '../workItems/WorkItemComments.tsx'
 import { WorkItemForm, type WorkItemFormValues } from '../workItems/WorkItemForm.tsx'
 import { WorkItemHistory } from '../workItems/WorkItemHistory.tsx'
+import { StatusChip } from '../workItems/StatusChip.tsx'
 import { TypeBadge } from '../workItems/TypeBadge.tsx'
 import { isWorkItemType, statusLabel } from '../workItems/workItemTypes.ts'
 
@@ -169,7 +170,7 @@ function WorkItemView({ projectKey, current }: { projectKey: string; current: Ve
                     </Link>
                     <TypeBadge type={child.type} compact />
                     <span className="flex-1">{child.title}</span>
-                    <span className="whitespace-nowrap">{statusLabel(child.status)}</span>
+                    <StatusChip status={child.status} />
                   </li>
                 ))}
               </ul>
@@ -196,7 +197,7 @@ function WorkItemView({ projectKey, current }: { projectKey: string; current: Ve
                   onMoved={(status) => setAnnouncement(messages.workItem.statusChanged(item.key, statusLabel(status)))}
                 />
               ) : (
-                statusLabel(item.status)
+                <StatusChip status={item.status} />
               )}
             </dd>
             <dt id={assigneeLabelId} className="self-center text-muted-foreground">
