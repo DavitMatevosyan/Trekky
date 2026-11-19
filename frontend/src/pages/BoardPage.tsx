@@ -21,6 +21,7 @@ import {
 import { SortableContext, useSortable, verticalListSortingStrategy, type SortingStrategy } from '@dnd-kit/sortable'
 import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { Link, useLocation, useParams, useSearchParams } from 'react-router'
+import { usePermissions } from '../auth/usePermissions.ts'
 import { Button } from '../components/ui/Button.tsx'
 import { messages } from '../i18n/messages.ts'
 import { cn } from '../lib/cn.ts'
@@ -97,6 +98,7 @@ function Board({ projectId, projectKey, projectName }: { projectId: string; proj
   const unfiltered = useBoard(projectId, false, narrowed, { ...DEFAULT_FILTERS, showCompletedEpics: filters.showCompletedEpics })
   const totals = narrowed && unfiltered.data ? new Map(unfiltered.data.columns.map((column) => [column.status, Number(column.count)])) : null
   const move = useMoveBoardCard(projectId, filters)
+  const can = usePermissions()
   // The card last dropped, to tell the user when it no longer matches the filters and so left the board.
   const [moved, setMoved] = useState<DroppedCard | null>(null)
   const columnsGroup = useRef<HTMLDivElement>(null)
@@ -275,6 +277,7 @@ function Board({ projectId, projectKey, projectName }: { projectId: string; proj
                 projectKey={projectKey}
                 boardUrl={pathname + search}
                 moving={move.isPending || loadingFilters}
+                readOnly={!can.editWork}
                 focusAfterMove={focusAfterMove}
                 loadingAll={allDone.isFetching}
                 showAllFailed={wantsAllDone && allDone.isError && allDone.data === undefined}
@@ -310,6 +313,8 @@ interface BoardColumnProps {
   boardUrl: string
   /** A card is being saved; no other can be picked up until it is. */
   moving: boolean
+  /** The role may not move cards (a Viewer). */
+  readOnly: boolean
   /** The card that takes keyboard focus when it appears in a column. */
   focusAfterMove: RefObject<string | null>
   /** Every Done card has been asked for and is still loading. */
@@ -318,7 +323,7 @@ interface BoardColumnProps {
   onShowAll: (() => void) | undefined
 }
 
-function BoardColumn({ column, total, projectKey, boardUrl, moving, focusAfterMove, loadingAll, showAllFailed, onShowAll }: BoardColumnProps) {
+function BoardColumn({ column, total, projectKey, boardUrl, moving, readOnly, focusAfterMove, loadingAll, showAllFailed, onShowAll }: BoardColumnProps) {
   const headingId = useId()
   const heading = useRef<HTMLHeadingElement>(null)
   const { setNodeRef, isOver } = useDroppable({ id: column.status })
@@ -360,7 +365,15 @@ function BoardColumn({ column, total, projectKey, boardUrl, moving, focusAfterMo
         <SortableContext items={column.items.map((item) => item.id)} strategy={column.status === DONE ? keepInPlace : verticalListSortingStrategy}>
           <ul aria-label={label} className="grid gap-2">
             {column.items.map((item) => (
-              <BoardCard key={item.id} card={item} projectKey={projectKey} boardUrl={boardUrl} moving={moving} focusAfterMove={focusAfterMove} />
+              <BoardCard
+                key={item.id}
+                card={item}
+                projectKey={projectKey}
+                boardUrl={boardUrl}
+                moving={moving}
+                readOnly={readOnly}
+                focusAfterMove={focusAfterMove}
+              />
             ))}
           </ul>
         </SortableContext>
@@ -380,16 +393,18 @@ interface BoardCardProps {
   projectKey: string
   boardUrl: string
   moving: boolean
+  /** The role may not move cards (a Viewer): the card is a plain link, not something to drag. */
+  readOnly: boolean
   focusAfterMove: RefObject<string | null>
 }
 
-function BoardCard({ card, projectKey, boardUrl, moving, focusAfterMove }: BoardCardProps) {
+function BoardCard({ card, projectKey, boardUrl, moving, readOnly, focusAfterMove }: BoardCardProps) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, isDragging, transform, transition } = useSortable({
     id: card.id,
     // The column, for the arrow keys that change column.
     data: { status: card.status },
     // Done is last finished first, so its cards are no drop places of their own: a card dropped there goes to the column.
-    disabled: { draggable: moving, droppable: card.status === DONE },
+    disabled: { draggable: moving || readOnly, droppable: card.status === DONE },
   })
   const link = useRef<HTMLAnchorElement | null>(null)
   useEffect(() => {
@@ -400,10 +415,12 @@ function BoardCard({ card, projectKey, boardUrl, moving, focusAfterMove }: Board
   return (
     <li
       ref={setNodeRef}
-      {...listeners}
+      {...(readOnly ? {} : listeners)}
       style={{ transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined, transition }}
       className={cn(
-        'relative grid cursor-grab touch-manipulation gap-1 rounded-lg border border-border bg-surface-raised p-2 text-sm select-none [-webkit-touch-callout:none] hover:bg-muted',
+        'relative grid gap-1 rounded-lg border border-border bg-surface-raised p-2 text-sm hover:bg-muted',
+        // Only a card that can be dragged blocks text selection and the long-press menu, which would fight the drag.
+        !readOnly && 'cursor-grab touch-manipulation select-none [-webkit-touch-callout:none]',
         isDragging && 'opacity-40',
       )}
     >
@@ -418,8 +435,8 @@ function BoardCard({ card, projectKey, boardUrl, moving, focusAfterMove }: Board
             to={`/${projectKey}/items/${card.key}`}
             state={{ backTo: boardUrl }}
             draggable={false}
-            aria-describedby={attributes['aria-describedby']}
-            aria-roledescription={messages.board.draggableCard}
+            aria-describedby={readOnly ? undefined : attributes['aria-describedby']}
+            aria-roledescription={readOnly ? undefined : messages.board.draggableCard}
             className="font-mono font-semibold underline-offset-4 after:absolute after:inset-0 hover:underline"
           >
             {card.key}

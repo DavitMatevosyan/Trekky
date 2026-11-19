@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Routing;
 using Trekky.Modules.Activity.Application.Contracts;
 using Trekky.Modules.Activity.Application.History;
+using Trekky.SharedKernel;
 
 namespace Trekky.Modules.Activity.Api.Endpoints;
 
@@ -17,6 +18,7 @@ internal static class HistoryEndpoints
                 => GetWorkItemHistoryAsync(workItemId, limit, cursor, service, cancellationToken))
             .WithTags("WorkItems")
             .WithName("GetWorkItemHistory")
+            .RequireAuthorization(TrekkyPolicies.ReadWork)
             .WithSummary("An item's activity events, newest first (US-09)")
             .WithDescription(
                 "Every recorded change to the item, with the actor's display name. A change can take up to a second to appear (the outbox dispatcher).")

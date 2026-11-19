@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Trekky API",
-    "description": "Local API collection, kept in step with the endpoints (ADR-0008). Import postman/Trekky.postman_collection.json in the Postman desktop app.\n\nAuth: run Sign up (or Log in) -> Authorize -> Token once; the session cookie stays in Postman's cookie jar and the tokens are saved as collection variables, which every other request sends as Bearer. When the access token expires (15 min) run Refresh; after logout or a database reset run Log in -> Authorize -> Token again.",
+    "description": "Local API collection, kept in step with the endpoints (ADR-0008). Import postman/Trekky.postman_collection.json in the Postman desktop app.\n\nAuth: run Sign up (or Log in) -> Authorize -> Token once; the session cookie stays in Postman's cookie jar and the tokens are saved as collection variables, which every other request sends as Bearer. When the access token expires (15 min) run Refresh; after logout or a database reset run Log in -> Authorize -> Token again.\n\nRoles (TREK-46, ADR-0026): every request checks the caller's role. Viewer reads; Member also creates and edits work items and comments; Admin and Owner also create projects. A request the role does not allow answers 403.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -377,7 +377,7 @@
               "raw": "{\n  \"name\": \"Trekky\",\n  \"key\": \"TRK\"\n}"
             },
             "url": "{{baseUrl}}/api/v1/projects",
-            "description": "The key must match ^[A-Z][A-Z0-9]{1,9}$ and be unique in the organization (409 otherwise); it never changes. Records a ProjectCreated activity event."
+            "description": "The key must match ^[A-Z][A-Z0-9]{1,9}$ and be unique in the organization (409 otherwise); it never changes. Records a ProjectCreated activity event. Admin or Owner only (403 otherwise)."
           }
         },
         {

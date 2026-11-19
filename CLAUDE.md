@@ -84,6 +84,7 @@ node import.ts --dry-run                   # needs TREKKY_EMAIL / TREKKY_PASSWOR
 - **Work items.** One `work_item` table: `type` (Epic, Story, Task, SubTask, Bug, TechDebt) + `parent_id`; reserved `custom` JSONB column.
 - **API.** OpenAPI-first REST under `/api/v1`; RFC 9457 problem details; cursor pagination; ETag/If-Match for edits; `TypedResults`.
 - **Auth.** ASP.NET Core Identity + OpenIddict in-app (no external IdP); JWT with user, org and role claims.
+- **Roles.** Every endpoint names one `TrekkyPolicies` policy for its action (`ReadWork`, `EditWork`, `ManageProjects`, `ManageMembers`) with `.RequireAuthorization(...)`, or `AllowAnonymous`; `EndpointPolicyTests` fails otherwise. The UI hides what the role cannot do (`usePermissions`), but the API is the guard (ADR-0026).
 - **Storage / mail.** No object storage until attachments; when added, code only against the S3 API (ADR-0006: MinIO removed, SeaweedFS proposed; production store chosen with hosting). SMTP for mail (Mailpit locally).
 
 ## Code conventions
