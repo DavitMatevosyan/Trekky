@@ -10,7 +10,8 @@ import { FilterBar } from '../workItems/FilterBar.tsx'
 import { useWorkItemFilters } from '../workItems/useWorkItemFilters.ts'
 import { DEFAULT_FILTERS, isDefaultFilters, type WorkItemFilters } from '../workItems/workItemFilters.ts'
 import { useWorkItems } from '../workItems/useWorkItems.ts'
-import { statusLabel, typeLabel } from '../workItems/workItemTypes.ts'
+import { TypeBadge } from '../workItems/TypeBadge.tsx'
+import { statusLabel, typeAccent, typeRow } from '../workItems/workItemTypes.ts'
 
 /**
  * A project's items as a list, newest update first (US-08, wireframes: List view), with "New item" (US-06) and the filter
@@ -111,13 +112,16 @@ function ProjectItems({ projectId, projectKey, projectName, itemCount }: Project
                 const state = { backTo: `/${projectKey}${search}` }
                 return (
                   // US-08 AC3: the whole row opens the item; the key is the link for keyboard and screen-reader users.
-                  <tr key={item.id} className="cursor-pointer hover:bg-muted" onClick={() => void navigate(href, { state })}>
-                    <td className="px-4 py-2 font-mono whitespace-nowrap">
+                  <tr key={item.id} className={cn('cursor-pointer', typeRow(item.type))} onClick={() => void navigate(href, { state })}>
+                    {/* TREK-58: the type's stripe down the row's left edge. */}
+                    <td className={cn('px-4 py-2 font-mono whitespace-nowrap', typeAccent(item.type))}>
                       <Link to={href} state={state} className="font-semibold underline-offset-4 hover:underline" onClick={(e) => e.stopPropagation()}>
                         {item.key}
                       </Link>
                     </td>
-                    <td className="px-4 py-2 whitespace-nowrap">{typeLabel(item.type)}</td>
+                    <td className="px-4 py-2 whitespace-nowrap">
+                      <TypeBadge type={item.type} />
+                    </td>
                     <td className="px-4 py-2">{item.title}</td>
                     <td className="px-4 py-2 whitespace-nowrap">{statusLabel(item.status)}</td>
                     <td className="px-4 py-2 whitespace-nowrap">{item.assignee?.displayName ?? messages.workItem.nobody}</td>

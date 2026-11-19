@@ -68,6 +68,17 @@ const pairs: Pair[] = [
     // The stripe on a row while hovered (hover:bg-muted).
     [`type-${type}-accent`, 'muted', UI],
   ]),
+  // Epic rows and cards (TREK-58): the tint at 50% over the list panel and at 70% over a board column.
+  ...(
+    [
+      ['surface', 0.5],
+      ['surface', 0.7],
+    ] as const
+  ).flatMap(([bg, alpha]): Pair[] => [
+    ...['foreground', 'muted-foreground', 'primary', 'destructive'].map((fg): Pair => [fg, bg, TEXT, ['type-epic-tint', alpha]]),
+    ['type-epic-accent', bg, UI, ['type-epic-tint', alpha]],
+    ['ring', bg, UI, ['type-epic-tint', alpha]],
+  ]),
 ]
 
 describe('theme tokens', () => {

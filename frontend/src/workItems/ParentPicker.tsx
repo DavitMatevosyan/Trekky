@@ -4,6 +4,7 @@ import { messages } from '../i18n/messages.ts'
 import { cn } from '../lib/cn.ts'
 import { useDebounced } from '../lib/useDebounced.ts'
 import { useResolveParent, type ParentChoice } from './useResolveParent.ts'
+import { TypeIcon } from './TypeIcon.tsx'
 import { useParentCandidates } from './useWorkItems.ts'
 import { typeLabel } from './workItemTypes.ts'
 
@@ -212,7 +213,7 @@ export function ParentPicker({
               id={optionId(option.id)}
               role="option"
               aria-selected={index === active}
-              className={cn('flex cursor-pointer gap-2 px-3 py-1.5', index === active && 'bg-muted outline-2 -outline-offset-2 outline-ring')}
+              className={cn('flex cursor-pointer items-center gap-2 px-3 py-1.5', index === active && 'bg-muted outline-2 -outline-offset-2 outline-ring')}
               onMouseDown={(event) => {
                 event.preventDefault()
                 choose(option)
@@ -220,7 +221,10 @@ export function ParentPicker({
               onMouseEnter={() => setActive(index)}
             >
               <span className="font-mono font-semibold">{option.key}</span>
-              <span className="text-muted-foreground">{typeLabel(option.type)}</span>
+              <span className="flex items-center gap-1 text-muted-foreground">
+                <TypeIcon type={option.type} className="size-3.5" />
+                {typeLabel(option.type)}
+              </span>
               <span className="truncate">{option.title}</span>
             </li>
           ))}

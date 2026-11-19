@@ -12,7 +12,8 @@ import { StatusSelect } from '../workItems/StatusSelect.tsx'
 import { WorkItemComments } from '../workItems/WorkItemComments.tsx'
 import { WorkItemForm, type WorkItemFormValues } from '../workItems/WorkItemForm.tsx'
 import { WorkItemHistory } from '../workItems/WorkItemHistory.tsx'
-import { isWorkItemType, statusLabel, typeLabel } from '../workItems/workItemTypes.ts'
+import { TypeBadge } from '../workItems/TypeBadge.tsx'
+import { isWorkItemType, statusLabel } from '../workItems/workItemTypes.ts'
 
 /** The later of two ISO times. */
 function later(a: string, b: string | null): string {
@@ -103,7 +104,7 @@ function WorkItemView({ projectKey, current }: { projectKey: string; current: Ve
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <h1 className="flex flex-wrap items-center gap-3 text-2xl font-semibold">
-          <span className="rounded-md border border-border px-2 py-0.5 text-sm font-medium">{typeLabel(item.type)}</span>
+          <TypeBadge type={item.type} className="px-2 text-sm" />
           <span>{item.title}</span>
         </h1>
         {!editing && (
@@ -164,7 +165,7 @@ function WorkItemView({ projectKey, current }: { projectKey: string; current: Ve
                     <Link to={`/${projectKey}/items/${child.key}`} state={itemLinkState} className="font-mono font-semibold underline-offset-4 hover:underline">
                       {child.key}
                     </Link>
-                    <span className="text-muted-foreground">{typeLabel(child.type)}</span>
+                    <TypeBadge type={child.type} compact />
                     <span className="flex-1">{child.title}</span>
                     <span className="whitespace-nowrap">{statusLabel(child.status)}</span>
                   </li>
@@ -209,7 +210,8 @@ function WorkItemView({ projectKey, current }: { projectKey: string; current: Ve
             <dd>
               {item.parent ? (
                 <Link to={`/${projectKey}/items/${item.parent.key}`} state={itemLinkState} className="underline-offset-4 hover:underline">
-                  <span className="font-mono">{item.parent.key}</span> {typeLabel(item.parent.type)}
+                  {/* Key first, then the type, so the link reads "TRK-1 Epic". */}
+                  <span className="font-mono">{item.parent.key}</span> <TypeBadge type={item.parent.type} compact className="align-middle" />
                 </Link>
               ) : (
                 messages.workItem.noParent
