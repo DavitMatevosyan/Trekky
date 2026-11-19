@@ -11,8 +11,9 @@ import { FilterBar } from '../workItems/FilterBar.tsx'
 import { useWorkItemFilters } from '../workItems/useWorkItemFilters.ts'
 import { DEFAULT_FILTERS, isDefaultFilters, type WorkItemFilters } from '../workItems/workItemFilters.ts'
 import { useWorkItems } from '../workItems/useWorkItems.ts'
+import { StatusChip } from '../workItems/StatusChip.tsx'
 import { TypeBadge } from '../workItems/TypeBadge.tsx'
-import { statusLabel, typeAccent, typeRow } from '../workItems/workItemTypes.ts'
+import { typeAccent, typeRow } from '../workItems/workItemTypes.ts'
 
 /**
  * A project's items as a list, newest update first (US-08, wireframes: List view), with "New item" (US-06) and the filter
@@ -125,7 +126,9 @@ function ProjectItems({ projectId, projectKey, projectName, itemCount }: Project
                       <TypeBadge type={item.type} />
                     </td>
                     <td className="px-4 py-2">{item.title}</td>
-                    <td className="px-4 py-2 whitespace-nowrap">{statusLabel(item.status)}</td>
+                    <td className="px-4 py-2 whitespace-nowrap">
+                      <StatusChip status={item.status} />
+                    </td>
                     <td className="px-4 py-2 whitespace-nowrap">{item.assignee?.displayName ?? messages.workItem.nobody}</td>
                     <td className="px-4 py-2 font-mono whitespace-nowrap">{item.parentKey ?? messages.project.noParent}</td>
                     <td className="px-4 py-2 whitespace-nowrap text-muted-foreground">

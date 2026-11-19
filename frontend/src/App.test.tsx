@@ -74,7 +74,8 @@ describe('App', () => {
 
       await submitLogin()
 
-      expect(await screen.findByRole('alert')).toHaveTextContent('Email or password is incorrect.')
+      // FormError's alert region is always on the page: wait for its text, not for the region.
+      await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Email or password is incorrect.'))
       expect(beginAuthorization).not.toHaveBeenCalled()
     })
 
@@ -100,7 +101,8 @@ describe('App', () => {
 
       await userEvent.click(screen.getByRole('button', { name: 'Log in' }))
 
-      expect(await screen.findByRole('alert')).toHaveTextContent('Something is off.')
+      // FormError's alert region is always on the page: wait for its text, not for the region.
+      await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Something is off.'))
     })
 
     it('continues the desktop app’s authorization request after login instead of signing in here (ADR-0019)', async () => {
@@ -164,7 +166,8 @@ describe('App', () => {
 
       await submitSignUp()
 
-      expect(await screen.findByRole('alert')).toHaveTextContent('An account with this email already exists.')
+      // FormError's alert region is always on the page: wait for its text, not for the region.
+      await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('An account with this email already exists.'))
     })
 
     it('creates the account and signs the user in, landing on the start page', async () => {
