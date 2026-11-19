@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router'
+import { usePermissions } from '../auth/usePermissions.ts'
 import { RelativeTime } from '../components/RelativeTime.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { messages } from '../i18n/messages.ts'
@@ -46,6 +47,7 @@ interface ProjectItemsProps {
 function ProjectItems({ projectId, projectKey, projectName, itemCount }: ProjectItemsProps) {
   const [filters, setFilters] = useWorkItemFilters()
   const items = useWorkItems(projectId, filters)
+  const can = usePermissions()
   const navigate = useNavigate()
   const { search } = useLocation()
 
@@ -75,7 +77,7 @@ function ProjectItems({ projectId, projectKey, projectName, itemCount }: Project
         // Nothing at all only when the project has no items; otherwise the filters (or the default one) hide them.
         <div className="grid justify-items-start gap-2">
           <p className="text-muted-foreground">
-            {filtered ? messages.filters.noMatches : itemCount > 0 ? messages.filters.allUnderCompletedEpics : messages.project.empty}
+            {filtered ? messages.filters.noMatches : itemCount > 0 ? messages.filters.allUnderCompletedEpics : can.editWork ? messages.project.empty : messages.project.emptyReadOnly}
           </p>
           {filtered && (
             <Button variant="outline" size="sm" onClick={() => showFiltered(DEFAULT_FILTERS)}>

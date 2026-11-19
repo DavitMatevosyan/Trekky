@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { fakeApi, jsonResponse, problemResponse, renderApp, requestsTo, validTokens } from '../test/renderApp.tsx'
+import { fakeApi, jsonResponse, me, problemResponse, renderApp, requestsTo, validTokens } from '../test/renderApp.tsx'
 
 const project = { id: '0190a000-0000-7000-8000-0000000000b1', key: 'TRK', name: 'Trekky', itemCount: 3, createdAt: '2026-10-26T10:00:00Z' }
 const card = (number: number, status: string, type = 'task', title = `Item ${number}`) => ({
@@ -406,5 +406,27 @@ describe('BoardPage filters', () => {
       'href',
       '/TRK/board?type=bug',
     )
+  })
+})
+
+describe('BoardPage roles (TREK-46)', () => {
+  it('shows a viewer the cards as plain links: no "New item", nothing to pick up', async () => {
+    renderBoard({ 'GET /api/v1/me': () => jsonResponse({ ...me, role: 'viewer' }) })
+
+    // The signed-in user's email in the header: the role is known.
+    await screen.findByText(me.user.email)
+    const link = await screen.findByRole('link', { name: 'TRK-1' })
+    expect(link).not.toHaveAttribute('aria-roledescription')
+    // Only the card's type (TREK-58), no instructions for moving it.
+    expect(link).toHaveAccessibleDescription('Bug')
+    expect(link.closest('li')).not.toHaveClass('cursor-grab')
+    expect(screen.queryByRole('button', { name: 'New item' })).not.toBeInTheDocument()
+  })
+
+  it('lets a member create items and move cards', async () => {
+    renderBoard({ 'GET /api/v1/me': () => jsonResponse({ ...me, role: 'member' }) })
+
+    expect(await screen.findByRole('button', { name: 'New item' })).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: 'TRK-1' })).toHaveAttribute('aria-roledescription', 'movable card')
   })
 })

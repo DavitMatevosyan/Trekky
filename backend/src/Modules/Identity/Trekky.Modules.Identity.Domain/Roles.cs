@@ -1,6 +1,6 @@
 namespace Trekky.Modules.Identity.Domain;
 
-/// <summary>Membership roles, as stored and as sent in the <c>role</c> claim and the API.</summary>
+/// <summary>Membership roles, as stored and as sent in the <c>role</c> claim and the API. The same values as SharedKernel's TrekkyRoles.</summary>
 internal static class Roles
 {
     public const string Owner = "owner";

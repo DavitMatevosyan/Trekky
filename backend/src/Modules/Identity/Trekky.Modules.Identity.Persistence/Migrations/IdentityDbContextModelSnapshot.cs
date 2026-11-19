@@ -393,7 +393,8 @@ namespace Trekky.Modules.Identity.Persistence.Migrations
                         .HasName("pk_memberships");
 
                     b.HasIndex("UserId")
-                        .HasDatabaseName("ix_memberships_user_id");
+                        .IsUnique()
+                        .HasDatabaseName("ux_memberships_user_id");
 
                     b.ToTable("memberships", "identity", t =>
                         {

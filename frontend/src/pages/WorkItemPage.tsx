@@ -1,6 +1,7 @@
 import { useId, useRef, useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router'
 import { ProblemError } from '../api/problem.ts'
+import { usePermissions } from '../auth/usePermissions.ts'
 import { MarkdownText } from '../components/MarkdownText.tsx'
 import { RelativeTime } from '../components/RelativeTime.tsx'
 import { Button } from '../components/ui/Button.tsx'
@@ -64,6 +65,7 @@ function WorkItemView({ projectKey, current }: { projectKey: string; current: Ve
   // than 50 a reload only knows the loaded ones; a comment deleted just before a reload is gone from the list too.
   // Both need the item's own last-activity time from the server.
   const comments = useComments(item.id)
+  const can = usePermissions()
   const editButton = useRef<HTMLButtonElement>(null)
   const statusLabelId = useId()
   const assigneeLabelId = useId()
@@ -107,7 +109,7 @@ function WorkItemView({ projectKey, current }: { projectKey: string; current: Ve
           <TypeBadge type={item.type} className="px-2 text-sm" />
           <span>{item.title}</span>
         </h1>
-        {!editing && (
+        {can.editWork && !editing && (
           <Button ref={editButton} variant="outline" onClick={() => setEditing(true)}>
             {messages.workItem.edit}
           </Button>
@@ -118,7 +120,7 @@ function WorkItemView({ projectKey, current }: { projectKey: string; current: Ve
         {announcement}
       </p>
 
-      {editing && (
+      {can.editWork && editing && (
         <WorkItemForm
           // A new version (after a 412 reload) starts the form again from the latest values.
           key={current.etag}
@@ -184,27 +186,36 @@ function WorkItemView({ projectKey, current }: { projectKey: string; current: Ve
               {messages.workItem.status}
             </dt>
             <dd>
-              <StatusSelect
-                current={current}
-                labelledBy={statusLabelId}
-                // A move gives the item a new version, which would restart the open form and lose what was typed.
-                disabled={editing}
-                onMoved={(status) => setAnnouncement(messages.workItem.statusChanged(item.key, statusLabel(status)))}
-              />
+              {/* A Viewer reads the value as text: a disabled select is faded and says nothing more (ADR-0026). */}
+              {can.editWork ? (
+                <StatusSelect
+                  current={current}
+                  labelledBy={statusLabelId}
+                  // A move gives the item a new version, which would restart the open form and lose what was typed.
+                  disabled={editing}
+                  onMoved={(status) => setAnnouncement(messages.workItem.statusChanged(item.key, statusLabel(status)))}
+                />
+              ) : (
+                statusLabel(item.status)
+              )}
             </dd>
             <dt id={assigneeLabelId} className="self-center text-muted-foreground">
               {messages.workItem.assignee}
             </dt>
             <dd>
-              <AssigneeSelect
-                current={current}
-                labelledBy={assigneeLabelId}
-                // Like status: a save gives the item a new version, which would restart an open edit form.
-                disabled={editing}
-                onAssigned={(name) =>
-                  setAnnouncement(name === null ? messages.workItem.unassigned(item.key) : messages.workItem.assigned(item.key, name))
-                }
-              />
+              {can.editWork ? (
+                <AssigneeSelect
+                  current={current}
+                  labelledBy={assigneeLabelId}
+                  // Like status: a save gives the item a new version, which would restart an open edit form.
+                  disabled={editing}
+                  onAssigned={(name) =>
+                    setAnnouncement(name === null ? messages.workItem.unassigned(item.key) : messages.workItem.assigned(item.key, name))
+                  }
+                />
+              ) : (
+                (item.assignee?.displayName ?? messages.workItem.nobody)
+              )}
             </dd>
             <dt className="text-muted-foreground">{messages.workItem.parent}</dt>
             <dd>
