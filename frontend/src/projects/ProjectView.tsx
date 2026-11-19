@@ -1,4 +1,5 @@
 import { useRef, useState, type ReactNode } from 'react'
+import { usePermissions } from '../auth/usePermissions.ts'
 import { Button } from '../components/ui/Button.tsx'
 import { messages } from '../i18n/messages.ts'
 import { useCreateWorkItem } from '../workItems/useWorkItems.ts'
@@ -16,6 +17,7 @@ interface ProjectViewProps {
 
 /** What every view of a project shares (wireframes: App shell): the project bar with "New item" (US-06) and its form. */
 export function ProjectView({ projectId, projectKey, projectName, children }: ProjectViewProps) {
+  const can = usePermissions()
   const createItem = useCreateWorkItem(projectId)
   const [creating, setCreating] = useState(false)
   const [announcement, setAnnouncement] = useState('')
@@ -34,6 +36,7 @@ export function ProjectView({ projectId, projectKey, projectName, children }: Pr
         projectKey={projectKey}
         projectName={projectName}
         action={
+          can.editWork &&
           !creating && (
             <Button ref={newItemButton} onClick={() => setCreating(true)}>
               <span aria-hidden="true">+</span> {messages.project.newItem}
@@ -42,7 +45,7 @@ export function ProjectView({ projectId, projectKey, projectName, children }: Pr
         }
       />
 
-      {creating && (
+      {can.editWork && creating && (
         <WorkItemForm
           heading={messages.workItemForm.newTitle}
           projectId={projectId}

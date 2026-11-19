@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Authorization;
 using Trekky.Modules.Activity.Api;
 using Trekky.Modules.Identity.Api;
 using Trekky.Modules.Projects.Api;
@@ -13,9 +12,9 @@ builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
 builder.Services.AddTrekkyPersistence();
 
-// Every endpoint needs an authenticated user unless it opts out with AllowAnonymous.
-builder.Services.AddAuthorizationBuilder()
-    .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
+// Every endpoint names one of the role policies (ADR-0026) or opts out with AllowAnonymous; one that names neither
+// still needs a signed-in member of an organization (the fallback).
+builder.Services.AddAuthorizationBuilder().AddTrekkyPolicies();
 
 // Browser origins other than the API's own that may call it (ADR-0017), e.g. the desktop app's http://tauri.localhost.
 // None by default: the web app is served from the API's origin. Bearer tokens only, so no credentials (cookies).

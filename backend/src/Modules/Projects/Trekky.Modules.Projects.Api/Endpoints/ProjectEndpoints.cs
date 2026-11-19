@@ -25,18 +25,22 @@ internal static class ProjectEndpoints
                     ClaimsPrincipal principal, HttpResponse response, CancellationToken cancellationToken)
                 => CreateAsync(request, validator, service, principal, response, cancellationToken))
             .WithName("CreateProject")
+            .RequireAuthorization(TrekkyPolicies.ManageProjects)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .WithSummary("Create a project (US-05)")
             .ProducesProblem(StatusCodes.Status409Conflict);
 
         projects.MapGet("/", (int? limit, string? cursor, IProjectService service, CancellationToken cancellationToken)
                 => ListAsync(limit, cursor, service, cancellationToken))
             .WithName("ListProjects")
+            .RequireAuthorization(TrekkyPolicies.ReadWork)
             .WithSummary("List projects by name (US-05)");
 
         projects.MapGet("/{projectId:guid}", (Guid projectId, IProjectService service, HttpResponse response,
                     CancellationToken cancellationToken)
                 => GetAsync(projectId, service, response, cancellationToken))
             .WithName("GetProject")
+            .RequireAuthorization(TrekkyPolicies.ReadWork)
             .WithSummary("Get a project")
             .ProducesProblem(StatusCodes.Status404NotFound);
 
@@ -44,6 +48,7 @@ internal static class ProjectEndpoints
                     CancellationToken cancellationToken)
                 => GetByKeyAsync(key, service, response, cancellationToken))
             .WithName("GetProjectByKey")
+            .RequireAuthorization(TrekkyPolicies.ReadWork)
             .WithSummary("Get a project by its key (web app URLs like /TRK)")
             .ProducesProblem(StatusCodes.Status404NotFound);
 

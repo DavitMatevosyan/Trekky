@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Routing;
 using Trekky.Modules.Identity.Application.Contracts;
+using Trekky.SharedKernel;
 
 namespace Trekky.Modules.Identity.Api.Endpoints;
 
@@ -12,7 +13,7 @@ internal static class MemberEndpoints
     public static IEndpointRouteBuilder MapMemberEndpoints(this IEndpointRouteBuilder endpoints)
     {
         endpoints.MapGet("/members", ListAsync)
-            .RequireAuthorization()
+            .RequireAuthorization(TrekkyPolicies.ReadWork)
             .WithTags("Members")
             .WithName("ListMembers")
             .WithSummary("Members of the caller's organization, by display name (assignee picker, US-13)")

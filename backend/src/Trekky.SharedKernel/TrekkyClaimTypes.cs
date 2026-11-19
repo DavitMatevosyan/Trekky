@@ -8,4 +8,7 @@ public static class TrekkyClaimTypes
 
     /// <summary>The standard OIDC subject: the user id. Here so modules can read it without referencing OpenIddict.</summary>
     public const string Subject = "sub";
+
+    /// <summary>The caller's role in the organization (<see cref="TrekkyRoles"/>), checked by <see cref="TrekkyPolicies"/>.</summary>
+    public const string Role = "role";
 }

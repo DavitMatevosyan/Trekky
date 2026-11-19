@@ -21,6 +21,7 @@ internal static class CommentEndpoints
                 => ListAsync(workItemId, limit, cursor, service, cancellationToken))
             .WithTags("Comments")
             .WithName("ListComments")
+            .RequireAuthorization(TrekkyPolicies.ReadWork)
             .WithSummary("An item's comments, oldest first (US-12)")
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status404NotFound);
@@ -31,6 +32,8 @@ internal static class CommentEndpoints
                 => AddAsync(workItemId, request, validator, service, principal, cancellationToken))
             .WithTags("Comments")
             .WithName("AddComment")
+            .RequireAuthorization(TrekkyPolicies.EditWork)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .WithSummary("Comment on an item in Markdown (US-12)")
             .WithDescription("Records a CommentAdded event on the item, so the comment shows in its history.")
             .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -41,6 +44,7 @@ internal static class CommentEndpoints
                 => GetAsync(commentId, service, response, cancellationToken))
             .WithTags("Comments")
             .WithName("GetComment")
+            .RequireAuthorization(TrekkyPolicies.ReadWork)
             .WithSummary("Get one comment (US-12)")
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status404NotFound);
@@ -51,6 +55,7 @@ internal static class CommentEndpoints
                 => EditAsync(commentId, ifMatch, request, validator, service, principal, response, cancellationToken))
             .WithTags("Comments")
             .WithName("EditComment")
+            .RequireAuthorization(TrekkyPolicies.EditWork)
             .WithSummary("Edit your own comment (US-12)")
             .WithDescription(
                 "JSON merge patch with the new bodyMd. Only the author may edit (403). Needs If-Match with the comment's etag (428, 412). Records CommentEdited on the item; an unchanged body changes nothing.")
@@ -66,6 +71,7 @@ internal static class CommentEndpoints
                 => DeleteAsync(commentId, service, principal, cancellationToken))
             .WithTags("Comments")
             .WithName("DeleteComment")
+            .RequireAuthorization(TrekkyPolicies.EditWork)
             .WithSummary("Delete your own comment (US-12)")
             .WithDescription("Only the author may delete (403). The comment is no longer shown; CommentDeleted is recorded on the item. Answers with the time it was deleted.")
             .ProducesProblem(StatusCodes.Status401Unauthorized)

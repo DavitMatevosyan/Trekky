@@ -2,6 +2,7 @@ import { useId, useRef, useState, type KeyboardEvent } from 'react'
 import { messages } from '../i18n/messages.ts'
 import { cn } from '../lib/cn.ts'
 import { useDebounced } from '../lib/useDebounced.ts'
+import { TypeIcon } from './TypeIcon.tsx'
 import { useParentCandidates, useWorkItem } from './useWorkItems.ts'
 
 const SEARCH_DELAY_MS = 250
@@ -144,7 +145,7 @@ export function EpicFilter({
         aria-label={messages.filters.epic}
         hidden={!open || options.length === 0}
         onMouseDown={keepFocus}
-        className="absolute z-20 mt-1 max-h-64 w-full min-w-64 overflow-y-auto rounded-md border border-border bg-card py-1 text-sm shadow-md"
+        className="absolute z-20 mt-1 max-h-64 w-full min-w-64 overflow-y-auto rounded-md border border-border bg-surface-raised py-1 text-sm shadow-md"
       >
         {options.map((option, index) => (
           <li
@@ -152,13 +153,14 @@ export function EpicFilter({
             id={optionId(option.id)}
             role="option"
             aria-selected={index === active}
-            className={cn('flex cursor-pointer gap-2 px-3 py-1.5', index === active && 'bg-muted outline-2 -outline-offset-2 outline-ring')}
+            className={cn('flex cursor-pointer items-center gap-2 px-3 py-1.5', index === active && 'bg-muted outline-2 -outline-offset-2 outline-ring')}
             onMouseDown={(event) => {
               event.preventDefault()
               choose(option)
             }}
             onMouseEnter={() => setActive(index)}
           >
+            <TypeIcon type={option.type} className="size-3.5" />
             <span className="font-mono font-semibold">{option.key}</span>
             <span className="truncate">{option.title}</span>
           </li>
@@ -173,7 +175,7 @@ export function EpicFilter({
         <p
           aria-hidden="true"
           onMouseDown={keepFocus}
-          className="absolute z-20 mt-1 w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-muted-foreground shadow-md"
+          className="absolute z-20 mt-1 w-full rounded-md border border-border bg-surface-raised px-3 py-2 text-sm text-muted-foreground shadow-md"
         >
           {emptyMessage}
         </p>
