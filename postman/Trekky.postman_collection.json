@@ -64,6 +64,22 @@
     {
       "key": "memberId",
       "value": ""
+    },
+    {
+      "key": "githubCode",
+      "value": ""
+    },
+    {
+      "key": "githubInstallationId",
+      "value": ""
+    },
+    {
+      "key": "githubConnectionId",
+      "value": ""
+    },
+    {
+      "key": "projectRepositoryEtag",
+      "value": ""
     }
   ],
   "auth": {
@@ -1070,6 +1086,145 @@
             "method": "DELETE",
             "url": "{{baseUrl}}/api/v1/comments/{{commentId}}",
             "description": "Only the author may delete (403). Soft delete: the comment is no longer listed or readable (404 afterwards). Records CommentDeleted on the item; answers { id, deletedAt }, deletedAt being the event's time."
+          }
+        }
+      ]
+    },
+    {
+      "name": "GitHub",
+      "description": "TREK-74, ADR-0027: connect the Trekky GitHub App and link a project to its docs repository. Needs a server with GitHub:* settings (deploy/README.md \"GitHub App\"); otherwise 503. Admin or Owner, except reading a project's link.",
+      "item": [
+        {
+          "name": "GitHub settings",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('settings', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "if (body.installations && body.installations.length) pm.collectionVariables.set('githubConnectionId', body.installations[0].id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/github",
+            "description": "configured, installUrl (open it in a browser to install the app; GitHub redirects to /settings/github/callback with code and installation_id) and the connected installations."
+          }
+        },
+        {
+          "name": "Connect installation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('connected', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "const body = pm.response.json();",
+                  "if (body.id) pm.collectionVariables.set('githubConnectionId', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{githubCode}}\",\n  \"installationId\": {{githubInstallationId}}\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/github/installations",
+            "description": "code and installation_id come from GitHub's redirect after the install (copy them from the browser's address bar before the web app uses the code; a code works once). Connected only if that GitHub user can access the installation (422 otherwise); 409 when another organization has it."
+          }
+        },
+        {
+          "name": "List repositories",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/github/installations/{{githubConnectionId}}/repositories",
+            "description": "The repositories the installation can reach, by name (up to 1,000; truncated when more). 409 when the app was uninstalled on GitHub."
+          }
+        },
+        {
+          "name": "Link project repository",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('linked', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "const etag = pm.response.headers.get('ETag');",
+                  "if (etag) pm.collectionVariables.set('projectRepositoryEtag', etag);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "If-Match",
+                "value": "{{projectRepositoryEtag}}",
+                "disabled": true,
+                "description": "Needed when the project already has a link"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"installationId\": \"{{githubConnectionId}}\",\n  \"repository\": \"owner/name\",\n  \"docsPath\": \"docs/\",\n  \"branch\": \"dev\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/github",
+            "description": "Checked on GitHub: the installation must list the repository and the branch and folder must exist (422 with errors on the field). docsPath defaults to docs/ and branch to dev. Records ProjectRepositoryLinked or ProjectRepositoryChanged."
+          }
+        },
+        {
+          "name": "Get project repository",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('link', () => pm.response.to.have.status(200));",
+                  "const etag = pm.response.headers.get('ETag');",
+                  "if (etag) pm.collectionVariables.set('projectRepositoryEtag', etag);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/github",
+            "description": "Any role. 404 when the project has no repository linked."
+          }
+        },
+        {
+          "name": "Unlink project repository",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/github"
+          }
+        },
+        {
+          "name": "Disconnect installation",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/v1/github/installations/{{githubConnectionId}}",
+            "description": "Unlinks its projects and drops its cached token. Uninstall the app on GitHub separately (manageUrl)."
           }
         }
       ]

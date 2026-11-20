@@ -11,7 +11,7 @@ const tabClass = ({ isActive }: { isActive: boolean }) =>
   )
 
 /**
- * The project bar (wireframes: App shell): key and name, the Board and List tabs, and the screen's primary action. The
+ * The project bar (wireframes: App shell): key and name, the Board, List and Settings (TREK-74) tabs, and the screen's primary action. The
  * tabs carry the active filters, so switching views keeps them (TREK-54).
  */
 export function ProjectHeader({ projectKey, projectName, action }: { projectKey: string; projectName: string; action?: ReactNode }) {
@@ -31,6 +31,9 @@ export function ProjectHeader({ projectKey, projectName, action }: { projectKey:
           </NavLink>
           <NavLink to={`/${projectKey}${filters}`} end className={tabClass}>
             {messages.project.list}
+          </NavLink>
+          <NavLink to={`/${projectKey}/settings`} className={tabClass}>
+            {messages.projectSettings.tab}
           </NavLink>
         </nav>
       </div>

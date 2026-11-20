@@ -29,6 +29,7 @@ export const messages = {
     loggingOut: 'Logging out…',
     mainNav: 'Main',
     sourceCode: 'Source code (AGPL-3.0)',
+    settings: 'Settings',
   },
   /** The theme switch in the app bar (TREK-56). */
   theme: {
@@ -289,6 +290,78 @@ export const messages = {
     installing: 'Installing…',
     later: 'Later',
     failed: 'The update could not be installed. Please try again later.',
+  },
+  /** Organization settings (TREK-74). */
+  settings: {
+    title: 'Settings',
+    adminsOnly: 'Only Admins and Owners can change organization settings.',
+  },
+  /** The GitHub connection in organization settings and its install callback (TREK-74, ADR-0027). */
+  github: {
+    title: 'GitHub',
+    intro:
+      'Connect the Trekky GitHub App to read project docs from your repositories. You choose which repositories it can reach on GitHub.',
+    loading: 'Loading GitHub settings…',
+    notConfigured: 'GitHub isn’t set up on this Trekky server yet. The server admin adds the GitHub App first.',
+    none: 'No GitHub account connected yet.',
+    connect: 'Connect GitHub',
+    connectAnother: 'Connect another account',
+    connections: 'Connected accounts',
+    accountType: (type: string) => (type === 'Organization' ? 'organization' : 'user'),
+    connectedAt: 'Connected',
+    manage: (account: string) => `Choose repositories for ${account} on GitHub`,
+    disconnect: (account: string) => `Disconnect ${account}`,
+    disconnecting: 'Disconnecting…',
+    confirmDisconnect: (account: string) =>
+      `Disconnect ${account}? Projects using it lose their docs repository. The app stays installed on GitHub until you uninstall it there.`,
+    connected: (account: string) => `Connected ${account}.`,
+    disconnected: (account: string) => `Disconnected ${account}.`,
+    callback: {
+      title: 'Connecting GitHub',
+      connecting: 'Connecting your GitHub account…',
+      confirmTitle: 'Finish connecting GitHub?',
+      confirmBody:
+        'GitHub sent you back to Trekky. Only continue if you just installed the Trekky app on GitHub yourself.',
+      confirm: 'Connect',
+      cancel: 'Cancel',
+      requested:
+        'GitHub sent the install request to an owner of the GitHub organization. Connect it here once they approve it.',
+      missing: 'GitHub didn’t send back what Trekky needs. Start again from Settings.',
+      backToSettings: 'Back to Settings',
+    },
+  },
+  /** A project's settings: where its docs live on GitHub (TREK-74). */
+  projectSettings: {
+    tab: 'Settings',
+    title: 'Docs repository',
+    intro: 'The GitHub repository, folder and branch where this project’s documentation lives.',
+    loading: 'Loading…',
+    notLinked: 'No repository linked yet.',
+    readOnly: 'Only Admins and Owners can change where the docs live.',
+    linkedTo: 'Linked to',
+    folder: 'Folder',
+    rootFolder: 'the whole repository',
+    branch: 'Branch',
+    openOnGitHub: 'Open on GitHub',
+    noConnection: 'Connect a GitHub account in organization settings first.',
+    goToSettings: 'Go to Settings',
+    connection: 'GitHub account',
+    repository: 'Repository',
+    repositoryHint: 'owner/name, as on GitHub',
+    chooseRepository: 'Choose a repository',
+    loadingRepositories: 'Loading repositories…',
+    truncated: 'This account has more repositories than Trekky lists. Give the app only the docs repositories on GitHub, then type or pick the name.',
+    docsPath: 'Docs folder',
+    docsPathHint: 'docs/ by default; / for the whole repository',
+    branchHint: 'dev by default, so merged edits show at once',
+    save: 'Save',
+    saving: 'Checking on GitHub…',
+    saved: 'Saved. Trekky checked the repository, branch and folder on GitHub.',
+    stale: 'Someone changed these settings meanwhile. Review them and save again.',
+    unlink: 'Remove link',
+    unlinking: 'Removing…',
+    confirmUnlink: 'Remove the docs repository from this project? Nothing changes on GitHub.',
+    unlinked: 'The docs repository was removed.',
   },
   /** The Windows desktop app's own screens (ADR-0018). */
   desktop: {

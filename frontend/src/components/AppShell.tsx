@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, Outlet, useNavigate } from 'react-router'
 import { useAuth } from '../auth/AuthContext.ts'
 import { useMe } from '../auth/useMe.ts'
+import { usePermissions } from '../auth/usePermissions.ts'
 import { messages } from '../i18n/messages.ts'
 import { ThemeSwitch } from '../theme/ThemeSwitch.tsx'
 import { SourceCodeLink } from './SourceCodeLink.tsx'
@@ -13,6 +14,7 @@ export function AppShell() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const me = useMe()
+  const can = usePermissions()
 
   const logOut = useMutation({
     // The API revokes every token and invalidates the session cookie (US-02 AC4).
@@ -32,6 +34,11 @@ export function AppShell() {
           </Link>
           <div className="flex items-center gap-3 text-sm">
             {me.data && <span className="text-muted-foreground">{me.data.user.email ?? me.data.user.displayName}</span>}
+            {can.manageProjects && (
+              <Link to="/settings" className="font-medium underline-offset-4 hover:underline">
+                {messages.shell.settings}
+              </Link>
+            )}
             <ThemeSwitch />
             <Button variant="outline" size="sm" onClick={() => logOut.mutate()} disabled={logOut.isPending}>
               {logOut.isPending ? messages.shell.loggingOut : messages.shell.logOut}

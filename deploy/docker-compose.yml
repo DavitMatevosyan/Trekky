@@ -25,6 +25,11 @@ x-api: &api
     # The desktop app's webview (Tauri on Windows, ADR-0017) calls the API from this origin; its OAuth client
     # (trekky-desktop, redirect trekky://auth/callback) needs no settings.
     Cors__AllowedOrigins__0: http://tauri.localhost
+    # The Trekky GitHub App (TREK-74, ADR-0027): all four or none. Empty = GitHub features off.
+    GitHub__ClientId: ${GITHUB_APP_CLIENT_ID:-}
+    GitHub__ClientSecret: ${GITHUB_APP_CLIENT_SECRET:-}
+    GitHub__AppSlug: ${GITHUB_APP_SLUG:-}
+    GitHub__PrivateKeyFile: ${GITHUB_APP_PRIVATE_KEY_FILE:-}
   volumes:
     - ./secrets:/run/secrets-trekky:ro
 

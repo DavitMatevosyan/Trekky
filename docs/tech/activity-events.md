@@ -87,6 +87,11 @@ Indexes: `(org_id, entity_id, event_id desc)` for item history, `(org_id, projec
 | `CommentAdded` | Work items (TRK-18) | A comment is posted (entity = the work item) | `{ "commentId": "…", "excerpt": "first 200 characters" }` |
 | `CommentEdited` | Work items (TRK-19) | The author changes a comment's body (entity = the work item); an edit that changes nothing records no event | `{ "commentId": "…", "excerpt": "first 200 characters of the new body" }` |
 | `CommentDeleted` | Work items (TRK-19) | The author deletes a comment (soft delete; entity = the work item) | `{ "commentId": "…" }` |
+| `GitHubConnected` | GitHub (TREK-74) | An Admin connects an installation of the GitHub App (entity = `github_installation`, no key) | `{ "installationId": 123, "account": "acme", "accountType": "Organization" }` |
+| `GitHubDisconnected` | GitHub (TREK-74) | An installation is disconnected | as `GitHubConnected` |
+| `ProjectRepositoryLinked` | GitHub (TREK-74) | A project is linked to a repository (entity = the project) | `{ "repository": "acme/handbook", "docsPath": "docs/", "branch": "dev" }` |
+| `ProjectRepositoryChanged` | GitHub (TREK-74) | The link's repository, folder or branch changes; saving it unchanged records nothing | the new settings plus `"previous": { … }` |
+| `ProjectRepositoryUnlinked` | GitHub (TREK-74) | The link is removed, or its installation is disconnected | the removed settings plus `"reason": "unlinked" \| "installationDisconnected"` |
 
 Organization and user events (`OrganizationCreated`, `MemberJoined`) are added with invites in v1.1.
 
