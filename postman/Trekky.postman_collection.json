@@ -64,6 +64,18 @@
     {
       "key": "memberId",
       "value": ""
+    },
+    {
+      "key": "inviteEmail",
+      "value": "invitee@example.com"
+    },
+    {
+      "key": "inviteId",
+      "value": ""
+    },
+    {
+      "key": "inviteToken",
+      "value": ""
     }
   ],
   "auth": {
@@ -341,6 +353,172 @@
             "method": "GET",
             "url": "{{baseUrl}}/api/v1/members",
             "description": "The caller's organization's members ({ user: { id, displayName, email }, role }), by display name: who an item can be assigned to (US-13). Saves the first member's id for Assign work item."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Invites",
+      "description": "TREK-47 (ADR-0027): Owners and Admins invite people by email. Run Create invite, then Preview invite and Accept invite with no bearer token (they use the token saved from the link). Accept invite signs up a new user, so run it in a fresh cookie jar or after Log out.",
+      "item": [
+        {
+          "name": "Create invite",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('invite sent', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('inviteId', body.invite.id);",
+                  "// The token is the link's fragment: {origin}/invite#<token> (ADR-0027).",
+                  "pm.collectionVariables.set('inviteToken', body.acceptUrl.split('#')[1]);",
+                  "pm.test('link returned', () => pm.expect(body.acceptUrl).to.include('/invite#'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{inviteEmail}}\",\n  \"role\": \"member\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/invites",
+            "description": "Owner or Admin. role is admin (Owner only), member or viewer. Answers { invite, acceptUrl, emailSent }; the link is returned only here. 409 when the email is already a member, belongs to another organization, or has an open invite."
+          }
+        },
+        {
+          "name": "List invites",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('invites listed', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/invites",
+            "description": "Open invites (pending or expired), newest first. Owner or Admin."
+          }
+        },
+        {
+          "name": "Resend invite",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('invite sent', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('inviteId', body.invite.id);",
+                  "// The token is the link's fragment: {origin}/invite#<token> (ADR-0027).",
+                  "pm.collectionVariables.set('inviteToken', body.acceptUrl.split('#')[1]);",
+                  "pm.test('link returned', () => pm.expect(body.acceptUrl).to.include('/invite#'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/invites/{{inviteId}}/resend",
+            "description": "A new link and 7 more days; the previous link stops working. 409 if accepted or withdrawn."
+          }
+        },
+        {
+          "name": "Preview invite",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('invite found', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{inviteToken}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/invites/preview",
+            "description": "Anonymous: email, role, organization and inviter for the invite page. 404 unknown token, 410 expired, withdrawn or used."
+          }
+        },
+        {
+          "name": "Accept invite",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('joined', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{inviteToken}}\",\n  \"password\": \"{{password}}\",\n  \"displayName\": \"Invited user\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/invites/accept",
+            "description": "Anonymous: creates the account with the invite's email in the inviter's organization and role, and sets the session cookie like Sign up; continue with Authorize to get tokens as the new user."
+          }
+        },
+        {
+          "name": "Withdraw invite",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('withdrawn', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/v1/invites/{{inviteId}}",
+            "description": "Withdraw an open invite; its link then answers 410. 409 if already accepted or withdrawn."
           }
         }
       ]

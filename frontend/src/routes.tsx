@@ -5,7 +5,9 @@ import { AppShell } from './components/AppShell.tsx'
 import { AuthCallbackPage } from './pages/AuthCallbackPage.tsx'
 import { BoardPage } from './pages/BoardPage.tsx'
 import { ProjectsPage } from './pages/ProjectsPage.tsx'
+import { InvitePage } from './pages/InvitePage.tsx'
 import { LogInPage } from './pages/LogInPage.tsx'
+import { MembersPage } from './pages/MembersPage.tsx'
 import { NotFoundPage } from './pages/NotFoundPage.tsx'
 import { ProjectItemsPage } from './pages/ProjectItemsPage.tsx'
 import { SignUpPage } from './pages/SignUpPage.tsx'
@@ -15,10 +17,20 @@ import { WorkItemPage } from './pages/WorkItemPage.tsx'
 export const routes: RouteObject[] = [
   { path: '/login', element: <LogInPage /> },
   { path: '/sign-up', element: <SignUpPage /> },
+  // An invite link (TREK-47): /invite#<token>.
+  { path: '/invite', element: <InvitePage /> },
   { path: CALLBACK_PATH, element: <AuthCallbackPage /> },
   {
     element: <RequireAuth />,
-    children: [{ element: <AppShell />, children: [{ index: true, element: <ProjectsPage /> }] }],
+    children: [
+      {
+        element: <AppShell />,
+        children: [
+          { index: true, element: <ProjectsPage /> },
+          { path: 'members', element: <MembersPage /> },
+        ],
+      },
+    ],
   },
   {
     // Project and item keys in the URL (US-09 AC3): /TRK and /TRK/items/TRK-42.

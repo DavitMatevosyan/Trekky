@@ -25,6 +25,12 @@ x-api: &api
     # The desktop app's webview (Tauri on Windows, ADR-0017) calls the API from this origin; its OAuth client
     # (trekky-desktop, redirect trekky://auth/callback) needs no settings.
     Cors__AllowedOrigins__0: http://tauri.localhost
+    # Invite emails (ADR-0027); no host = no mail, and the inviter copies the link instead.
+    Smtp__Host: ${SMTP_HOST:-}
+    Smtp__Port: ${SMTP_PORT:-587}
+    Smtp__Username: ${SMTP_USERNAME:-}
+    Smtp__Password: ${SMTP_PASSWORD:-}
+    Smtp__From: "${SMTP_FROM:-Trekky <noreply@trekky.local>}"
   volumes:
     - ./secrets:/run/secrets-trekky:ro
 

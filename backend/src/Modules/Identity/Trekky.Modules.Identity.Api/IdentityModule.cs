@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Trekky.Modules.Identity.Api.Endpoints;
 using Trekky.Modules.Identity.Application.Accounts;
 using Trekky.Modules.Identity.Application.Contracts;
+using Trekky.Modules.Identity.Application.Invites;
 using Trekky.Modules.Identity.Infrastructure;
 using Trekky.SharedKernel;
 
@@ -20,6 +21,8 @@ public sealed class IdentityModule : IModule
     {
         services.AddSingleton<IValidator<SignUpRequest>, SignUpRequestValidator>();
         services.AddSingleton<IValidator<LoginRequest>, LoginRequestValidator>();
+        services.AddSingleton<IValidator<CreateInviteRequest>, CreateInviteRequestValidator>();
+        services.AddSingleton<IValidator<AcceptInviteRequest>, AcceptInviteRequestValidator>();
         services.AddIdentityInfrastructure(configuration);
     }
 
@@ -27,6 +30,7 @@ public sealed class IdentityModule : IModule
     {
         endpoints.MapAuthEndpoints();
         endpoints.MapMemberEndpoints();
+        endpoints.MapInviteEndpoints();
     }
 
     public void MapRootEndpoints(IEndpointRouteBuilder endpoints)
