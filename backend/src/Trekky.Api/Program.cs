@@ -1,4 +1,5 @@
 using Trekky.Modules.Activity.Api;
+using Trekky.Modules.GitHub.Api;
 using Trekky.Modules.Identity.Api;
 using Trekky.Modules.Projects.Api;
 using Trekky.Modules.WorkItems.Api;
@@ -27,7 +28,8 @@ builder.Services.AddCors(cors => cors.AddDefaultPolicy(policy => policy
 
 // Modules are added here as they are built.
 builder.Services.AddModules(
-    builder.Configuration, new IdentityModule(), new ProjectsModule(), new WorkItemsModule(), new ActivityModule());
+    builder.Configuration, new IdentityModule(), new ProjectsModule(), new WorkItemsModule(), new ActivityModule(),
+    new GitHubModule());
 
 var app = builder.Build();
 

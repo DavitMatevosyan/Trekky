@@ -27,8 +27,12 @@ public sealed class TrekkyApiFactory : WebApplicationFactory<Program>, IAsyncLif
 
     private string OwnerConnectionString { get; set; } = string.Empty;
 
+    /// <summary>The GitHub the API talks to (TREK-74): a fake on a local port, configured as the Trekky GitHub App.</summary>
+    public FakeGitHub GitHub { get; } = new();
+
     public async Task InitializeAsync()
     {
+        await GitHub.StartAsync();
         await _postgres.StartAsync();
         var superuser = _postgres.GetConnectionString();
         SuperuserConnectionString = superuser;
@@ -65,6 +69,12 @@ public sealed class TrekkyApiFactory : WebApplicationFactory<Program>, IAsyncLif
             ["ConnectionStrings:TrekkyMigrations"] = OwnerConnectionString,
             // No mail server in tests: invites report emailSent = false and tests follow the returned link (TREK-47).
             ["Smtp:Host"] = string.Empty,
+            ["GitHub:ClientId"] = FakeGitHub.ClientId,
+            ["GitHub:ClientSecret"] = FakeGitHub.ClientSecret,
+            ["GitHub:AppSlug"] = FakeGitHub.AppSlug,
+            ["GitHub:PrivateKey"] = GitHub.PrivateKeyPem,
+            ["GitHub:ApiUrl"] = GitHub.BaseUrl.ToString(),
+            ["GitHub:WebUrl"] = GitHub.BaseUrl.ToString(),
         }));
     }
 
@@ -72,6 +82,7 @@ public sealed class TrekkyApiFactory : WebApplicationFactory<Program>, IAsyncLif
     {
         await DisposeAsync();
         await _postgres.DisposeAsync();
+        await GitHub.DisposeAsync();
     }
 
     private static string WithLogin(string connectionString, string username, string password)

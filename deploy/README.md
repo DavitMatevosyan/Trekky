@@ -85,6 +85,27 @@ domain, create an SMTP user, set `SMTP_HOST=mail.smtp2go.com`, `SMTP_PORT=587`, 
 a failure shows as `Sending an invite email ... failed` in `docker compose logs api`, and the page then shows the link.
 Links point at `https://<TREKKY_HOST>/invite#…` (the web client's redirect URI).
 
+## GitHub App (project docs)
+
+Off until set up: the API answers 503 for GitHub and Settings shows "GitHub isn't set up" (TREK-74, ADR-0028). Once:
+
+1. On GitHub (Settings → Developer settings → GitHub Apps → New, under the account that should own it):
+   - Homepage URL `https://<TREKKY_HOST>`; **Callback URL** `https://<TREKKY_HOST>/settings/github/callback`; tick
+     **Request user authorization (OAuth) during installation** and keep **Expire user authorization tokens** ticked.
+   - Webhook: off for now (TREK-79 adds it).
+   - Repository permissions: **Contents** read and write, **Pull requests** read and write, **Metadata** read. Nothing else.
+   - Where can it be installed: "Any account" for SaaS later, "Only on this account" to start.
+2. On the app's page: note the **Client ID** and the slug (`github.com/apps/<slug>`), generate a **client secret** and a
+   **private key** (a `.pem` download).
+3. Put the key in `deploy/secrets/github-app.pem` (ignored by git; on Linux readable by the container's group like the
+   certificates), and in `deploy/.env` set `GITHUB_APP_CLIENT_ID`, `GITHUB_APP_CLIENT_SECRET`, `GITHUB_APP_SLUG` and
+   `GITHUB_APP_PRIVATE_KEY_FILE=/run/secrets-trekky/github-app.pem`.
+4. `docker compose --profile funnel up -d api`. A half-filled set stops the API at start with a "GitHub:" message in
+   `docker compose logs api`. Then Settings → GitHub → Connect GitHub.
+
+Rotate the key or secret on GitHub, replace the file or value, and restart `api`. Tokens are never stored, so nothing
+else needs cleaning.
+
 ## Backups
 
 - **When:** every night at `BACKUP_TIME` (`TZ`, default 02:30 UTC), while the machine is on. Check
