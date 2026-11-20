@@ -76,9 +76,18 @@ curl -fsS https://<TREKKY_HOST>/api/v1/health
 `migrate` applies new migrations before the new API starts. Users stay logged in across deploys: the session-cookie
 keys live in the `dataprotection-keys` volume, and the token certificates don't change.
 
+## Invite emails
+
+Invites (TREK-47, ADR-0027) are emailed over SMTP when `SMTP_HOST` is set in `deploy/.env`; otherwise no mail is
+sent and the Members page shows each invite's link to copy. To turn email on with SMTP2Go: add and verify the sender
+domain, create an SMTP user, set `SMTP_HOST=mail.smtp2go.com`, `SMTP_PORT=587`, `SMTP_USERNAME`, `SMTP_PASSWORD` and
+`SMTP_FROM` (an address on the verified domain), then `docker compose up -d api`. Check with an invite to yourself;
+a failure shows as `Sending an invite email ... failed` in `docker compose logs api`, and the page then shows the link.
+Links point at `https://<TREKKY_HOST>/invite#…` (the web client's redirect URI).
+
 ## GitHub App (project docs)
 
-Off until set up: the API answers 503 for GitHub and Settings shows "GitHub isn't set up" (TREK-74, ADR-0027). Once:
+Off until set up: the API answers 503 for GitHub and Settings shows "GitHub isn't set up" (TREK-74, ADR-0028). Once:
 
 1. On GitHub (Settings → Developer settings → GitHub Apps → New, under the account that should own it):
    - Homepage URL `https://<TREKKY_HOST>`; **Callback URL** `https://<TREKKY_HOST>/settings/github/callback`; tick

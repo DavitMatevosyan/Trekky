@@ -7,7 +7,7 @@ using Trekky.Modules.GitHub.Infrastructure;
 
 namespace Trekky.Modules.GitHub.Tests;
 
-/// <summary>ADR-0027: GitHub settings are all or none; half of them, or a key that is not one, stop the API at start.</summary>
+/// <summary>ADR-0028: GitHub settings are all or none; half of them, or a key that is not one, stop the API at start.</summary>
 public sealed class GitHubConfigurationTests
 {
     [Fact]

@@ -3,7 +3,7 @@ using Microsoft.Extensions.Caching.Memory;
 namespace Trekky.Modules.GitHub.Infrastructure;
 
 /// <summary>
-/// Installation access tokens in this process's memory only (ADR-0027): reused until five minutes before GitHub's
+/// Installation access tokens in this process's memory only (ADR-0028): reused until five minutes before GitHub's
 /// expiry (tokens live one hour), never written to the database, logs or responses. Its own cache, so nothing else in
 /// the app can read or evict the entries.
 /// </summary>

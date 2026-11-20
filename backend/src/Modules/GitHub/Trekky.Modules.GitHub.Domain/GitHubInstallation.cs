@@ -1,7 +1,7 @@
 namespace Trekky.Modules.GitHub.Domain;
 
 /// <summary>
-/// An installation of the Trekky GitHub App that an organization connected (TREK-74, ADR-0027). Only GitHub's id and
+/// An installation of the Trekky GitHub App that an organization connected (TREK-74, ADR-0028). Only GitHub's id and
 /// the account it is installed on are kept; its access tokens are fetched when needed and never stored.
 /// </summary>
 internal sealed class GitHubInstallation

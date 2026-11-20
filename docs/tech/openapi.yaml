@@ -23,6 +23,7 @@ tags:
   - name: System
   - name: Auth
   - name: Members
+  - name: Invites
   - name: Projects
   - name: WorkItems
   - name: Comments
@@ -96,6 +97,69 @@ paths:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
 
+  /api/v1/auth/invites/preview:
+    post:
+      tags: [Auth]
+      operationId: previewInvite
+      summary: What an invite link is for — email, role, organization and inviter (TREK-47, ADR-0027)
+      description: The token is the invite link's fragment (`/invite#<token>`); it is sent in the body so it stays out of URLs and logs.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InviteTokenRequest' }
+      responses:
+        '200':
+          description: The invite can be accepted.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InvitePreview' }
+        '404':
+          description: No invite has this token (mistyped, or replaced by a resend).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '410':
+          description: The invite expired, was withdrawn or was already used.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /api/v1/auth/invites/accept:
+    post:
+      tags: [Auth]
+      operationId: acceptInvite
+      summary: Create the account and join the inviter's organization with the invited role; sets the session cookie (TREK-47)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AcceptInviteRequest' }
+      responses:
+        '201':
+          description: Joined; session cookie set, as after sign-up. Continue with the authorization code flow.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Me' }
+        '400': { $ref: '#/components/responses/ValidationProblem' }
+        '404':
+          description: No invite has this token.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '409':
+          description: The email already has an account (one organization per user).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '410':
+          description: The invite expired, was withdrawn or was already used.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
   /api/v1/auth/logout:
     post:
       tags: [Auth]
@@ -136,6 +200,105 @@ paths:
                     type: array
                     items: { $ref: '#/components/schemas/Member' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/v1/invites:
+    get:
+      tags: [Invites]
+      operationId: listInvites
+      summary: Open invites of the caller's organization, newest first (TREK-47; Owner, Admin)
+      responses:
+        '200':
+          description: Pending and expired invites (not accepted, not withdrawn).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Invite' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Members and Viewers cannot manage invites.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+    post:
+      tags: [Invites]
+      operationId: createInvite
+      summary: Invite someone by email with a role; emails a single-use link that expires in 7 days (TREK-47; Owner, Admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateInviteRequest' }
+      responses:
+        '201':
+          description: Invite created. The link is returned only here; `emailSent` is false when no mail went out.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SentInvite' }
+        '400': { $ref: '#/components/responses/ValidationProblem' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Not an Owner or Admin, or an Admin inviting an Admin.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '409':
+          description: Already a member, the email belongs to another organization, or an open invite exists (resend it).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /api/v1/invites/{inviteId}/resend:
+    post:
+      tags: [Invites]
+      operationId: resendInvite
+      summary: Send an open invite again with a new link; the old link stops working (TREK-47)
+      parameters:
+        - { name: inviteId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Resent, with the new link.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SentInvite' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Not an Owner or Admin, or an Admin resending an invite for an Admin.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: The invite was already accepted or withdrawn, or changed at the same moment.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /api/v1/invites/{inviteId}:
+    delete:
+      tags: [Invites]
+      operationId: revokeInvite
+      summary: Withdraw an open invite; its link then says so (TREK-47)
+      parameters:
+        - { name: inviteId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '204': { description: Withdrawn. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Not an Owner or Admin, or an Admin withdrawing an invite for an Admin.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: The invite was already accepted or withdrawn, or changed at the same moment.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
 
   /api/v1/projects:
     get:
@@ -635,7 +798,7 @@ paths:
     post:
       tags: [GitHub]
       operationId: connectGitHub
-      summary: Connect an installation of the Trekky GitHub App (TREK-74, ADR-0027). Admin and Owner.
+      summary: Connect an installation of the Trekky GitHub App (TREK-74, ADR-0028). Admin and Owner.
       description: |
         Send the `code` and `installation_id` from GitHub's redirect after the install. The server exchanges the code for
         a one-off user token and connects the installation only if that GitHub user administers every repository it
@@ -1037,6 +1200,59 @@ components:
       properties:
         user: { $ref: '#/components/schemas/UserRef' }
         role: { $ref: '#/components/schemas/Role' }
+
+    InvitableRole:
+      type: string
+      enum: [admin, member, viewer]
+      description: Only an Owner invites Admins; nobody is invited as Owner (ADR-0027).
+    CreateInviteRequest:
+      type: object
+      required: [email, role]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+        role: { $ref: '#/components/schemas/InvitableRole' }
+    Invite:
+      type: object
+      required: [id, email, role, status, createdAt, sentAt, expiresAt]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        role: { $ref: '#/components/schemas/InvitableRole' }
+        status: { type: string, enum: [pending, expired] }
+        invitedBy:
+          description: Null once the inviter has left the organization.
+          oneOf: [{ $ref: '#/components/schemas/UserRef' }, { type: 'null' }]
+        createdAt: { type: string, format: date-time }
+        sentAt: { type: string, format: date-time, description: When the current link was sent. }
+        expiresAt: { type: string, format: date-time }
+    SentInvite:
+      type: object
+      required: [invite, acceptUrl, emailSent]
+      properties:
+        invite: { $ref: '#/components/schemas/Invite' }
+        acceptUrl: { type: string, format: uri, description: 'The link, `{origin}/invite#{token}`; returned only here.' }
+        emailSent: { type: boolean }
+    InviteTokenRequest:
+      type: object
+      required: [token]
+      properties:
+        token: { type: string }
+    InvitePreview:
+      type: object
+      required: [email, role, organization, expiresAt]
+      properties:
+        email: { type: string, format: email }
+        role: { $ref: '#/components/schemas/InvitableRole' }
+        organization: { $ref: '#/components/schemas/OrganizationRef' }
+        invitedBy: { type: [string, 'null'], description: The inviter's display name. }
+        expiresAt: { type: string, format: date-time }
+    AcceptInviteRequest:
+      type: object
+      required: [token, password]
+      properties:
+        token: { type: string }
+        password: { type: string, minLength: 12, maxLength: 128 }
+        displayName: { type: string, maxLength: 80 }
 
     CreateProjectRequest:
       type: object

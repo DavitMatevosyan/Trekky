@@ -42,7 +42,7 @@ History may lag a change by up to the dispatcher interval (target: under 1 secon
 | `occurred_at` | timestamptz | when the change committed |
 | `actor_type` | text | `user`, `agent`, `system` |
 | `actor_id` | uuid | nullable for `system` |
-| `entity_type` | text | `project`, `work_item`, `comment` |
+| `entity_type` | text | `project`, `work_item`, `comment`, `invite` |
 | `entity_id` | uuid | |
 | `entity_key` | text | human key when there is one (`TRK-42`) |
 | `project_id` | uuid | nullable; lets history and feeds filter by project |
@@ -93,7 +93,11 @@ Indexes: `(org_id, entity_id, event_id desc)` for item history, `(org_id, projec
 | `ProjectRepositoryChanged` | GitHub (TREK-74) | The link's repository, folder or branch changes; saving it unchanged records nothing | the new settings plus `"previous": { … }` |
 | `ProjectRepositoryUnlinked` | GitHub (TREK-74) | The link is removed, or its installation is disconnected | the removed settings plus `"reason": "unlinked" \| "installationDisconnected"` |
 
-Organization and user events (`OrganizationCreated`, `MemberJoined`) are added with invites in v1.1.
+| `InviteSent` | Identity (TREK-47) | An invite is created or resent (entity = the invite, no key, no project) | `{ "email": "grace@example.com", "role": "viewer" }`, plus `"resent": true \| false` and `"expiresAt"` — never the link's token or its hash |
+| `InviteRevoked` | Identity (TREK-47) | An open invite is withdrawn | `{ "email": "…", "role": "…" }` |
+| `InviteAccepted` | Identity (TREK-47) | Someone accepts an invite and joins (actor = the new member) | `{ "email": "…", "role": "…", "userId": "…" }` |
+
+Role changes and removals (`MemberRoleChanged`, `MemberRemoved`) come with the members page (TREK-48).
 
 ## History view (US-09)
 

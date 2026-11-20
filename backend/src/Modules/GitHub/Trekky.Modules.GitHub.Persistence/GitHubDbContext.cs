@@ -6,7 +6,7 @@ namespace Trekky.Modules.GitHub.Persistence;
 
 /// <summary>
 /// The github schema (TREK-74): connected app <c>installations</c>, each project's <c>project_repositories</c> link and
-/// the module's <c>outbox</c>. No tokens or keys are stored here (ADR-0027).
+/// the module's <c>outbox</c>. No tokens or keys are stored here (ADR-0028).
 /// </summary>
 internal sealed class GitHubDbContext(DbContextOptions<GitHubDbContext> options) : DbContext(options)
 {

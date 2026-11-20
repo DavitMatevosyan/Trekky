@@ -7,7 +7,7 @@ namespace Trekky.Api.Tests;
 
 /// <summary>
 /// TREK-74: an organization connects installations of the Trekky GitHub App and links each project to a repository,
-/// docs folder and branch, all checked against a fake GitHub (ADR-0027).
+/// docs folder and branch, all checked against a fake GitHub (ADR-0028).
 /// </summary>
 [Collection(ApiCollection.Name)]
 public sealed class GitHubEndpointsTests(TrekkyApiFactory factory)

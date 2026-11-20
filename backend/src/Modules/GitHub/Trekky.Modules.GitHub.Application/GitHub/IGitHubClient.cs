@@ -1,7 +1,7 @@
 namespace Trekky.Modules.GitHub.Application.GitHub;
 
 /// <summary>
-/// GitHub's REST API as this module uses it (ADR-0027). The implementation signs in as the app (a short-lived JWT), as
+/// GitHub's REST API as this module uses it (ADR-0028). The implementation signs in as the app (a short-lived JWT), as
 /// an installation (a token it caches in memory until shortly before it expires) or, once, as the user who installed
 /// the app. No token leaves the server. Calls throw <see cref="GitHubUnavailableException"/> when GitHub cannot answer.
 /// </summary>

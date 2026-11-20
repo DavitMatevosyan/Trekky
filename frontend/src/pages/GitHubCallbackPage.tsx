@@ -10,7 +10,7 @@ import { messages } from '../i18n/messages.ts'
 const t = messages.github.callback
 
 /**
- * Where GitHub sends the browser after the Trekky app is installed (TREK-74, ADR-0027), with `code` and
+ * Where GitHub sends the browser after the Trekky app is installed (TREK-74, ADR-0028), with `code` and
  * `installation_id`. When `state` is the one this tab sent, it connects at once; otherwise (a link from someone else,
  * or the install was started in the desktop app) it asks first. The API checks the code against the installation.
  */

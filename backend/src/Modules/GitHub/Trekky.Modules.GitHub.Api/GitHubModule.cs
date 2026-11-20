@@ -12,7 +12,7 @@ using Trekky.SharedKernel;
 namespace Trekky.Modules.GitHub.Api;
 
 /// <summary>
-/// The Trekky GitHub App connection (TREK-74, ADR-0027): installations per organization and each project's docs
+/// The Trekky GitHub App connection (TREK-74, ADR-0028): installations per organization and each project's docs
 /// repository. Owns the <c>github</c> schema.
 /// </summary>
 public sealed class GitHubModule : IModule

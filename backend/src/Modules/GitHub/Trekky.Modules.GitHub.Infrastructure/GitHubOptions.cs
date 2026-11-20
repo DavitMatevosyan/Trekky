@@ -1,7 +1,7 @@
 namespace Trekky.Modules.GitHub.Infrastructure;
 
 /// <summary>
-/// The Trekky GitHub App this server acts as (configuration section <c>GitHub</c>, ADR-0027). Set all of
+/// The Trekky GitHub App this server acts as (configuration section <c>GitHub</c>, ADR-0028). Set all of
 /// <see cref="ClientId"/>, <see cref="ClientSecret"/>, <see cref="AppSlug"/> and a private key, or none: without them
 /// GitHub features answer 503. The secrets come from configuration only (environment, Docker secrets, later Azure Key
 /// Vault), never from appsettings in the repository.

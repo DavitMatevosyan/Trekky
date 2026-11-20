@@ -6,7 +6,9 @@ import { AuthCallbackPage } from './pages/AuthCallbackPage.tsx'
 import { BoardPage } from './pages/BoardPage.tsx'
 import { GitHubCallbackPage } from './pages/GitHubCallbackPage.tsx'
 import { ProjectsPage } from './pages/ProjectsPage.tsx'
+import { InvitePage } from './pages/InvitePage.tsx'
 import { LogInPage } from './pages/LogInPage.tsx'
+import { MembersPage } from './pages/MembersPage.tsx'
 import { NotFoundPage } from './pages/NotFoundPage.tsx'
 import { ProjectItemsPage } from './pages/ProjectItemsPage.tsx'
 import { ProjectSettingsPage } from './pages/ProjectSettingsPage.tsx'
@@ -18,6 +20,8 @@ import { WorkItemPage } from './pages/WorkItemPage.tsx'
 export const routes: RouteObject[] = [
   { path: '/login', element: <LogInPage /> },
   { path: '/sign-up', element: <SignUpPage /> },
+  // An invite link (TREK-47): /invite#<token>.
+  { path: '/invite', element: <InvitePage /> },
   { path: CALLBACK_PATH, element: <AuthCallbackPage /> },
   {
     element: <RequireAuth />,
@@ -26,6 +30,7 @@ export const routes: RouteObject[] = [
         element: <AppShell />,
         children: [
           { index: true, element: <ProjectsPage /> },
+          { path: 'members', element: <MembersPage /> },
           // Organization settings (TREK-74). Case-sensitive, so /SETTINGS stays a project key's URL.
           { path: 'settings', element: <SettingsPage />, caseSensitive: true },
           { path: 'settings/github/callback', element: <GitHubCallbackPage />, caseSensitive: true },

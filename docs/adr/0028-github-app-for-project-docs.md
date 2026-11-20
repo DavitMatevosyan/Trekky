@@ -1,4 +1,4 @@
-# ADR-0027: Project docs reach GitHub through the Trekky GitHub App, with tokens kept on the server
+# ADR-0028: Project docs reach GitHub through the Trekky GitHub App, with tokens kept on the server
 
 - **Status:** Agreed. The requirements are Davit's (TREK-73 and TREK-74: a GitHub App installed per organization with access to chosen repositories only, tokens on the server, encrypted, never in the browser; a project links one repository, docs folder and branch, default `dev`); the details below were decided by Claude under ADR-0023.
 - **Date:** 2026-11-20
