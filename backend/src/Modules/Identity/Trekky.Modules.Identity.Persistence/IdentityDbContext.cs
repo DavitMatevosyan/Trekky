@@ -2,12 +2,13 @@ using System.Text;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Trekky.Modules.Identity.Domain;
+using Trekky.Persistence.Outbox;
 
 namespace Trekky.Modules.Identity.Persistence;
 
 /// <summary>
 /// The identity schema: Identity's user tables (no roles — roles live on memberships),
-/// organizations, memberships and OpenIddict's tables.
+/// organizations, memberships, invites, the module's outbox and OpenIddict's tables.
 /// </summary>
 internal sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> options)
     : IdentityUserContext<User, Guid>(options)
@@ -18,12 +19,18 @@ internal sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> opti
 
     public DbSet<Membership> Memberships => Set<Membership>();
 
+    public DbSet<Invite> Invites => Set<Invite>();
+
+    /// <summary>At most one open (not accepted, not revoked) invite per address per organization.</summary>
+    public const string OpenInviteIndexName = "ux_invites_org_open_email";
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
 
         builder.HasDefaultSchema(Schema);
         builder.UseOpenIddict<Guid>();
+        builder.AddOutbox();
 
         builder.Entity<User>(user =>
         {
@@ -54,6 +61,30 @@ internal sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> opti
             membership.Property(m => m.Role).HasMaxLength(16).IsRequired();
             membership.HasOne<Organization>().WithMany().HasForeignKey(m => m.OrgId).OnDelete(DeleteBehavior.Cascade);
             membership.HasOne<User>().WithMany().HasForeignKey(m => m.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<Invite>(invite =>
+        {
+            invite.ToTable(InviteRowLevelSecurity.InvitesTable, table =>
+            {
+                table.HasCheckConstraint("ck_invites_role", $"role IN ('{Roles.Admin}', '{Roles.Member}', '{Roles.Viewer}')");
+                table.HasCheckConstraint("ck_invites_token_hash", "octet_length(token_hash) = 32");
+            });
+            invite.HasKey(i => i.Id);
+            invite.Property(i => i.Id).ValueGeneratedNever();
+            invite.Property(i => i.Email).HasMaxLength(User.EmailMaxLength).IsRequired();
+            invite.Property(i => i.NormalizedEmail).HasMaxLength(User.EmailMaxLength).IsRequired();
+            invite.Property(i => i.Role).HasMaxLength(16).IsRequired();
+            invite.Property(i => i.TokenHash).IsRequired();
+            invite.Property(i => i.Version).IsRowVersion();
+            invite.HasIndex(i => i.TokenHash).HasDatabaseName("ux_invites_token_hash").IsUnique();
+            invite.HasIndex(i => new { i.OrgId, i.NormalizedEmail })
+                .HasDatabaseName(OpenInviteIndexName)
+                .IsUnique()
+                .HasFilter("accepted_at IS NULL AND revoked_at IS NULL");
+            invite.HasOne<Organization>().WithMany().HasForeignKey(i => i.OrgId).OnDelete(DeleteBehavior.Cascade);
+            invite.HasOne<User>().WithMany().HasForeignKey(i => i.InvitedBy).OnDelete(DeleteBehavior.Restrict);
+            invite.HasOne<User>().WithMany().HasForeignKey(i => i.AcceptedUserId).OnDelete(DeleteBehavior.Restrict);
         });
 
         RenameFrameworkTables(builder);

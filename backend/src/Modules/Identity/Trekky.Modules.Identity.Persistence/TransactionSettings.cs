@@ -18,13 +18,23 @@ internal static class TransactionSettings
     public static Task SetUserAsync(this IdentityDbContext db, Guid userId, CancellationToken cancellationToken)
         => SetAsync(db, UserRowLevelSecurity.SettingName, userId, cancellationToken);
 
-    private static async Task SetAsync(IdentityDbContext db, string setting, Guid value, CancellationToken cancellationToken)
+    /// <summary>Lets this transaction read the invite with this token hash (policy <c>invite_token_read</c>, ADR-0027).</summary>
+    public static Task SetInviteTokenHashAsync(this IdentityDbContext db, byte[] tokenHash, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(tokenHash);
+        return SetAsync(db, InviteRowLevelSecurity.TokenHashSettingName, Convert.ToHexStringLower(tokenHash), cancellationToken);
+    }
+
+    private static Task SetAsync(IdentityDbContext db, string setting, Guid value, CancellationToken cancellationToken)
+        => SetAsync(db, setting, value.ToString(), cancellationToken);
+
+    private static async Task SetAsync(IdentityDbContext db, string setting, string value, CancellationToken cancellationToken)
     {
         if (db.Database.CurrentTransaction is null)
         {
             throw new InvalidOperationException($"'{setting}' can only be set inside a transaction.");
         }
 
-        await db.Database.ExecuteSqlAsync($"SELECT set_config({setting}, {value.ToString()}, true)", cancellationToken);
+        await db.Database.ExecuteSqlAsync($"SELECT set_config({setting}, {value}, true)", cancellationToken);
     }
 }

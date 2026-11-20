@@ -1,8 +1,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Link, Outlet, useNavigate } from 'react-router'
+import { Link, NavLink, Outlet, useNavigate } from 'react-router'
 import { useAuth } from '../auth/AuthContext.ts'
 import { useMe } from '../auth/useMe.ts'
 import { messages } from '../i18n/messages.ts'
+import { cn } from '../lib/cn.ts'
 import { ThemeSwitch } from '../theme/ThemeSwitch.tsx'
 import { SourceCodeLink } from './SourceCodeLink.tsx'
 import { Button } from './ui/Button.tsx'
@@ -27,9 +28,14 @@ export function AppShell() {
     <div className="min-h-svh">
       <header className="border-b border-border">
         <nav aria-label={messages.shell.mainNav} className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-4 px-4">
-          <Link to="/" className="font-semibold">
-            {messages.appName}
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link to="/" className="font-semibold">
+              {messages.appName}
+            </Link>
+            <NavLink to="/members" className={({ isActive }) => cn('text-sm underline-offset-4 hover:underline', isActive ? 'font-medium' : 'text-muted-foreground')}>
+              {messages.shell.members}
+            </NavLink>
+          </div>
           <div className="flex items-center gap-3 text-sm">
             {me.data && <span className="text-muted-foreground">{me.data.user.email ?? me.data.user.displayName}</span>}
             <ThemeSwitch />

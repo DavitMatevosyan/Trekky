@@ -28,6 +28,7 @@ export const messages = {
     logOut: 'Log out',
     loggingOut: 'Logging out…',
     mainNav: 'Main',
+    members: 'Members',
     sourceCode: 'Source code (AGPL-3.0)',
   },
   /** The theme switch in the app bar (TREK-56). */
@@ -47,6 +48,65 @@ export const messages = {
     loadMore: 'Load more',
     itemCount: (count: number) => (count === 1 ? '1 item' : `${count} items`),
     created: (key: string, name: string) => `Created project ${key} · ${name}.`,
+  },
+  /** The members page (TREK-47: invites; TREK-48 adds changing roles and removing members). */
+  members: {
+    title: 'Members',
+    loading: 'Loading members…',
+    listLabel: 'Members of your organization',
+    you: '(you)',
+  },
+  /** Sending and managing invites (TREK-47). */
+  invites: {
+    formTitle: 'Invite people',
+    email: 'Email',
+    role: 'Role',
+    roleHint: 'Admins manage members and projects; Members create and edit work; Viewers only read.',
+    submit: 'Send invite',
+    submitting: 'Sending…',
+    pendingTitle: 'Pending invites',
+    pendingEmpty: 'No pending invites.',
+    loading: 'Loading invites…',
+    expired: 'Expired',
+    expires: 'Expires',
+    invitedBy: (name: string) => `Invited by ${name}`,
+    resend: 'Resend',
+    resending: 'Resending…',
+    revoke: 'Withdraw',
+    revoking: 'Withdrawing…',
+    resendLabel: (email: string) => `Resend the invite to ${email}`,
+    revokeLabel: (email: string) => `Withdraw the invite to ${email}`,
+    confirmRevoke: (email: string) => `Withdraw the invite to ${email}? The link will stop working.`,
+    sent: (email: string) => `Invite sent to ${email}.`,
+    resent: (email: string) => `Invite sent again to ${email}. The earlier link no longer works.`,
+    revoked: (email: string) => `Invite to ${email} withdrawn.`,
+    notEmailed: (email: string) =>
+      `The invite to ${email} is ready, but no email went out. Copy the link and send it to them yourself.`,
+    linkLabel: 'Invite link',
+    linkHint: 'Works once, for 7 days.',
+    copy: 'Copy link',
+    copied: 'Copied',
+    dismiss: 'Dismiss',
+  },
+  /** The page an invite link opens (TREK-47). */
+  acceptInvite: {
+    title: 'Join your team on Trekky',
+    loading: 'Checking your invite…',
+    summary: (inviter: string, organization: string, role: string) =>
+      `${inviter} invited you to join ${organization} as ${role}.`,
+    summaryNoInviter: (organization: string, role: string) => `You are invited to join ${organization} as ${role}.`,
+    /** A role with its article, for the summaries above; unknown roles are shown as sent. */
+    asRole: (role: string) =>
+      ({ admin: 'an Admin', member: 'a Member', viewer: 'a Viewer' } as Record<string, string | undefined>)[role] ?? role,
+    displayName: 'Your name',
+    displayNameHint: 'Optional. Shown to your team on items and comments.',
+    submit: 'Join',
+    submitting: 'Joining…',
+    missingToken: 'This invite link is incomplete. Open the link from your invite email again.',
+    unavailableTitle: 'This invite can’t be used',
+    signedInAs: (email: string) => `You are signed in as ${email}. Log out to accept this invite with a new account.`,
+    logOutToAccept: 'Log out',
+    haveAccount: 'Already have an account?',
   },
   newProject: {
     title: 'New project',

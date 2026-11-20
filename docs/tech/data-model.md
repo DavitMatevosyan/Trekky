@@ -14,7 +14,7 @@ Postgres 17, one schema per module (ADR-0001), `org_id` + RLS on every tenant ta
 
 | Module | Schema | Tables | Arrives in |
 | --- | --- | --- | --- |
-| Identity | `identity` | users (+ ASP.NET Identity tables), organizations, memberships, OpenIddict tables | TRK-7 |
+| Identity | `identity` | users (+ ASP.NET Identity tables), organizations, memberships, invites, outbox, OpenIddict tables | TRK-7, TREK-47 |
 | Projects | `projects` | projects, outbox | TRK-10 |
 | Work items | `work_items` | work_items, item_counters, work_item_revisions (proposed, ADR-0014), comments, outbox | TRK-11, TRK-18 |
 | Activity | `activity` | activity_events | TRK-10 |
@@ -101,10 +101,14 @@ erDiagram
 | --- | --- |
 | `users` | ASP.NET Identity user, renamed from `AspNetUsers`; plus `display_name`. Unique `normalized_email`. Not tenant-scoped (a user can join several orgs later), so **no RLS**; the API never lists users outside the caller's memberships. Identity's `user_claims`, `user_logins`, `user_tokens` are renamed the same way; there are no Identity role tables (roles live on memberships). |
 | `organizations` | `id`, `name` (1–80). RLS on `id` (`id = app.org_id`). |
-| `memberships` | PK `(org_id, user_id)`, `role` (`owner`, `admin`, `member`, `viewer`, check constraint). RLS on `org_id`, plus `user_self_read` (below). v0.1: exactly one membership per user, created at sign-up as Owner. |
+| `memberships` | PK `(org_id, user_id)`, `role` (`owner`, `admin`, `member`, `viewer`, check constraint). RLS on `org_id`, plus `user_self_read` (below). Exactly one membership per user (unique `user_id`, TREK-46), created at sign-up as Owner or when an invite is accepted. |
+| `invites` | TREK-47 (ADR-0027): `org_id`, `email`, `normalized_email`, `role` (`admin`, `member`, `viewer`), `token_hash` (SHA-256 of the link's token, unique), `invited_by`, `created_at`, `sent_at`, `expires_at` (7 days after the last send), `accepted_at`, `accepted_user_id`, `revoked_at`. One open (not accepted, not revoked) invite per `(org_id, normalized_email)`. RLS on `org_id`, plus `invite_token_read` (below). |
+| `outbox` | Invite events (TREK-47), as in the other modules (ADR-0011). |
 | `openiddict_applications`, `openiddict_authorizations`, `openiddict_scopes`, `openiddict_tokens` | Managed by OpenIddict, not tenant-scoped. |
 
 **Finding a user's organization before a tenant is known.** Login and token refresh must read the user's membership before any `org_id` is known. `memberships` therefore has a second, read-only policy, `user_self_read`: `FOR SELECT USING (user_id = app.user_id)` (ADR-0007). The identity module sets `app.user_id` with `set_config(..., true)`, so it lasts for one transaction only. Writes still need `app.org_id`. Sign-up sets `app.org_id` the same transaction-local way to the new organization's id while it creates the organization and the Owner membership.
+
+**Opening an invite link before a tenant is known.** The invite page and accepting have only the link's token. `invites` has a second, read-only policy, `invite_token_read`: `FOR SELECT USING (token_hash = decode(app.invite_token_hash, 'hex'))` (ADR-0027), set transaction-local like `app.user_id`. Once the invite is found, the transaction sets `app.org_id` to its organization for the membership, the accepted invite and the event.
 
 ### projects
 

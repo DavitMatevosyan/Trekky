@@ -63,6 +63,8 @@ public sealed class TrekkyApiFactory : WebApplicationFactory<Program>, IAsyncLif
         {
             ["ConnectionStrings:Trekky"] = AppConnectionString,
             ["ConnectionStrings:TrekkyMigrations"] = OwnerConnectionString,
+            // No mail server in tests: invites report emailSent = false and tests follow the returned link (TREK-47).
+            ["Smtp:Host"] = string.Empty,
         }));
     }
 

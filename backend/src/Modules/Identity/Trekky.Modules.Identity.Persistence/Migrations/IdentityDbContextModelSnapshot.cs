@@ -369,6 +369,99 @@ namespace Trekky.Modules.Identity.Persistence.Migrations
                     b.ToTable("openiddict_tokens", "identity");
                 });
 
+            modelBuilder.Entity("Trekky.Modules.Identity.Domain.Invite", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("AcceptedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("accepted_at");
+
+                    b.Property<Guid?>("AcceptedUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("accepted_user_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(254)
+                        .HasColumnType("character varying(254)")
+                        .HasColumnName("email");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<Guid>("InvitedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("invited_by");
+
+                    b.Property<string>("NormalizedEmail")
+                        .IsRequired()
+                        .HasMaxLength(254)
+                        .HasColumnType("character varying(254)")
+                        .HasColumnName("normalized_email");
+
+                    b.Property<Guid>("OrgId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("org_id");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revoked_at");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("role");
+
+                    b.Property<DateTimeOffset>("SentAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("sent_at");
+
+                    b.Property<byte[]>("TokenHash")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("token_hash");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_invites");
+
+                    b.HasIndex("AcceptedUserId")
+                        .HasDatabaseName("ix_invites_accepted_user_id");
+
+                    b.HasIndex("InvitedBy")
+                        .HasDatabaseName("ix_invites_invited_by");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("ux_invites_token_hash");
+
+                    b.HasIndex("OrgId", "NormalizedEmail")
+                        .IsUnique()
+                        .HasDatabaseName("ux_invites_org_open_email")
+                        .HasFilter("accepted_at IS NULL AND revoked_at IS NULL");
+
+                    b.ToTable("invites", "identity", t =>
+                        {
+                            t.HasCheckConstraint("ck_invites_role", "role IN ('admin', 'member', 'viewer')");
+
+                            t.HasCheckConstraint("ck_invites_token_hash", "octet_length(token_hash) = 32");
+                        });
+                });
+
             modelBuilder.Entity("Trekky.Modules.Identity.Domain.Membership", b =>
                 {
                     b.Property<Guid>("OrgId")
@@ -517,6 +610,48 @@ namespace Trekky.Modules.Identity.Persistence.Migrations
                     b.ToTable("users", "identity");
                 });
 
+            modelBuilder.Entity("Trekky.Persistence.Outbox.OutboxMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Envelope")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("envelope");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("event_type");
+
+                    b.Property<Guid>("OrgId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("org_id");
+
+                    b.Property<DateTimeOffset?>("ProcessedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("processed_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_outbox");
+
+                    b.HasIndex("Id")
+                        .HasDatabaseName("ix_outbox_pending")
+                        .HasFilter("processed_at IS NULL");
+
+                    b.HasIndex("OrgId")
+                        .HasDatabaseName("ix_outbox_org_id");
+
+                    b.ToTable("outbox", "identity");
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
                 {
                     b.HasOne("Trekky.Modules.Identity.Domain.User", null)
@@ -572,6 +707,29 @@ namespace Trekky.Modules.Identity.Persistence.Migrations
                     b.Navigation("Application");
 
                     b.Navigation("Authorization");
+                });
+
+            modelBuilder.Entity("Trekky.Modules.Identity.Domain.Invite", b =>
+                {
+                    b.HasOne("Trekky.Modules.Identity.Domain.User", null)
+                        .WithMany()
+                        .HasForeignKey("AcceptedUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_invites_users_accepted_user_id");
+
+                    b.HasOne("Trekky.Modules.Identity.Domain.User", null)
+                        .WithMany()
+                        .HasForeignKey("InvitedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_invites_users_invited_by");
+
+                    b.HasOne("Trekky.Modules.Identity.Domain.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrgId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_invites_organizations_org_id");
                 });
 
             modelBuilder.Entity("Trekky.Modules.Identity.Domain.Membership", b =>
