@@ -80,10 +80,10 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - name: Start Postgres
+      - name: Start Postgres and Mailpit
         run: |
           cp .env.example .env
-          docker compose up -d --wait postgres
+          docker compose up -d --wait postgres mailpit
       - name: Build the API
         working-directory: backend
         run: dotnet build src/Trekky.Api

@@ -17,6 +17,8 @@ public sealed class EndpointPolicyTests(TrekkyApiFactory factory)
         "GET /api/v1/health",
         "POST /api/v1/auth/sign-up",
         "POST /api/v1/auth/login",
+        "POST /api/v1/auth/invites/preview",
+        "POST /api/v1/auth/invites/accept",
         "GET,POST /connect/authorize",
         "POST /connect/token",
         "GET /openapi/{documentName}.json",
