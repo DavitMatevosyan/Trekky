@@ -85,6 +85,10 @@ describe('WorkItemPage', () => {
     await screen.findByRole('heading', { level: 1 })
     // Arrive from a filtered list, as a list row does, so the breadcrumb has somewhere to return to.
     await router.navigate('/TRK/items/TRK-14', { state: { backTo: '/TRK?status=todo' } })
+    // Wait until the page has re-rendered with that state: a click before it would carry the old link state.
+    await waitFor(() =>
+      expect(within(screen.getByRole('navigation', { name: 'Breadcrumb' })).getByRole('link', { name: 'TRK' })).toHaveAttribute('href', '/TRK?status=todo'),
+    )
 
     const rows = within(await screen.findByRole('list', { name: 'Children' })).getAllByRole('listitem')
     expect(rows).toHaveLength(2)
