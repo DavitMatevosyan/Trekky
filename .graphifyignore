@@ -1,0 +1,22 @@
+# What the code graph leaves out (ADR-0029), on top of .gitignore. Gitignore syntax.
+
+# Generated code: rebuilt from the API or by EF, and huge next to the code that matters
+frontend/src/api/schema.d.ts
+**/Migrations/*.Designer.cs
+**/Migrations/*ModelSnapshot.cs
+desktop/src-tauri/gen/
+
+# Lock files and data
+**/package-lock.json
+**/Cargo.lock
+postman/*.json
+tools/notion-import/tasks.json
+tools/graphify/docs-layer.json
+
+# Build output and reports
+desktop/src-tauri/target/
+dist/
+coverage/
+playwright-report/
+test-results/
+graphify-out/
