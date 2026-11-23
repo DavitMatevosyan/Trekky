@@ -6,6 +6,7 @@ import { MarkdownText } from '../components/MarkdownText.tsx'
 import { RelativeTime } from '../components/RelativeTime.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { messages } from '../i18n/messages.ts'
+import { cn } from '../lib/cn.ts'
 import { newestCommentAt, useComments } from '../workItems/useComments.ts'
 import { useUpdateWorkItem, useWorkItem, type UpdateWorkItemInput, type VersionedWorkItem } from '../workItems/useWorkItems.ts'
 import { AssigneeSelect } from '../workItems/AssigneeSelect.tsx'
@@ -15,7 +16,7 @@ import { WorkItemForm, type WorkItemFormValues } from '../workItems/WorkItemForm
 import { WorkItemHistory } from '../workItems/WorkItemHistory.tsx'
 import { StatusChip } from '../workItems/StatusChip.tsx'
 import { TypeBadge } from '../workItems/TypeBadge.tsx'
-import { isWorkItemType, statusLabel } from '../workItems/workItemTypes.ts'
+import { isWorkItemType, statusLabel, typeRow } from '../workItems/workItemTypes.ts'
 
 /** The later of two ISO times. */
 function later(a: string, b: string | null): string {
@@ -162,15 +163,23 @@ function WorkItemView({ projectKey, current }: { projectKey: string; current: Ve
             {item.children.length === 0 ? (
               <p className="text-sm text-muted-foreground">{messages.workItem.noChildren}</p>
             ) : (
-              <ul aria-labelledby="children-heading" className="divide-y divide-border rounded-xl border border-border bg-surface text-sm">
+              <ul aria-labelledby="children-heading" className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface text-sm">
                 {item.children.map((child) => (
-                  <li key={child.id} className="flex items-center gap-3 px-3 py-2">
-                    <Link to={`/${projectKey}/items/${child.key}`} state={itemLinkState} className="font-mono font-semibold underline-offset-4 hover:underline">
-                      {child.key}
+                  <li key={child.id}>
+                    {/* TREK-81: the whole row is one link (one tab stop); key and title underline on hover. */}
+                    <Link
+                      to={`/${projectKey}/items/${child.key}`}
+                      state={itemLinkState}
+                      className={cn(
+                        'group flex items-center gap-3 px-3 py-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring',
+                        typeRow(child.type),
+                      )}
+                    >
+                      <span className="font-mono font-semibold underline-offset-4 group-hover:underline">{child.key}</span>
+                      <TypeBadge type={child.type} compact />
+                      <span className="flex-1 underline-offset-4 group-hover:underline">{child.title}</span>
+                      <StatusChip status={child.status} />
                     </Link>
-                    <TypeBadge type={child.type} compact />
-                    <span className="flex-1">{child.title}</span>
-                    <StatusChip status={child.status} />
                   </li>
                 ))}
               </ul>
