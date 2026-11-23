@@ -79,6 +79,29 @@ describe('WorkItemPage', () => {
     expect(screen.getByText('In Progress')).toBeInTheDocument()
   })
 
+  it('opens a child from its title, with the whole row as one link, keeping the way back', async () => {
+    const child = { ...item, ...summary('TRK-15', 'task', 'Edit own comments', 'todo', 'TRK-14'), parent: item, children: [] }
+    const { router } = renderItem({ 'GET /api/v1/work-items/by-key/TRK-15': () => withETag(child, '"3"') })
+    await screen.findByRole('heading', { level: 1 })
+    // Arrive from a filtered list, as a list row does, so the breadcrumb has somewhere to return to.
+    await router.navigate('/TRK/items/TRK-14', { state: { backTo: '/TRK?status=todo' } })
+    // Wait until the page has re-rendered with that state: a click before it would carry the old link state.
+    await waitFor(() =>
+      expect(within(screen.getByRole('navigation', { name: 'Breadcrumb' })).getByRole('link', { name: 'TRK' })).toHaveAttribute('href', '/TRK?status=todo'),
+    )
+
+    const rows = within(await screen.findByRole('list', { name: 'Children' })).getAllByRole('listitem')
+    expect(rows).toHaveLength(2)
+    for (const row of rows) expect(within(row).getAllByRole('link')).toHaveLength(1)
+    expect(within(rows[0] as HTMLElement).getByRole('link')).toHaveAccessibleName('TRK-15 Task Edit own comments To Do')
+
+    await userEvent.click(screen.getByText('Edit own comments'))
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Task Edit own comments' })).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/TRK/items/TRK-15')
+    expect(within(screen.getByRole('navigation', { name: 'Breadcrumb' })).getByRole('link', { name: 'TRK' })).toHaveAttribute('href', '/TRK?status=todo')
+  })
+
   it('says so when the item does not exist, or belongs to another project', async () => {
     const missing = renderItem({ [itemPath]: () => problemResponse(404, { title: 'Work item not found' }) })
     expect(await screen.findByRole('alert')).toHaveTextContent('This item does not exist.')

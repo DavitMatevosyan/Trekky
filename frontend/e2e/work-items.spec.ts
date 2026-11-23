@@ -70,6 +70,9 @@ test('a user creates work items with a parent, opens one, edits it and moves it'
   // The parent lists its child, and the projects page counts both items.
   await page.getByRole('link', { name: 'TRK-1 Epic' }).click()
   await expect(page.getByRole('list', { name: 'Children' })).toContainText('TRK-2StoryComments on work itemsIn Progress')
+  // TREK-81: the child's title opens it too, not only its key.
+  await page.getByRole('list', { name: 'Children' }).getByText('Comments on work items').click()
+  await expect(page).toHaveURL(/\/TRK\/items\/TRK-2$/)
   await page.getByRole('link', { name: 'Trekky', exact: true }).click()
   await expect(page.getByRole('list', { name: 'Projects' }).getByRole('listitem')).toHaveText(['TRKTrekky2 items'])
 })
