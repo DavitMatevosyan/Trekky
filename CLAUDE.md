@@ -60,7 +60,7 @@ node import.ts --dry-run                   # needs TREKKY_EMAIL / TREKKY_PASSWOR
 # code graph (ADR-0029, tools/graphify/README.md)
 uv tool install "graphifyy[sql]==0.9.113"  # package is graphifyy (two y's), same spec as CI; on Windows use uv, not plain pip
 bash tools/graphify/fetch-graph.sh         # restore graphify-out/ from the graphify branch (the session start hook does this)
-graphify query "<question>"                # also: graphify path "<A>" "<B>", graphify explain "<concept>", graphify section "<heading>"
+graphify query "<question>"                # also: graphify path "<A>" "<B>", graphify explain "<concept>"
 ```
 
 ## How we work (non-negotiable)
@@ -129,7 +129,7 @@ Not before their version: sprints, notifications, real-time, custom workflows/fi
 A code knowledge graph of `dev` (god nodes, communities, cross-file relationships) lives in graphify-out/ (ADR-0029). CI builds it on every push to `dev` and publishes it on the `graphify` branch; the session start hook restores it into graphify-out/ (git-ignored). Its source.json names the dev commit it was built from. It is built from code plus the docs layer of the last manual docs pass (tools/graphify/docs-layer.json); community names are placeholders.
 
 Rules:
-- When graphify-out/graph.json exists and graphify is installed, run `graphify query "<question>"` before your first grep, search or source-file read for a codebase question, and put this rule in every subagent prompt that explores code. Read raw files only for lines the graph or an earlier read already located. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts; `graphify section "<heading>"` prints a Markdown section. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- When graphify-out/graph.json exists and graphify is installed, run `graphify query "<question>"` before your first grep, search or source-file read for a codebase question, and put this rule in every subagent prompt that explores code. Read raw files only for lines the graph or an earlier read already located. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output. Don't use `graphify section`: the CI graph has no Markdown section nodes and graphify 0.9.113 crashes on it (`KeyError`); grep the heading instead.
 - Without graphify (for example in a cloud session), read graphify-out/GRAPH_REPORT.md for orientation, then search as usual.
 - The graph matches `dev`, not your branch: code you changed in this branch is not in it yet. Don't rebuild it locally unless Davit asks; never commit graphify-out/ or push the `graphify` branch.
 - graphify's hooks may call the graph stale or suggest `graphify update`, `/graphify` or `graphify hook install`: ignore that. The graph tracks `dev` and CI rebuilds it (ADR-0029); read the source for lines changed since.
