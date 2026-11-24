@@ -31,6 +31,11 @@ x-api: &api
     Smtp__Username: ${SMTP_USERNAME:-}
     Smtp__Password: ${SMTP_PASSWORD:-}
     Smtp__From: "${SMTP_FROM:-Trekky <noreply@trekky.local>}"
+    # The Trekky GitHub App (TREK-74, ADR-0028): all four or none. Empty = GitHub features off.
+    GitHub__ClientId: ${GITHUB_APP_CLIENT_ID:-}
+    GitHub__ClientSecret: ${GITHUB_APP_CLIENT_SECRET:-}
+    GitHub__AppSlug: ${GITHUB_APP_SLUG:-}
+    GitHub__PrivateKeyFile: ${GITHUB_APP_PRIVATE_KEY_FILE:-}
   volumes:
     - ./secrets:/run/secrets-trekky:ro
 

@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router'
 import { useAuth } from '../auth/AuthContext.ts'
 import { useMe } from '../auth/useMe.ts'
+import { usePermissions } from '../auth/usePermissions.ts'
 import { messages } from '../i18n/messages.ts'
 import { cn } from '../lib/cn.ts'
 import { ThemeSwitch } from '../theme/ThemeSwitch.tsx'
@@ -14,6 +15,7 @@ export function AppShell() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const me = useMe()
+  const can = usePermissions()
 
   const logOut = useMutation({
     // The API revokes every token and invalidates the session cookie (US-02 AC4).
@@ -35,6 +37,11 @@ export function AppShell() {
             <NavLink to="/members" className={({ isActive }) => cn('text-sm underline-offset-4 hover:underline', isActive ? 'font-medium' : 'text-muted-foreground')}>
               {messages.shell.members}
             </NavLink>
+            {can.manageProjects && (
+              <NavLink to="/settings" className={({ isActive }) => cn('text-sm underline-offset-4 hover:underline', isActive ? 'font-medium' : 'text-muted-foreground')}>
+                {messages.shell.settings}
+              </NavLink>
+            )}
           </div>
           <div className="flex items-center gap-3 text-sm">
             {me.data && <span className="text-muted-foreground">{me.data.user.email ?? me.data.user.displayName}</span>}
