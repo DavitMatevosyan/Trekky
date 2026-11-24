@@ -14,6 +14,13 @@
     <Project Path="src/Modules/Activity/Trekky.Modules.Activity.Infrastructure/Trekky.Modules.Activity.Infrastructure.csproj" />
     <Project Path="src/Modules/Activity/Trekky.Modules.Activity.Persistence/Trekky.Modules.Activity.Persistence.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/GitHub/">
+    <Project Path="src/Modules/GitHub/Trekky.Modules.GitHub.Api/Trekky.Modules.GitHub.Api.csproj" />
+    <Project Path="src/Modules/GitHub/Trekky.Modules.GitHub.Application/Trekky.Modules.GitHub.Application.csproj" />
+    <Project Path="src/Modules/GitHub/Trekky.Modules.GitHub.Domain/Trekky.Modules.GitHub.Domain.csproj" />
+    <Project Path="src/Modules/GitHub/Trekky.Modules.GitHub.Infrastructure/Trekky.Modules.GitHub.Infrastructure.csproj" />
+    <Project Path="src/Modules/GitHub/Trekky.Modules.GitHub.Persistence/Trekky.Modules.GitHub.Persistence.csproj" />
+  </Folder>
   <Folder Name="/src/Modules/Identity/">
     <Project Path="src/Modules/Identity/Trekky.Modules.Identity.Api/Trekky.Modules.Identity.Api.csproj" />
     <Project Path="src/Modules/Identity/Trekky.Modules.Identity.Application/Trekky.Modules.Identity.Application.csproj" />
@@ -38,6 +45,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/Trekky.Api.Tests/Trekky.Api.Tests.csproj" />
     <Project Path="tests/Trekky.Modules.Activity.Tests/Trekky.Modules.Activity.Tests.csproj" />
+    <Project Path="tests/Trekky.Modules.GitHub.Tests/Trekky.Modules.GitHub.Tests.csproj" />
     <Project Path="tests/Trekky.Modules.Identity.Tests/Trekky.Modules.Identity.Tests.csproj" />
     <Project Path="tests/Trekky.Modules.Projects.Tests/Trekky.Modules.Projects.Tests.csproj" />
     <Project Path="tests/Trekky.Modules.WorkItems.Tests/Trekky.Modules.WorkItems.Tests.csproj" />

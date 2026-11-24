@@ -18,6 +18,7 @@ Postgres 17, one schema per module (ADR-0001), `org_id` + RLS on every tenant ta
 | Projects | `projects` | projects, outbox | TRK-10 |
 | Work items | `work_items` | work_items, item_counters, work_item_revisions (proposed, ADR-0014), comments, outbox | TRK-11, TRK-18 |
 | Activity | `activity` | activity_events | TRK-10 |
+| GitHub | `github` | installations, project_repositories, outbox | TREK-74 |
 
 ## Diagram
 
@@ -170,6 +171,38 @@ The row lock serializes concurrent creates in a project; a rolled-back create re
 Events answer what changed. Revisions answer what the item was. A revision number is not the ETag (`xmin`).
 
 `comments` (TRK-18): `id`, `org_id` (RLS), `work_item_id` FK, `author_id` (identity user, no FK across modules), `body_md` (1–20,000 characters, not only whitespace, no NUL: the validator checks Unicode whitespace; the check constraint checks the length and that `btrim` leaves something), `created_at`, `updated_at` (equal to `created_at` until edited; `edited` in the API is `updated_at > created_at`). Index `(work_item_id, created_at, id)` for the oldest-first keyset list. Only the author edits or deletes (TRK-19): an edit sets `updated_at` and is checked against `xmin` (the comment's ETag); a delete sets `deleted_at` (soft delete), and a query filter hides deleted comments from every read, while the row stays for the history.
+
+### github
+
+Where projects keep their docs on GitHub (TREK-74, ADR-0028). No GitHub token, key or secret is stored: installation
+tokens live only in the API's memory and the app's private key comes from configuration.
+
+`installations` — an installation of the Trekky GitHub App an organization connected:
+
+| Column | Type | Rules |
+| --- | --- | --- |
+| `id` | uuid | PK, UUIDv7 |
+| `org_id` | uuid | not null, RLS |
+| `installation_id` | bigint | GitHub's id, `> 0`, unique across organizations (one installation serves one organization) |
+| `account_login` | text | the GitHub user or organization (≤ 100) |
+| `account_type` | text | `User` or `Organization` (≤ 20) |
+| `connected_by` | uuid | user id (identity module) |
+| `connected_at` | timestamptz | |
+
+`project_repositories` — one per project:
+
+| Column | Type | Rules |
+| --- | --- | --- |
+| `id` | uuid | PK, UUIDv7 |
+| `org_id` | uuid | not null, RLS |
+| `project_id` | uuid | projects module id (no FK across modules), unique |
+| `installation_id` | uuid | FK → `installations.id`, cascade: disconnecting removes the links |
+| `repository_id` | bigint | GitHub's id, survives renames |
+| `repository` | text | `owner/name` as GitHub returned it (≤ 140) |
+| `docs_path` | text | `docs/` style with a trailing `/`, empty for the root (≤ 200) |
+| `branch` | text | 1–255, default `dev` |
+| `linked_by`, `linked_at` | uuid, timestamptz | who saved the current settings, and when |
+| `xmin` | xid | ETag for `PUT` |
 
 ## Database roles
 
