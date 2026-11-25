@@ -1,6 +1,6 @@
 # ADR-0029: The code graph is built by CI and published on a `graphify` branch
 
-- **Status:** Agreed. The requirement is Davit's (TREK-82, 2026-11-23): CI keeps the graph current on a separate `graphify` branch, nobody rebuilds it locally, `graphify-out/` never enters the working branches, and the docs pass is manual and optional. Claude decided the rest under ADR-0023: the code-only build, the committed docs layer, the session fetch and the guarded hooks.
+- **Status:** Superseded by ADR-0030 (2026-11-25: graphify removed). Was Agreed. The requirement is Davit's (TREK-82, 2026-11-23): CI keeps the graph current on a separate `graphify` branch, nobody rebuilds it locally, `graphify-out/` never enters the working branches, and the docs pass is manual and optional. Claude decided the rest under ADR-0023: the code-only build, the committed docs layer, the session fetch and the guarded hooks.
 - **Date:** 2026-11-23
 - **Deciders:** Davit, Claude
 - **Builds on:** ADR-0012 (an evidence-only branch outside the PR flow), ADR-0022 (protected branches), ADR-0023
