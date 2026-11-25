@@ -34,12 +34,6 @@ test-results/
 # Claude Code (personal settings, at the root or in a subfolder such as backend/)
 **/.claude/settings.local.json
 
-# Code graph (ADR-0029): CI publishes it on the graphify branch; it never goes into dev, staging or main
-graphify-out/
-
-# Python (tools/graphify)
-__pycache__/
-
 # Production deploy (deploy/README.md): certificates and backups never go in git
 deploy/secrets/
 deploy/backups/
