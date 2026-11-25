@@ -91,6 +91,7 @@ graphify query "<question>"                # also: graphify path "<A>" "<B>", gr
 - **API.** OpenAPI-first REST under `/api/v1`; RFC 9457 problem details; cursor pagination; ETag/If-Match for edits; `TypedResults`.
 - **Auth.** ASP.NET Core Identity + OpenIddict in-app (no external IdP); JWT with user, org and role claims.
 - **Roles.** Every endpoint names one `TrekkyPolicies` policy for its action (`ReadWork`, `EditWork`, `ManageProjects`, `ManageMembers`) with `.RequireAuthorization(...)`, or `AllowAnonymous`; `EndpointPolicyTests` fails otherwise. The UI hides what the role cannot do (`usePermissions`), but the API is the guard (ADR-0026).
+- **Assistant (ADR-0031).** Desktop only. The runner starts the user's own, unmodified Claude Code CLI with their environment unchanged (every sign-in method keeps working); Trekky never offers a Claude sign-in and never reads, stores or passes on Claude credentials or session tokens. The only program the Tauri shell starts on the webview's request is `claude` from `PATH`, with flags fixed in Rust, never a caller-supplied command. No API endpoint runs a model, calls an AI provider or starts a process. Trekky Assistant itself gets only the Trekky MCP tools (no built-in tools), acts as the signed-in user under the same roles, and every write waits for a confirm card; the web app shows it as desktop-only. No Claude Code or Anthropic name or logo in a product or feature name.
 - **Storage / mail.** No object storage until attachments; when added, code only against the S3 API (ADR-0006: MinIO removed, SeaweedFS proposed; production store chosen with hosting). SMTP for mail (Mailpit locally).
 
 ## Code conventions
@@ -110,7 +111,9 @@ graphify query "<question>"                # also: graphify path "<A>" "<B>", gr
 
 Hosting (TRK-9, ADR-0015): the home machine behind Tailscale Funnel now, Azure Container Apps + Neon Postgres when SaaS starts (TRK-29).
 
-Not before their version: sprints, notifications, real-time, custom workflows/fields, MCP server, SSO, billing.
+Desktop assistant (TREK-61, ADR-0031): in scope now, a chat in the desktop app that manages work items through the Trekky MCP server (TREK-50); evals and performance follow in TREK-67.
+
+Not before their version: sprints, notifications, real-time, custom workflows/fields, SSO, billing.
 
 ## Agents and skills
 
