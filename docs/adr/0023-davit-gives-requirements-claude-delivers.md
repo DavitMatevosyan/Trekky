@@ -1,6 +1,6 @@
 # ADR-0023: Davit gives the requirements; Claude does the rest, through to production
 
-- **Status:** Agreed (Davit decided it on 2026-11-16: "Davit provides requirements, the rest is done by Claude")
+- **Status:** Agreed (Davit decided it on 2026-11-16: "Davit provides requirements, the rest is done by Claude"); partly superseded by ADR-0032 (promotions, deploys and release tags are paused)
 - **Date:** 2026-11-16
 - **Deciders:** Davit, Claude
 - **Supersedes:** the parts of ADR-0013 that keep merging, promoting and pushing to `dev` / `staging` / `main` with Davit ("never merge a PR", "Merging and promoting stay with Davit", "Davit reviews and merges"). The rest of ADR-0013 stays in force: verify and review before every push, exact tree, no force-push or rewritten history.
