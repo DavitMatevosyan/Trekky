@@ -55,6 +55,8 @@ Tailscale state in named volumes; certificates in `deploy/secrets/`; backups in 
 
 ## Deploy a new version
 
+**Paused under ADR-0032:** no deploys of `main` until Davit restarts promotions. The first deploy after that follows ADR-0032's checks.
+
 The host runs `main` from its own checkout, on a detached HEAD (no local branch to pull into):
 
 ```bash
