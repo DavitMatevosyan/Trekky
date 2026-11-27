@@ -1,0 +1,12 @@
+{
+  "name": "trekky-token-usage",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "engines": { "node": ">=22.18" },
+  "description": "Token usage of Claude Code sessions in this repo, from the local transcripts (TREK-91). Node 22.18 or later, no dependencies.",
+  "scripts": {
+    "report": "node usage.ts",
+    "test": "node --test usage.test.ts"
+  }
+}
