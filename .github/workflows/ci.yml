@@ -51,6 +51,9 @@ jobs:
       # (Node runs the .ts files itself from 22.18; check-latest above takes the newest 22.x).
       - name: Notion import tool (types + tests)
         run: npx tsc -p ../tools/notion-import && node --test ../tools/notion-import/plan.test.ts
+      # TREK-91: the token usage tool, checked the same way.
+      - name: Token usage tool (types + tests)
+        run: npx tsc -p ../tools/token-usage && node --test ../tools/token-usage/usage.test.ts
 
   images:
     name: Docker images (build)

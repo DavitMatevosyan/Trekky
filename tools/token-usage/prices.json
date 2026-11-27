@@ -1,0 +1,13 @@
+{
+  "note": "USD per million tokens, Anthropic first-party API rates. Only used to weight token kinds into one comparable number; a Claude subscription is not billed this way. Cache writes cost 1.25x input (5 minutes) and 2x input (1 hour). Prices and cache reads from the Claude API model table of that date; the Haiku 5.5 cache read is assumed at 0.1x input (not listed).",
+  "asOf": "2026-11-03",
+  "models": {
+    "claude-fable-5-2": { "input": 8, "output": 40, "cacheRead": 0.2 },
+    "claude-opus-5-5": { "input": 4, "output": 20, "cacheRead": 0.2 },
+    "claude-opus-5": { "input": 5, "output": 25, "cacheRead": 0.5 },
+    "claude-sonnet-5-5": { "input": 2, "output": 10, "cacheRead": 0.1 },
+    "claude-sonnet-5": { "input": 2, "output": 10, "cacheRead": 0.2 },
+    "claude-haiku-5-5": { "input": 0.1, "output": 0.5, "cacheRead": 0.01 },
+    "claude-haiku-4-5": { "input": 1, "output": 5, "cacheRead": 0.1 }
+  }
+}

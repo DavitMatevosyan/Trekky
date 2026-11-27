@@ -12,6 +12,7 @@ frontend/   React + TypeScript (Vite)
 docs/adr/   Architecture decision records
 deploy/     Production stack for the home host behind Tailscale Funnel (migrations, nightly backups) — see deploy/README.md
 tools/notion-import/   One-off import of the Notion task list into Trekky (TRK-21)
+tools/token-usage/     Claude token usage per TRK from local session transcripts (TREK-91, docs/token-usage.md)
 .github/    CI workflows
 docker-compose.yml   Local infrastructure: Postgres, Mailpit
 docker/postgres/init/   Database roles created on first start

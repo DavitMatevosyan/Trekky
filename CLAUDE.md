@@ -23,6 +23,7 @@ frontend/                React 19 + TypeScript strict + Vite, React Router, TanS
 desktop/                 Trekky for Windows: Tauri 2 shell around the web app, MSI (ADR-0018); its screens live in frontend/src/platform/desktop
 docs/adr/                ADRs (template: 0000-template.md)
 tools/notion-import/     One-off import of the Notion task list into Trekky (TRK-21); Node, no dependencies
+tools/token-usage/       Claude token usage per TRK from local session transcripts (TREK-91, docs/token-usage.md); Node
 postman/                 Postman collection for manual API testing (ADR-0008)
 docker-compose.yml       Postgres 17, Mailpit (local only)
 docker/postgres/init/    Creates trekky_owner / trekky_app roles (local dev, tests and production)
@@ -55,6 +56,10 @@ npm run e2e                                # smoke e2e (tauri-driver); needs API
 cd tools/notion-import
 npm test && ../../frontend/node_modules/.bin/tsc -p .   # importer tests + strict type check (CI runs both)
 node import.ts --dry-run                   # needs TREKKY_EMAIL / TREKKY_PASSWORD; see its README
+
+cd tools/token-usage
+npm test && ../../frontend/node_modules/.bin/tsc -p .   # tests + strict type check (CI runs both)
+node usage.ts --trk TREK-92                # token usage of one TRK; TREK-90 before/after numbers go in docs/token-usage.md
 ```
 
 ## How we work (non-negotiable)
