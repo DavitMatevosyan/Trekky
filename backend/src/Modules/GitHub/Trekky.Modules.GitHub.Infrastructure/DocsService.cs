@@ -13,7 +13,7 @@ using Trekky.SharedKernel;
 namespace Trekky.Modules.GitHub.Infrastructure;
 
 /// <summary>
-/// The docs viewer's reads (TREK-75, ADR-0030). A refresh asks GitHub for the branch head; only when it moved does it
+/// The docs viewer's reads (TREK-75, ADR-0033). A refresh asks GitHub for the branch head; only when it moved does it
 /// read the docs folder's tree, and only files whose blob SHA changed are fetched again. Writes happen in one short
 /// transaction after GitHub has answered, so no transaction waits on GitHub.
 /// </summary>

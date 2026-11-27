@@ -1,7 +1,7 @@
 namespace Trekky.Modules.GitHub.Domain;
 
 /// <summary>
-/// The cached state of a project's docs folder (TREK-75, ADR-0030): which commit of the linked branch the cached
+/// The cached state of a project's docs folder (TREK-75, ADR-0033): which commit of the linked branch the cached
 /// <see cref="DocFile"/> rows were read from and when GitHub was last asked. One per <see cref="ProjectRepository"/>;
 /// deleted with it, and when the link's repository, branch or folder changes.
 /// </summary>

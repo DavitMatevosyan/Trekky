@@ -8,7 +8,7 @@ namespace Trekky.Api.Tests;
 
 /// <summary>
 /// TREK-75: a project's docs are read from its linked GitHub repository, cached per organization by blob SHA, served
-/// with their last commit and images, and searched with Postgres full-text search (ADR-0030).
+/// with their last commit and images, and searched with Postgres full-text search (ADR-0033).
 /// </summary>
 [Collection(ApiCollection.Name)]
 public sealed class DocsEndpointsTests(TrekkyApiFactory factory)

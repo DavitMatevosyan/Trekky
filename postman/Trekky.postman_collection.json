@@ -1413,7 +1413,7 @@
     },
     {
       "name": "Docs",
-      "description": "A project's docs from its linked GitHub repository (TREK-75, ADR-0030). Link a repository under GitHub first. Readers may call all of these.",
+      "description": "A project's docs from its linked GitHub repository (TREK-75, ADR-0033). Link a repository under GitHub first. Readers may call all of these.",
       "item": [
         {
           "name": "Get docs tree",

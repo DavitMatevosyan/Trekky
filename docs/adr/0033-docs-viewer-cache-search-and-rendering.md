@@ -1,4 +1,4 @@
-# ADR-0030: The docs viewer reads GitHub through a per-organization cache, searches it in Postgres and renders Markdown in the browser
+# ADR-0033: The docs viewer reads GitHub through a per-organization cache, searches it in Postgres and renders Markdown in the browser
 
 - **Status:** Agreed. The requirements are Davit's (TREK-73 and TREK-75: a docs page per project with a folder tree, last commit, breadcrumb and a GitHub link; GitHub-flavoured Markdown and Mermaid; relative links inside Trekky; relative images through the server; HTML sanitised; content cached in Postgres per organization with RLS, keyed by blob SHA, refreshed on open when stale and by hand; Postgres full-text search with snippets; web and desktop; WCAG AA); the details below were decided by Claude under ADR-0023.
 - **Date:** 2026-11-25

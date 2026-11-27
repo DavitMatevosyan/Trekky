@@ -10,7 +10,7 @@ using Trekky.SharedKernel;
 
 namespace Trekky.Modules.GitHub.Api.Endpoints;
 
-/// <summary>A project's docs from its GitHub repository, under /api/v1/projects/{projectId}/docs (TREK-75, ADR-0030).</summary>
+/// <summary>A project's docs from its GitHub repository, under /api/v1/projects/{projectId}/docs (TREK-75, ADR-0033).</summary>
 internal static class DocsEndpoints
 {
     /// <summary>Sent with every image: an SVG opened on its own runs no script and loads nothing.</summary>

@@ -4,7 +4,7 @@ namespace Trekky.Modules.GitHub.Application.Docs;
 
 /// <summary>
 /// A project's docs, read from its linked GitHub repository and cached per organization by blob SHA (TREK-75,
-/// ADR-0030). The cache is refreshed when it is opened after <see cref="StaleAfter"/>, or on request; when GitHub cannot
+/// ADR-0033). The cache is refreshed when it is opened after <see cref="StaleAfter"/>, or on request; when GitHub cannot
 /// be reached, the cached copy is served and marked stale.
 /// </summary>
 internal interface IDocsService

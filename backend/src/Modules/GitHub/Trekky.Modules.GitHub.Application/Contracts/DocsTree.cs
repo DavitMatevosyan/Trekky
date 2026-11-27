@@ -1,6 +1,6 @@
 namespace Trekky.Modules.GitHub.Application.Contracts;
 
-/// <summary>A project's docs folder as Trekky has it cached (TREK-75, ADR-0030).</summary>
+/// <summary>A project's docs folder as Trekky has it cached (TREK-75, ADR-0033).</summary>
 /// <param name="Repository"><c>owner/name</c>.</param>
 /// <param name="DocsPath">The docs folder with a trailing <c>/</c>, or empty for the repository root.</param>
 /// <param name="HtmlUrl">The docs folder on GitHub.</param>

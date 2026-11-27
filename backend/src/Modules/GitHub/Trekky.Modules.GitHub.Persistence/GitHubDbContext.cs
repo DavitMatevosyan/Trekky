@@ -36,7 +36,7 @@ internal sealed class GitHubDbContext(DbContextOptions<GitHubDbContext> options)
     public const string DocFilePathIndexName = "ux_doc_files_tree_path";
 
     /// <summary>
-    /// The Postgres text search configuration of the search queries (ADR-0030). It must match the one the
+    /// The Postgres text search configuration of the search queries (ADR-0033). It must match the one the
     /// <c>doc_files.search</c> column was generated with in migration DocsCache; changing it needs a new migration.
     /// <c>simple</c> lower-cases words without stemming, so it treats every language alike and matches code names as
     /// written.

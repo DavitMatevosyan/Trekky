@@ -14,7 +14,7 @@ namespace Trekky.Modules.GitHub.Api;
 
 /// <summary>
 /// The Trekky GitHub App connection (TREK-74, ADR-0028): installations per organization and each project's docs
-/// repository; and the docs viewer that reads them (TREK-75, ADR-0030). Owns the <c>github</c> schema.
+/// repository; and the docs viewer that reads them (TREK-75, ADR-0033). Owns the <c>github</c> schema.
 /// </summary>
 public sealed class GitHubModule : IModule
 {

@@ -1,7 +1,7 @@
 namespace Trekky.Modules.GitHub.Domain;
 
 /// <summary>
-/// One Markdown file of a project's docs folder, cached by its GitHub blob SHA (TREK-75, ADR-0030). Its text is
+/// One Markdown file of a project's docs folder, cached by its GitHub blob SHA (TREK-75, ADR-0033). Its text is
 /// searchable through the table's generated <c>search</c> column (Postgres full-text search).
 /// </summary>
 internal sealed class DocFile

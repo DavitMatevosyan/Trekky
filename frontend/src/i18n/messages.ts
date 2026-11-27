@@ -423,7 +423,7 @@ export const messages = {
     confirmUnlink: 'Remove the docs repository from this project? Nothing changes on GitHub.',
     unlinked: 'The docs repository was removed.',
   },
-  /** A project's docs from its GitHub repository (TREK-75, ADR-0030). */
+  /** A project's docs from its GitHub repository (TREK-75, ADR-0033). */
   docs: {
     tab: 'Docs',
     loading: 'Loading docs…',
