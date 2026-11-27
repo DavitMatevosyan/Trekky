@@ -15,7 +15,6 @@ vi.mock('mermaid', () => ({
 
 const project = { id: '0190a000-0000-7000-8000-0000000000b1', key: 'TRK', name: 'Trekky', itemCount: 0, createdAt: '2026-10-26T10:00:00Z' }
 const docsPath = `/api/v1/projects/${project.id}/docs`
-const IMAGE_TIMEOUT = 5_000
 const commit = {
   sha: 'abc123',
   message: 'Write the handbook',
@@ -160,8 +159,7 @@ describe('DocsPage', () => {
     const { fetchFn } = renderDocs()
 
     const article = await screen.findByRole('article')
-    // An image goes fetch → Blob → FileReader before it renders, which can outlast findBy's 1 s on a busy CI runner.
-    const image = await within(article).findByRole('img', { name: 'Flow' }, { timeout: IMAGE_TIMEOUT })
+    const image = await within(article).findByRole('img', { name: 'Flow' })
     expect(image.getAttribute('src')).toMatch(/^data:image\/png;base64,/)
     const [request] = requestsTo(fetchFn, `GET ${docsPath}/image`)
     expect(new URL(request?.url ?? 'http://x').searchParams.get('path')).toBe('images/flow.png')
@@ -170,11 +168,10 @@ describe('DocsPage', () => {
     expect(within(article).getByRole('link', { name: 'Remote' })).toHaveAttribute('href', 'https://example.com/tracker.png')
 
     // A <picture> keeps its <img> (loaded through the API), but its <source srcset> is dropped, so nothing remote loads.
-    expect(await within(article).findByRole('img', { name: 'Pictured' }, { timeout: IMAGE_TIMEOUT })).toBeInTheDocument()
+    expect(await within(article).findByRole('img', { name: 'Pictured' })).toBeInTheDocument()
     expect(article.querySelector('source')).toBeNull()
     expect(article.innerHTML).not.toContain('tracker.example')
-    // Room for both image waits on a slow runner; Vitest's default budget is 5 s per test.
-  }, 15_000)
+  })
 
   it('jumps to footnotes, whose ids carry the sanitiser prefix', async () => {
     renderDocs()

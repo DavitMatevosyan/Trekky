@@ -90,21 +90,27 @@ export function useDocImage(projectId: string, path: string) {
     queryKey: [...docsQueryKey(projectId), 'image', path],
     staleTime: 5 * 60_000,
     queryFn: async () => {
-      const { data, error } = await api.GET('/api/v1/projects/{projectId}/docs/image', {
+      const { data, error, response } = await api.GET('/api/v1/projects/{projectId}/docs/image', {
         params: { path: { projectId }, query: { path } },
-        parseAs: 'blob',
+        parseAs: 'arrayBuffer',
       })
       if (!data) throw new ProblemError(asProblem(error))
-      return blobToDataUrl(data)
+      // The media type alone: parameters such as "; charset=utf-8" don't belong in a data: URL written this way.
+      const contentType = response.headers.get('Content-Type')?.split(';')[0]?.trim() || 'application/octet-stream'
+      return toDataUrl(new Uint8Array(data), contentType)
     },
   })
 }
 
-function blobToDataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(String(reader.result))
-    reader.onerror = () => reject(reader.error ?? new Error('The image could not be read.'))
-    reader.readAsDataURL(blob)
-  })
+/**
+ * Bytes as a base64 `data:` URL. Read as an `ArrayBuffer`, not a `Blob`: `FileReader` and `Blob` methods only work on
+ * their own environment's `Blob` class, and the one `fetch` returns differs between browsers, Node and jsdom.
+ */
+function toDataUrl(bytes: Uint8Array, contentType: string): string {
+  let binary = ''
+  // In chunks: spreading a whole image into String.fromCharCode would overflow the call stack.
+  for (let start = 0; start < bytes.length; start += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(start, start + 0x8000))
+  }
+  return `data:${contentType};base64,${btoa(binary)}`
 }
