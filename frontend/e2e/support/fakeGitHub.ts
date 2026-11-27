@@ -8,10 +8,17 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
  * reaches one repository, `acme/handbook`, with the files below on branch `dev`.
  */
 
-export const FAKE_GITHUB_PORT = Number(process.env.E2E_FAKE_GITHUB_PORT ?? 5181)
-export const FAKE_GITHUB_CLIENT_ID = 'Iv23.e2e-fake'
-export const FAKE_GITHUB_CLIENT_SECRET = 'e2e-fake-secret'
-export const FAKE_GITHUB_SLUG = 'trekky-e2e'
+/** A setting playwright.config.ts put in the environment for the API it starts and for these tests. */
+function setting(name: string): string {
+  const value = process.env[name]
+  if (!value) throw new Error(`${name} is not set: run the tests through playwright.config.ts.`)
+  return value
+}
+
+export const FAKE_GITHUB_PORT = Number(setting('E2E_FAKE_GITHUB_PORT'))
+export const FAKE_GITHUB_CLIENT_ID = setting('E2E_FAKE_GITHUB_CLIENT_ID')
+export const FAKE_GITHUB_CLIENT_SECRET = setting('E2E_FAKE_GITHUB_CLIENT_SECRET')
+export const FAKE_GITHUB_SLUG = setting('E2E_FAKE_GITHUB_SLUG')
 export const REPOSITORY = 'acme/handbook'
 
 /** A 1×1 PNG. */
