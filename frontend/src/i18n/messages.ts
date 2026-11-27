@@ -50,12 +50,26 @@ export const messages = {
     itemCount: (count: number) => (count === 1 ? '1 item' : `${count} items`),
     created: (key: string, name: string) => `Created project ${key} · ${name}.`,
   },
-  /** The members page (TREK-47: invites; TREK-48 adds changing roles and removing members). */
+  /** The members page (TREK-47: invites; TREK-48: the list, changing roles and removing members). */
   members: {
     title: 'Members',
     loading: 'Loading members…',
     listLabel: 'Members of your organization',
     you: '(you)',
+    /** Whether a member is a person or a bot (`kind`); unknown values are shown as sent. */
+    kinds: { person: 'Person', bot: 'Bot' } as Record<string, string | undefined>,
+    roleOf: (name: string) => `Role of ${name}`,
+    roleChanged: (name: string, role: string) => `${name} is now ${role}.`,
+    saveRole: 'Save role',
+    savingRole: 'Saving…',
+    saveRoleLabel: (name: string) => `Save role of ${name}`,
+    remove: 'Remove',
+    removing: 'Removing…',
+    cancel: 'Cancel',
+    removeLabel: (name: string) => `Remove ${name}`,
+    confirmRemove: (name: string) =>
+      `Remove ${name} from your organization? They are signed out at once and can no longer log in. Their past work keeps their name.`,
+    removed: (name: string) => `${name} was removed from your organization.`,
   },
   /** Sending and managing invites (TREK-47). */
   invites: {

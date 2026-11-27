@@ -7,7 +7,7 @@ internal sealed record MembershipInfo(Guid OrgId, string Role);
 /// <summary>Finds a user's organization and role when no tenant is known yet (authorize and token endpoints).</summary>
 internal sealed class MembershipReader(IdentityDbContext db)
 {
-    /// <summary>The user's membership, or <c>null</c> if they have none. v0.1 users have exactly one.</summary>
+    /// <summary>The user's membership, or <c>null</c> if they have none or were removed (TREK-48). A user has at most one.</summary>
     public async Task<MembershipInfo?> FindForUserAsync(Guid userId, CancellationToken cancellationToken)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
@@ -15,7 +15,7 @@ internal sealed class MembershipReader(IdentityDbContext db)
 
         var membership = await db.Memberships
             .AsNoTracking()
-            .Where(m => m.UserId == userId)
+            .Where(m => m.UserId == userId && m.RemovedAt == null)
             .OrderBy(m => m.CreatedAt)
             .Select(m => new MembershipInfo(m.OrgId, m.Role))
             .FirstOrDefaultAsync(cancellationToken);

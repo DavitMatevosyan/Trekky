@@ -59,6 +59,7 @@ internal sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> opti
             // is all that changes if a user may later join several organizations.
             membership.HasIndex(m => m.UserId).HasDatabaseName("ux_memberships_user_id").IsUnique();
             membership.Property(m => m.Role).HasMaxLength(16).IsRequired();
+            membership.Property(m => m.Version).IsRowVersion();
             membership.HasOne<Organization>().WithMany().HasForeignKey(m => m.OrgId).OnDelete(DeleteBehavior.Cascade);
             membership.HasOne<User>().WithMany().HasForeignKey(m => m.UserId).OnDelete(DeleteBehavior.Cascade);
         });

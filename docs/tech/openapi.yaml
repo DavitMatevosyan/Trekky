@@ -91,6 +91,11 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
+        '403':
+          description: The password is right, but the account no longer belongs to an organization (removed, TREK-48).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
         '423':
           description: Account locked after repeated failures.
           content:
@@ -186,10 +191,10 @@ paths:
     get:
       tags: [Members]
       operationId: listMembers
-      summary: Members of the caller's organization (assignee picker, US-13)
+      summary: Members of the caller's organization (assignee picker, US-13; members page, TREK-48)
       responses:
         '200':
-          description: Members, ordered by display name.
+          description: Current members (not removed ones), ordered by display name, each with the etag for a role change.
           content:
             application/json:
               schema:
@@ -200,6 +205,70 @@ paths:
                     type: array
                     items: { $ref: '#/components/schemas/Member' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/v1/members/{userId}:
+    parameters:
+      - { name: userId, in: path, required: true, schema: { type: string, format: uuid } }
+    patch:
+      tags: [Members]
+      operationId: changeMemberRole
+      summary: Change a member's role (TREK-48; Owner, Admin)
+      description: >-
+        Admins change Members and Viewers; only an Owner makes or removes Admins and Owners. The organization keeps at
+        least one Owner. The member's tokens are revoked, so their next request fails and signing in again (silently, with
+        the session cookie) brings the new role. Records `MemberRoleChanged`; the same role again changes nothing.
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ChangeMemberRoleRequest' }
+      responses:
+        '200':
+          description: The member with their new role and etag.
+          headers:
+            ETag: { $ref: '#/components/headers/ETag' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Member' }
+        '400': { $ref: '#/components/responses/ValidationProblem' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Not an Owner or Admin, or an Admin changing an Admin or Owner or making one.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: The member is the organization's last Owner.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '428': { $ref: '#/components/responses/PreconditionRequired' }
+    delete:
+      tags: [Members]
+      operationId: removeMember
+      summary: Remove a member from the organization (TREK-48; Owner, Admin)
+      description: >-
+        Admins remove Members and Viewers; only an Owner removes Admins and Owners. The last Owner stays. The member's
+        tokens and sessions end at once and they can no longer log in; their name stays on their past work, and their
+        address cannot be invited again for now (ADR-0034). Records `MemberRemoved`.
+      responses:
+        '204': { description: Removed. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Not an Owner or Admin, or an Admin removing an Admin or Owner.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: The member is the organization's last Owner.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
 
   /api/v1/invites:
     get:
@@ -247,7 +316,9 @@ paths:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
         '409':
-          description: Already a member, the email belongs to another organization, or an open invite exists (resend it).
+          description: >-
+            Already a member, removed from this organization (TREK-48), the email belongs to another organization, or an
+            open invite exists (resend it).
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
@@ -1196,9 +1267,19 @@ components:
         email: { type: string, format: email }
     Member:
       type: object
-      required: [user, role]
+      required: [user, role, kind, etag]
       properties:
         user: { $ref: '#/components/schemas/UserRef' }
+        role: { $ref: '#/components/schemas/Role' }
+        kind:
+          type: string
+          enum: [person, bot]
+          description: Bots come with TREK-49; until then every member is a person.
+        etag: { type: string, description: 'Send in If-Match to change this member''s role (TREK-48).' }
+    ChangeMemberRoleRequest:
+      type: object
+      required: [role]
+      properties:
         role: { $ref: '#/components/schemas/Role' }
 
     InvitableRole:

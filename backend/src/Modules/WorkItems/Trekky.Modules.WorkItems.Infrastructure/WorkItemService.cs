@@ -151,7 +151,8 @@ internal sealed class WorkItemService(
         {
             var people = await users.FindMembersAsync(
                 new[] { item.AssigneeId, assigneeId }.OfType<Guid>().ToList(), cancellationToken);
-            if (assigneeId is { } newId && !people.ContainsKey(newId))
+            // Removed members still have a name (TREK-48) but can no longer be given work.
+            if (assigneeId is { } newId && !await users.IsMemberAsync(newId, cancellationToken))
             {
                 return new WorkItemResult(
                     WorkItemOutcome.AssigneeNotMember,

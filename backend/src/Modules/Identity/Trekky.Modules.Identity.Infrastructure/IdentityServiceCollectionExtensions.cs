@@ -8,6 +8,7 @@ using OpenIddict.Validation.AspNetCore;
 using Trekky.Modules.Identity.Application.Accounts;
 using Trekky.Modules.Identity.Application.Contracts;
 using Trekky.Modules.Identity.Application.Invites;
+using Trekky.Modules.Identity.Application.Members;
 using Trekky.Modules.Identity.Domain;
 using Trekky.Modules.Identity.Persistence;
 using static OpenIddict.Abstractions.OpenIddictConstants;
@@ -161,6 +162,7 @@ internal static class IdentityServiceCollectionExtensions
         services.AddSingleton<IInviteMailer, SmtpInviteMailer>();
         services.AddSingleton<InviteLinks>();
         services.AddScoped<IInviteService, InviteService>();
+        services.AddScoped<IMemberService, MemberService>();
         services.AddScoped<SessionRevoker>();
         services.AddScoped<ConnectHandlers>();
         services.AddHostedService<ClientRegistration>();

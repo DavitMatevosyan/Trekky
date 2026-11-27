@@ -14,6 +14,26 @@ const pending = {
 }
 const expiredAdmin = { ...pending, id: '0190a000-0000-7000-8000-0000000000c2', email: 'linus@example.com', role: 'admin', status: 'expired' }
 
+const ada = { user: me.user, role: 'owner', kind: 'person', etag: '"10"' }
+const grace = {
+  user: { id: '0190a000-0000-7000-8000-0000000000aa', displayName: 'Grace', email: 'grace@example.com' },
+  role: 'viewer',
+  kind: 'person',
+  etag: '"11"',
+}
+const linus = {
+  user: { id: '0190a000-0000-7000-8000-0000000000ab', displayName: 'Linus', email: 'linus@example.com' },
+  role: 'admin',
+  kind: 'person',
+  etag: '"12"',
+}
+const robot = {
+  user: { id: '0190a000-0000-7000-8000-0000000000ac', displayName: 'Claude', email: null },
+  role: 'member',
+  kind: 'bot',
+  etag: '"13"',
+}
+
 function sent(invite: typeof pending, emailSent: boolean) {
   return { invite, acceptUrl: 'http://localhost:5173/invite#tok', emailSent }
 }
@@ -29,22 +49,133 @@ function renderMembers(handlers: Parameters<typeof fakeApi>[0] = {}, role = 'own
 }
 
 describe('MembersPage', () => {
-  it('lists the members with their email and role, marking the signed-in user', async () => {
-    renderMembers({
-      'GET /api/v1/members': () =>
-        jsonResponse({
-          items: [
-            { user: me.user, role: 'owner' },
-            { user: { id: '0190a000-0000-7000-8000-0000000000aa', displayName: 'Grace', email: 'grace@example.com' }, role: 'viewer' },
-          ],
-        }),
-    })
+  it('shows everyone the members with name, email, person or bot, and role, marking the signed-in user', async () => {
+    renderMembers({ 'GET /api/v1/members': () => jsonResponse({ items: [ada, robot, grace] }) }, 'viewer')
 
     const list = await screen.findByRole('list', { name: 'Members of your organization' })
     expect(within(list).getAllByRole('listitem').map((row) => row.textContent)).toEqual([
-      'ada@example.com(you)ada@example.comOwner',
-      'Gracegrace@example.comViewer',
+      'ada@example.com(you)ada@example.comPersonOwner',
+      'ClaudeBotMember',
+      'Gracegrace@example.comPersonViewer',
     ])
+    expect(within(list).queryByRole('combobox')).not.toBeInTheDocument()
+    expect(within(list).queryByRole('button')).not.toBeInTheDocument()
+  })
+
+  it('lets an Owner change a role, sending the member’s etag, and says so', async () => {
+    let changed = false
+    const fetchFn = renderMembers({
+      'GET /api/v1/members': () => jsonResponse({ items: [ada, changed ? { ...grace, role: 'admin', etag: '"14"' } : grace] }),
+      [`PATCH /api/v1/members/${grace.user.id}`]: () => {
+        changed = true
+        return jsonResponse({ ...grace, role: 'admin', etag: '"14"' })
+      },
+    })
+    const role = await screen.findByRole('combobox', { name: 'Role of Grace' })
+    expect(within(role).getAllByRole('option').map((o) => o.textContent)).toEqual(['Owner', 'Admin', 'Member', 'Viewer'])
+
+    await userEvent.selectOptions(role, 'admin')
+    // Choosing only picks the role: nothing is sent until it is saved (arrow keys on a select change it at once).
+    expect(requestsTo(fetchFn, `PATCH /api/v1/members/${grace.user.id}`)).toHaveLength(0)
+    await userEvent.click(screen.getByRole('button', { name: 'Save role of Grace' }))
+
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Grace is now Admin.'))
+    const request = requestsTo(fetchFn, `PATCH /api/v1/members/${grace.user.id}`)[0]
+    expect(request?.headers.get('If-Match')).toBe('"11"')
+    expect(await request?.json()).toEqual({ role: 'admin' })
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Role of Grace' })).toHaveValue('admin'))
+    expect(screen.getByRole('combobox', { name: 'Role of Grace' })).toHaveFocus()
+    expect(screen.queryByRole('button', { name: 'Save role of Grace' })).not.toBeInTheDocument()
+  })
+
+  it('offers no save until a different role is chosen', async () => {
+    renderMembers({ 'GET /api/v1/members': () => jsonResponse({ items: [ada, grace] }) })
+    const role = await screen.findByRole('combobox', { name: 'Role of Grace' })
+
+    expect(screen.queryByRole('button', { name: 'Save role of Grace' })).not.toBeInTheDocument()
+    await userEvent.selectOptions(role, 'member')
+    expect(screen.getByRole('button', { name: 'Save role of Grace' })).toBeInTheDocument()
+    await userEvent.selectOptions(role, 'viewer')
+    expect(screen.queryByRole('button', { name: 'Save role of Grace' })).not.toBeInTheDocument()
+  })
+
+  it('offers an Admin only Member and Viewer, and nothing for Admins and Owners', async () => {
+    renderMembers({ 'GET /api/v1/members': () => jsonResponse({ items: [ada, grace, linus] }) }, 'admin')
+
+    const role = await screen.findByRole('combobox', { name: 'Role of Grace' })
+    expect(within(role).getAllByRole('option').map((o) => o.textContent)).toEqual(['Member', 'Viewer'])
+    expect(screen.getByRole('button', { name: 'Remove Grace' })).toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: 'Role of Linus' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Remove Linus' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: 'Role of ada@example.com' })).not.toBeInTheDocument()
+  })
+
+  it('offers no change for yourself, and none for the last Owner', async () => {
+    const otherOwner = { ...linus, role: 'owner' }
+    renderMembers({ 'GET /api/v1/members': () => jsonResponse({ items: [ada, otherOwner] }) })
+
+    // With two Owners, either can change the other, but nobody changes themselves here.
+    expect(await screen.findByRole('combobox', { name: 'Role of Linus' })).toHaveValue('owner')
+    expect(screen.queryByRole('combobox', { name: 'Role of ada@example.com' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Remove ada@example.com' })).not.toBeInTheDocument()
+  })
+
+  it('leaves the only Owner as they are, even for another Owner’s view', async () => {
+    renderMembers({ 'GET /api/v1/members': () => jsonResponse({ items: [{ ...ada, role: 'admin' }, { ...linus, role: 'owner' }] }) })
+
+    expect(await screen.findByText('Linus')).toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: 'Role of Linus' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Remove Linus' })).not.toBeInTheDocument()
+  })
+
+  it('removes a member after confirming, and says so', async () => {
+    let removed = false
+    const fetchFn = renderMembers({
+      'GET /api/v1/members': () => jsonResponse({ items: removed ? [ada] : [ada, grace] }),
+      [`DELETE /api/v1/members/${grace.user.id}`]: () => {
+        removed = true
+        return new Response(null, { status: 204 })
+      },
+    })
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Remove Grace' }))
+    const confirm = screen.getByRole('group', { name: /^Remove Grace from your organization\?/ })
+    expect(within(confirm).getByRole('button', { name: 'Cancel' })).toHaveFocus()
+    await userEvent.click(within(confirm).getByRole('button', { name: 'Remove' }))
+
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Grace was removed from your organization.'))
+    await waitFor(() => expect(screen.queryByText('grace@example.com')).not.toBeInTheDocument())
+    expect(screen.getByRole('heading', { name: 'Members of your organization' })).toHaveFocus()
+    expect(requestsTo(fetchFn, `DELETE /api/v1/members/${grace.user.id}`)).toHaveLength(1)
+  })
+
+  it('keeps the member when removing is cancelled', async () => {
+    const fetchFn = renderMembers({ 'GET /api/v1/members': () => jsonResponse({ items: [ada, grace] }) })
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Remove Grace' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(screen.queryByRole('group', { name: /^Remove Grace/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Remove Grace' })).toBeInTheDocument()
+    expect(requestsTo(fetchFn, `DELETE /api/v1/members/${grace.user.id}`)).toHaveLength(0)
+  })
+
+  it('shows why a role change was refused', async () => {
+    renderMembers({
+      'GET /api/v1/members': () => jsonResponse({ items: [ada, grace] }),
+      [`PATCH /api/v1/members/${grace.user.id}`]: () =>
+        problemResponse(412, { detail: 'This member was changed since you loaded the page. Their latest role is shown.' }),
+    })
+
+    await userEvent.selectOptions(await screen.findByRole('combobox', { name: 'Role of Grace' }), 'member')
+    await userEvent.click(screen.getByRole('button', { name: 'Save role of Grace' }))
+
+    const refused = () => screen.getAllByRole('alert').some((alert) => alert.textContent?.includes('This member was changed since you loaded the page.'))
+    await waitFor(() => expect(refused()).toBe(true))
+
+    // Starting another action clears the old error.
+    await userEvent.click(screen.getByRole('button', { name: 'Remove Grace' }))
+    expect(refused()).toBe(false)
   })
 
   it('offers an Owner every invitable role, and an Admin only Member and Viewer', async () => {

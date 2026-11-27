@@ -17,6 +17,8 @@ internal static class AuthEndpoints
 {
     internal const string EmailTakenMessage = "An account with this email already exists.";
     internal const string InvalidCredentialsMessage = "Email or password is incorrect.";
+    internal const string NoOrganizationMessage =
+        "This account no longer belongs to an organization. Ask an Admin of your team if you still need access.";
     internal static readonly string LockedOutMessage =
         $"Too many failed attempts. Try again in {IdentityServiceCollectionExtensions.LockoutDuration.TotalMinutes:0} minutes.";
 
@@ -78,9 +80,11 @@ internal static class AuthEndpoints
             return TypedResults.ValidationProblem(validation.ToDictionary());
         }
 
-        return await accounts.LogInAsync(request.Email!, request.Password!) switch
+        return await accounts.LogInAsync(request.Email!, request.Password!, cancellationToken) switch
         {
             LoginOutcome.Succeeded => TypedResults.NoContent(),
+            LoginOutcome.NoOrganization => TypedResults.Problem(
+                title: "No organization", detail: NoOrganizationMessage, statusCode: StatusCodes.Status403Forbidden),
             LoginOutcome.LockedOut => TypedResults.Problem(
                 title: "Account locked", detail: LockedOutMessage, statusCode: StatusCodes.Status423Locked),
             _ => TypedResults.Problem(

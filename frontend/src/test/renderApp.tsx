@@ -36,7 +36,7 @@ export function fakeApi(handlers: Record<string, Handler> = {}) {
   const all: Record<string, Handler> = {
     'GET /api/v1/me': () => jsonResponse(me),
     'GET /api/v1/projects': () => jsonResponse(emptyProjectPage),
-    'GET /api/v1/members': () => jsonResponse({ items: [{ user: me.user, role: me.role }] }),
+    'GET /api/v1/members': () => jsonResponse({ items: [{ user: me.user, role: me.role, kind: 'person', etag: '"1"' }] }),
     ...handlers,
   }
   return vi.fn<typeof fetch>(async (input, init) => {

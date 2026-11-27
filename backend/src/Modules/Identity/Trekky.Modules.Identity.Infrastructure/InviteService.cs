@@ -59,8 +59,15 @@ internal sealed class InviteService(
         // One organization per user (TREK-46): an address with an account cannot join another organization.
         if (await users.FindByEmailAsync(email) is { } existing)
         {
-            var isMember = await db.Memberships.AnyAsync(m => m.OrgId == orgId && m.UserId == existing.Id, cancellationToken);
-            return (isMember ? CreateInviteOutcome.AlreadyMember : CreateInviteOutcome.EmailHasAccount, null);
+            var membership = await db.Memberships
+                .AsNoTracking()
+                .Where(m => m.OrgId == orgId && m.UserId == existing.Id)
+                .Select(m => new { m.RemovedAt })
+                .FirstOrDefaultAsync(cancellationToken);
+            var outcome = membership is null ? CreateInviteOutcome.EmailHasAccount
+                : membership.RemovedAt is null ? CreateInviteOutcome.AlreadyMember
+                : CreateInviteOutcome.FormerMember;
+            return (outcome, null);
         }
 
         var normalized = InviteEntity.Normalize(email);

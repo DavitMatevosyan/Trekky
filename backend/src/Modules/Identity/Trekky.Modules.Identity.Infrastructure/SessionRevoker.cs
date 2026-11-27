@@ -17,6 +17,17 @@ internal sealed class SessionRevoker(
     public async Task RevokeAllAsync(User user, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(user);
+        await RevokeTokensAsync(user, cancellationToken);
+        await users.UpdateSecurityStampAsync(user);
+    }
+
+    /// <summary>
+    /// Revokes the user's tokens but keeps their session cookie (TREK-48: a role change), so the web app's silent sign-in
+    /// gets new tokens with current claims.
+    /// </summary>
+    public async Task RevokeTokensAsync(User user, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(user);
 
         // Materialize first: Npgsql allows one open reader per connection, and revoking writes.
         var active = new List<object>();
@@ -29,7 +40,5 @@ internal sealed class SessionRevoker(
         {
             await authorizations.TryRevokeAsync(authorization, cancellationToken);
         }
-
-        await users.UpdateSecurityStampAsync(user);
     }
 }

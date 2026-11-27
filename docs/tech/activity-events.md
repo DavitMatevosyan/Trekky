@@ -42,7 +42,7 @@ History may lag a change by up to the dispatcher interval (target: under 1 secon
 | `occurred_at` | timestamptz | when the change committed |
 | `actor_type` | text | `user`, `agent`, `system` |
 | `actor_id` | uuid | nullable for `system` |
-| `entity_type` | text | `project`, `work_item`, `comment`, `invite` |
+| `entity_type` | text | `project`, `work_item`, `comment`, `invite`, `member`, `github_installation` |
 | `entity_id` | uuid | |
 | `entity_key` | text | human key when there is one (`TRK-42`) |
 | `project_id` | uuid | nullable; lets history and feeds filter by project |
@@ -96,8 +96,8 @@ Indexes: `(org_id, entity_id, event_id desc)` for item history, `(org_id, projec
 | `InviteSent` | Identity (TREK-47) | An invite is created or resent (entity = the invite, no key, no project) | `{ "email": "grace@example.com", "role": "viewer" }`, plus `"resent": true \| false` and `"expiresAt"` — never the link's token or its hash |
 | `InviteRevoked` | Identity (TREK-47) | An open invite is withdrawn | `{ "email": "…", "role": "…" }` |
 | `InviteAccepted` | Identity (TREK-47) | Someone accepts an invite and joins (actor = the new member) | `{ "email": "…", "role": "…", "userId": "…" }` |
-
-Role changes and removals (`MemberRoleChanged`, `MemberRemoved`) come with the members page (TREK-48).
+| `MemberRoleChanged` | Identity (TREK-48) | An Owner or Admin changes a member's role (entity = `member`, id = the member's user id, no key, no project); the same role again records nothing | `{ "from": "viewer", "to": "member", "userId": "…", "email": "…", "displayName": "…" }` |
+| `MemberRemoved` | Identity (TREK-48) | An Owner or Admin removes a member; their tokens and sessions end in the same transaction | `{ "role": "member", "userId": "…", "email": "…", "displayName": "…" }` — the role they had |
 
 ## History view (US-09)
 
