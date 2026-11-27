@@ -52,6 +52,9 @@ export const routes: RouteObject[] = [
               { index: true, element: <ProjectItemsPage /> },
               { path: 'board', element: <BoardPage /> },
               { path: 'settings', element: <ProjectSettingsPage /> },
+              // A project's docs from GitHub (TREK-75): /TRK/docs and /TRK/docs/guide/setup.md. Loaded on first
+              // visit, so the Markdown renderer and code highlighter stay out of the other pages' bundle.
+              { path: 'docs/*', lazy: async () => ({ Component: (await import('./pages/DocsPage.tsx')).DocsPage }) },
               { path: 'items/:itemKey', element: <WorkItemPage /> },
             ],
           },

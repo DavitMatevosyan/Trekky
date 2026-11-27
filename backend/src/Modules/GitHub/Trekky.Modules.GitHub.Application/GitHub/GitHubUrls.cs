@@ -19,6 +19,14 @@ internal static class GitHubUrls
         return folder.Length == 0 ? url : $"{url}/{EscapeSegments(folder)}";
     }
 
+    /// <summary>A file on the branch: <c>https://github.com/acme/handbook/blob/dev/docs/setup.md</c>.</summary>
+    public static string File(string repositoryFullName, string branch, string path)
+        => $"{Site}/{repositoryFullName}/blob/{EscapeSegments(branch)}/{EscapeSegments(path)}";
+
+    /// <summary>A commit: <c>https://github.com/acme/handbook/commit/1a2b3c</c>.</summary>
+    public static string Commit(string repositoryFullName, string sha)
+        => $"{Site}/{repositoryFullName}/commit/{Uri.EscapeDataString(sha)}";
+
     /// <summary>Escapes each segment of a slash-separated path, keeping the slashes.</summary>
     public static string EscapeSegments(string path)
         => string.Join('/', path.Split('/').Select(Uri.EscapeDataString));

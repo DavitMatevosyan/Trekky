@@ -22,6 +22,9 @@ internal sealed class GitHubClient(HttpClient http, GitHubApp app, InstallationT
     /// <summary>The admin check reads at most this many repositories; a larger installation is refused (narrow it on GitHub).</summary>
     private const int MaxCheckedRepositories = 1000;
 
+    /// <summary>Asks GitHub for a file's or blob's bytes instead of JSON with base64.</summary>
+    private const string RawMediaType = "application/vnd.github.raw+json";
+
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
@@ -218,6 +221,143 @@ internal sealed class GitHubClient(HttpClient http, GitHubApp app, InstallationT
         return body.RootElement.ValueKind == JsonValueKind.Array ? GitHubPathKind.Folder : GitHubPathKind.File;
     }
 
+    public async Task<GitHubCommitInfo?> GetBranchHeadAsync(
+        long installationId, string fullName, string branch, CancellationToken cancellationToken)
+    {
+        // The branch endpoint: its commit comes without the file patches /commits/{ref} would send.
+        using var response = await SendAsInstallationAsync(
+            installationId, $"repos/{GitHubUrls.EscapeSegments(fullName)}/branches/{GitHubUrls.EscapeSegments(branch)}", cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        EnsureSuccess(response);
+        var body = await ReadAsync<BranchResponse>(response, cancellationToken);
+        return body.Commit is null ? null : ToCommit(body.Commit);
+    }
+
+    public async Task<string?> GetFolderShaAsync(
+        long installationId, string fullName, string commitSha, string path, CancellationToken cancellationToken)
+    {
+        var slash = path.LastIndexOf('/');
+        var parent = slash < 0 ? string.Empty : path[..slash];
+        var name = path[(slash + 1)..];
+        var contents = parent.Length == 0 ? "contents" : $"contents/{GitHubUrls.EscapeSegments(parent)}";
+        using var response = await SendAsInstallationAsync(
+            installationId,
+            $"repos/{GitHubUrls.EscapeSegments(fullName)}/{contents}?ref={Uri.EscapeDataString(commitSha)}",
+            cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        EnsureSuccess(response);
+        using var body = await JsonDocument.ParseAsync(
+            await response.Content.ReadAsStreamAsync(cancellationToken), cancellationToken: cancellationToken);
+        if (body.RootElement.ValueKind != JsonValueKind.Array)
+        {
+            // The parent is a file.
+            return null;
+        }
+
+        foreach (var entry in body.RootElement.EnumerateArray())
+        {
+            if (entry.TryGetProperty("name", out var entryName) && entryName.GetString() == name
+                && entry.TryGetProperty("type", out var type) && type.GetString() == "dir"
+                && entry.TryGetProperty("sha", out var sha))
+            {
+                return sha.GetString();
+            }
+        }
+
+        return null;
+    }
+
+    public async Task<GitHubTree> GetTreeAsync(
+        long installationId, string fullName, string treeSha, CancellationToken cancellationToken)
+    {
+        using var response = await SendAsInstallationAsync(
+            installationId,
+            $"repos/{GitHubUrls.EscapeSegments(fullName)}/git/trees/{Uri.EscapeDataString(treeSha)}?recursive=1",
+            cancellationToken);
+        EnsureSuccess(response);
+        var body = await ReadAsync<TreeResponse>(response, cancellationToken);
+        var entries = (body.Tree ?? [])
+            .Where(e => e.Path is not null && e.Type is not null && e.Sha is not null)
+            .Select(e => new GitHubTreeEntry(e.Path!, e.Type!, e.Sha!, e.Size ?? 0))
+            .ToList();
+        return new GitHubTree(entries, body.Truncated);
+    }
+
+    public async Task<byte[]> GetBlobAsync(long installationId, string fullName, string sha, CancellationToken cancellationToken)
+    {
+        using var response = await SendAsInstallationAsync(
+            installationId,
+            $"repos/{GitHubUrls.EscapeSegments(fullName)}/git/blobs/{Uri.EscapeDataString(sha)}",
+            cancellationToken,
+            RawMediaType);
+        EnsureSuccess(response);
+        return await response.Content.ReadAsByteArrayAsync(cancellationToken);
+    }
+
+    public async Task<GitHubCommitInfo?> GetLastCommitAsync(
+        long installationId, string fullName, string branch, string path, CancellationToken cancellationToken)
+    {
+        using var response = await SendAsInstallationAsync(
+            installationId,
+            $"repos/{GitHubUrls.EscapeSegments(fullName)}/commits?sha={Uri.EscapeDataString(branch)}&path={Uri.EscapeDataString(path)}&per_page=1",
+            cancellationToken);
+        if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.UnprocessableEntity)
+        {
+            return null;
+        }
+
+        EnsureSuccess(response);
+        var commits = await ReadAsync<List<CommitResponse>>(response, cancellationToken);
+        return commits.Count == 0 ? null : ToCommit(commits[0]);
+    }
+
+    public async Task<byte[]?> GetFileAsync(
+        long installationId, string fullName, string commitSha, string path, int maxBytes, CancellationToken cancellationToken)
+    {
+        using var response = await SendAsInstallationAsync(
+            installationId,
+            $"repos/{GitHubUrls.EscapeSegments(fullName)}/contents/{GitHubUrls.EscapeSegments(path)}?ref={Uri.EscapeDataString(commitSha)}",
+            cancellationToken,
+            RawMediaType);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        EnsureSuccess(response);
+
+        // A folder is answered with its JSON listing even when the raw content is asked for.
+        if (response.Content.Headers.ContentType?.MediaType == "application/json"
+            || response.Content.Headers.ContentLength > maxBytes)
+        {
+            return null;
+        }
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var buffer = new MemoryStream();
+        var chunk = new byte[81920];
+        int read;
+        while ((read = await stream.ReadAsync(chunk, cancellationToken)) > 0)
+        {
+            if (buffer.Length + read > maxBytes)
+            {
+                return null;
+            }
+
+            buffer.Write(chunk, 0, read);
+        }
+
+        return buffer.ToArray();
+    }
+
     public void ForgetInstallation(long installationId) => tokens.Forget(installationId);
 
     /// <summary>
@@ -225,12 +365,17 @@ internal sealed class GitHubClient(HttpClient http, GitHubApp app, InstallationT
     /// rotated): the token is dropped and the request retried once with a fresh one.
     /// </summary>
     private async Task<HttpResponseMessage> SendAsInstallationAsync(
-        long installationId, string relativeUrl, CancellationToken cancellationToken)
+        long installationId, string relativeUrl, CancellationToken cancellationToken, string? accept = null)
     {
         for (var attempt = 1; ; attempt++)
         {
             var token = await tokens.GetAsync(installationId, ct => CreateInstallationTokenAsync(installationId, ct), cancellationToken);
             using var request = Get(relativeUrl, token);
+            if (accept is not null)
+            {
+                request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue(accept));
+            }
+
             var response = await SendAsync(request, cancellationToken);
             if (response.StatusCode != HttpStatusCode.Unauthorized || attempt == 2)
             {
@@ -316,6 +461,32 @@ internal sealed class GitHubClient(HttpClient http, GitHubApp app, InstallationT
             throw new GitHubUnavailableException("GitHub returned a body Trekky could not read.", exception);
         }
     }
+
+    private static GitHubCommitInfo ToCommit(CommitResponse commit)
+    {
+        var message = commit.Commit?.Message ?? string.Empty;
+        var newline = message.IndexOfAny(['\r', '\n']);
+        return new GitHubCommitInfo(
+            commit.Sha,
+            commit.Commit?.Tree?.Sha ?? string.Empty,
+            newline < 0 ? message : message[..newline],
+            commit.Commit?.Author?.Name ?? string.Empty,
+            commit.Commit?.Author?.Date ?? DateTimeOffset.MinValue);
+    }
+
+    private sealed record BranchResponse(string? Name, CommitResponse? Commit);
+
+    private sealed record CommitResponse(string Sha, CommitDetailResponse? Commit);
+
+    private sealed record CommitDetailResponse(string? Message, CommitAuthorResponse? Author, ShaResponse? Tree);
+
+    private sealed record CommitAuthorResponse(string? Name, DateTimeOffset? Date);
+
+    private sealed record ShaResponse(string? Sha);
+
+    private sealed record TreeResponse(IReadOnlyList<TreeEntryResponse>? Tree, bool Truncated);
+
+    private sealed record TreeEntryResponse(string? Path, string? Type, string? Sha, long? Size);
 
     private sealed record OAuthTokenResponse(string? AccessToken, string? Error);
 

@@ -6,6 +6,8 @@ import { statusStyle, typeStyle, WORK_ITEM_STATUSES, WORK_ITEM_TYPES } from '../
 const TYPE_TOKENS = WORK_ITEM_TYPES.map((type) => typeStyle(type).token ?? type)
 /** The token name of each status (`in-progress` for `in_progress`). */
 const STATUS_TOKENS = WORK_ITEM_STATUSES.map((status) => statusStyle(status).token ?? status)
+/** The code highlighting colours in docs (TREK-75). */
+const CODE_TOKENS = ['keyword', 'string', 'number', 'title']
 
 /**
  * The `--name: oklch(…)` tokens declared in the CSS block that starts with `selector {`. A token in any other form
@@ -90,13 +92,17 @@ const pairs: Pair[] = [
     [`status-${status}-accent`, 'muted', UI],
   ]),
   ['surface', 'status-done-accent', UI],
+  // Code highlighting in docs (TREK-75): every token, and comments in muted text, on the muted code block.
+  ...CODE_TOKENS.map((token): Pair => [`code-${token}`, 'muted', TEXT]),
+  ['muted-foreground', 'muted', TEXT],
 ]
 
 describe('theme tokens', () => {
   it.each(Object.entries(themes))('%s defines every token in the same set', (_, theme) => {
     expect([...theme.keys()].sort()).toEqual([...themes.light.keys()].sort())
-    // 14 base tokens (TREK-56), three shades for each of the six types (TREK-57) and of the four statuses (TREK-59).
-    expect(theme.size).toBe(14 + 3 * TYPE_TOKENS.length + 3 * STATUS_TOKENS.length)
+    // 14 base tokens (TREK-56), three shades for each of the six types (TREK-57) and of the four statuses (TREK-59),
+    // and the code highlighting colours (TREK-75).
+    expect(theme.size).toBe(14 + 3 * TYPE_TOKENS.length + 3 * STATUS_TOKENS.length + CODE_TOKENS.length)
   })
 
   for (const [name, theme] of Object.entries(themes)) {

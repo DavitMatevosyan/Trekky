@@ -62,6 +62,12 @@
   --status-done-tint: oklch(0.93 0.02 150);
   --status-done-accent: oklch(0.57 0.07 150);
   --status-done-text: oklch(0.48 0.02 150);
+
+  /* Code highlighting in docs (TREK-75), on the muted code block. */
+  --code-keyword: oklch(0.42 0.13 300);
+  --code-string: oklch(0.42 0.1 150);
+  --code-number: oklch(0.45 0.12 50);
+  --code-title: oklch(0.42 0.12 245);
   color-scheme: light;
 }
 
@@ -113,6 +119,11 @@
   --status-done-tint: oklch(0.285 0.018 150);
   --status-done-accent: oklch(0.7 0.06 150);
   --status-done-text: oklch(0.76 0.015 150);
+  /* Code highlighting in docs (TREK-75), on the muted code block. */
+  --code-keyword: oklch(0.82 0.09 300);
+  --code-string: oklch(0.82 0.09 150);
+  --code-number: oklch(0.83 0.09 60);
+  --code-title: oklch(0.82 0.08 245);
   color-scheme: dark;
 }
 
@@ -161,6 +172,59 @@
   --color-status-done-tint: var(--status-done-tint);
   --color-status-done-accent: var(--status-done-accent);
   --color-status-done-text: var(--status-done-text);
+  --color-code-keyword: var(--code-keyword);
+  --color-code-string: var(--code-string);
+  --color-code-number: var(--code-number);
+  --color-code-title: var(--code-title);
+}
+
+/* highlight.js classes in rendered docs (TREK-75), drawn only with theme tokens (ADR-0025). */
+@layer components {
+  .hljs-keyword,
+  .hljs-selector-tag,
+  .hljs-built_in,
+  .hljs-type,
+  .hljs-literal,
+  .hljs-doctag {
+    color: var(--code-keyword);
+  }
+  .hljs-string,
+  .hljs-regexp,
+  .hljs-symbol,
+  .hljs-addition,
+  .hljs-template-tag {
+    color: var(--code-string);
+  }
+  .hljs-number,
+  .hljs-attr,
+  .hljs-attribute,
+  .hljs-variable,
+  .hljs-template-variable,
+  .hljs-selector-attr {
+    color: var(--code-number);
+  }
+  .hljs-title,
+  .hljs-section,
+  .hljs-name,
+  .hljs-selector-id,
+  .hljs-selector-class {
+    color: var(--code-title);
+  }
+  .hljs-comment,
+  .hljs-quote,
+  .hljs-meta {
+    color: var(--muted-foreground);
+    font-style: italic;
+  }
+  .hljs-deletion {
+    color: var(--destructive);
+  }
+  .hljs-emphasis {
+    font-style: italic;
+  }
+  .hljs-strong {
+    font-weight: 600;
+  }
 }
 
 @layer base {
