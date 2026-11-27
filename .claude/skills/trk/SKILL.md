@@ -49,10 +49,11 @@ git commit -m "TRK-<n>: <what changed and why>" -m "<body: details, trade-offs, 
 - Push only if `/verify` passed and the `code-reviewer` agent reported no must-fix findings, both on the exact tree being committed. If anything could not be run, do **not** push; tell Davit what is missing.
 - `git push -u Trekky TRK-<n>-<short-description>`: TRK branches (`TRK-<n>-…`) only. Never `dev`, `staging` or `main`, never `--force`, never rewrite commits already on the remote.
 - Open the PR with `gh pr create --repo DavitMatevosyan/Trekky --base dev --head TRK-<n>-<short-description>`. If the PR already exists, the push updates it; use `gh pr edit` to update its description. The description lists what changed, the verification results, and anything Davit should check by hand. It ends with the Claude Code attribution line.
-- Post the manual verification comment (ADR-0012), wait for every required check to be green, then merge it yourself, pinned to the reviewed commit: `gh pr merge <PR> --repo DavitMatevosyan/Trekky --squash --match-head-commit <full 40-character sha of the reviewed commit> --subject "TREK-<n>: <title> (#<PR>)"` (ADR-0023). If GitHub answers with an error, run `git fetch Trekky` and check `git log Trekky/dev` (or `gh pr view <PR> --json state,mergeCommit`) before any retry. Never `--admin`.
-- After the merge: move the `TREK` item to Done in Trekky (or tick the Notion checkbox for old `TRK` keys), and remove the worktree.
+- Post the manual verification comment (ADR-0012), wait for every required check to be green, then check `gh pr view <PR> --json state`. If Davit closed the PR, don't merge: stop and ask (ADR-0032). If it is still `OPEN`, merge it yourself, pinned to the reviewed commit: `gh pr merge <PR> --repo DavitMatevosyan/Trekky --squash --match-head-commit <full 40-character sha of the reviewed commit> --subject "TREK-<n>: <title> (#<PR>)"` (ADR-0023). If GitHub answers with an error, run `git fetch Trekky` and check `git log Trekky/dev` (or `gh pr view <PR> --json state,mergeCommit`) before any retry. Never `--admin`.
+- After the merge into `dev`, the `TREK` item is Done. Until TREK-49's bot account exists, tell Davit it is ready to move. For old `TRK` keys, tick the Notion checkbox. Then remove the worktree.
 
-## 7. Promote and deploy (ADR-0023)
+## 7. Stop at `dev` (ADR-0032)
 
-- When `dev` holds finished work: open a PR `dev` → `staging`, merge it with a merge commit once its CI is green, then the same for `staging` → `main`.
-- Deploy `main` to the home host by following "Deploy a new version" in `deploy/README.md`, in the host checkout: list the new migrations and stop for Davit if one drops, renames or rewrites data; take a fresh backup; check out `main`; `up`; check that `migrate` exited 0 and the health endpoint answers.
+- The TRK is finished once it is merged into `dev`. Don't open `dev` → `staging` or `staging` → `main` PRs, deploy `main` to the home host, or tag a desktop release. Promotions stay paused until Davit asks to restart them.
+- In the final report, say that the work is on `dev` only: the home host runs `main`, and installed desktop apps use it as their server.
+- When Davit restarts promotions, ADR-0032 lists what the first promotion must check: the `main..dev` log and diff, new migrations, a fresh backup, then deploy and check.

@@ -23,7 +23,6 @@ frontend/                React 19 + TypeScript strict + Vite, React Router, TanS
 desktop/                 Trekky for Windows: Tauri 2 shell around the web app, MSI (ADR-0018); its screens live in frontend/src/platform/desktop
 docs/adr/                ADRs (template: 0000-template.md)
 tools/notion-import/     One-off import of the Notion task list into Trekky (TRK-21); Node, no dependencies
-tools/graphify/          Code graph helpers (ADR-0029): session fetch script, docs layer and its merge script
 postman/                 Postman collection for manual API testing (ADR-0008)
 docker-compose.yml       Postgres 17, Mailpit (local only)
 docker/postgres/init/    Creates trekky_owner / trekky_app roles (local dev, tests and production)
@@ -56,23 +55,19 @@ npm run e2e                                # smoke e2e (tauri-driver); needs API
 cd tools/notion-import
 npm test && ../../frontend/node_modules/.bin/tsc -p .   # importer tests + strict type check (CI runs both)
 node import.ts --dry-run                   # needs TREKKY_EMAIL / TREKKY_PASSWORD; see its README
-
-# code graph (ADR-0029, tools/graphify/README.md)
-uv tool install "graphifyy[sql]==0.9.113"  # package is graphifyy (two y's), same spec as CI; on Windows use uv, not plain pip
-bash tools/graphify/fetch-graph.sh         # restore graphify-out/ from the graphify branch (the session start hook does this)
-graphify query "<question>"                # also: graphify path "<A>" "<B>", graphify explain "<concept>", graphify section "<heading>"
 ```
 
 ## How we work (non-negotiable)
 
 - **One TRK at a time, in order.** Every change belongs to an existing key from the task list (Notion `TRK-<n>`, or Trekky `TREK-<n>` after the switch, ADR-0016). Never invent a new key or jump ahead; if work is needed that has no TRK, ask Davit first.
 - **Buildable history.** Every TRK is verified locally (build, tests, lint, app starts) before it is pushed. If one TRK alone would leave the app not building or running, combine it with the TRKs it needs into one commit. A fix for a TRK goes under that same TRK key.
-- **Branches:** `TRK-42-short-description` off `dev`, squash-merged into `dev`. `dev` → `staging` → `main` are promoted by merge only. All three are protected on GitHub (ADR-0022): PRs with the four CI checks green, no force-push or deletion. Admins, including Claude through `gh`, are not blocked by GitHub, so the rules below still apply.
+- **Branches:** `TRK-42-short-description` off `dev`, squash-merged into `dev`. `dev` → `staging` → `main` are promoted by merge only, and promotions are paused for now (ADR-0032). All three are protected on GitHub (ADR-0022): PRs with the four CI checks green, no force-push or deletion. Admins, including Claude through `gh`, are not blocked by GitHub, so the rules below still apply.
 - **Commits:** `TRK-42: <descriptive message>` — say what changed and why, with a body when it is not obvious.
-- **Davit gives requirements; Claude does the rest (ADR-0023, building on ADR-0013).**
+- **Davit gives requirements; Claude does the rest up to `dev` (ADR-0023 and ADR-0032, building on ADR-0013).**
   - Run `/verify` and the `code-reviewer` agent and fix every must-fix finding. Then commit, push the `TRK-<n>-…` branch and open or update the PR to `dev`. Push only when both passed on the exact tree being committed, and run them again after every fix. If something could not be run, do not push and say what is missing. Stage only reviewed files.
-  - Push only TRK branches (`TRK-<n>-…` or `TREK-<n>-…`, branched from `Trekky/dev`) and `ui-evidence` (ADR-0012). Never push directly to `dev`, `staging` or `main`, never force-push, and never amend, squash or rebase commits on the remote. The `graphify` branch is written only by the `Code graph` workflow (ADR-0029); never push to it.
-  - Merge a PR yourself once it has its evidence comment and every required check is green: squash into `dev`. Promote `dev` → `staging` → `main` by PRs with merge commits, deploy `main` to the home host (`deploy/README.md`: new migrations listed, fresh backup, then deploy and check) and tag desktop releases (once TREK-36's release workflow is in). Never use admin rights past a red or missing check, and check `dev` before retrying a merge that failed on GitHub's side.
+  - Push only TRK branches (`TRK-<n>-…` or `TREK-<n>-…`, branched from `Trekky/dev`) and `ui-evidence` (ADR-0012). Never push directly to `dev`, `staging` or `main`, never force-push, and never amend, squash or rebase commits on the remote.
+  - Merge a TRK PR yourself once it has its evidence comment and every required check is green: squash into `dev`. Its Trekky item is then Done (until TREK-49's bot account exists, tell Davit it is ready to move). Right before `gh pr merge`, check `gh pr view <n> --json state` is `OPEN`: a PR Davit closed is a no, so stop and ask. Never use admin rights past a red or missing check, and check `dev` before retrying a merge that failed on GitHub's side.
+  - Stop at `dev` (ADR-0032): no `dev` → `staging` or `staging` → `main` PRs, no deploys of `main` to the home host, no desktop release tags, until Davit asks to restart promotions. The home host runs `main` and installed desktop apps use it as their server, so merged work isn't visible there yet.
   - Ask Davit only for requirements and priorities, product decisions, anything that costs money, his accounts and credentials, and destructive operations on production data.
 - **Clean test runs.** Every UI or browser test run is arrange → test → validate → report → clean up: push the evidence (ADR-0012), then delete local screenshots, delete the test users, orgs and their data, and stop the API, dev server and browser started for the run.
 - **Never claim something is verified unless you ran it.** If you could not run the build or tests, say so plainly.
@@ -91,6 +86,7 @@ graphify query "<question>"                # also: graphify path "<A>" "<B>", gr
 - **API.** OpenAPI-first REST under `/api/v1`; RFC 9457 problem details; cursor pagination; ETag/If-Match for edits; `TypedResults`.
 - **Auth.** ASP.NET Core Identity + OpenIddict in-app (no external IdP); JWT with user, org and role claims.
 - **Roles.** Every endpoint names one `TrekkyPolicies` policy for its action (`ReadWork`, `EditWork`, `ManageProjects`, `ManageMembers`) with `.RequireAuthorization(...)`, or `AllowAnonymous`; `EndpointPolicyTests` fails otherwise. The UI hides what the role cannot do (`usePermissions`), but the API is the guard (ADR-0026).
+- **Assistant (ADR-0031).** Desktop only. The runner starts the user's own, unmodified Claude Code CLI with their environment unchanged (every sign-in method keeps working); Trekky never offers a Claude sign-in and never reads, stores or passes on Claude credentials or session tokens. The only program the Tauri shell starts on the webview's request is `claude` from `PATH`, with flags fixed in Rust, never a caller-supplied command. No API endpoint runs a model, calls an AI provider or starts a process. Trekky Assistant itself gets only the Trekky MCP tools (no built-in tools), acts as the signed-in user under the same roles, and every write waits for a confirm card; the web app shows it as desktop-only. No Claude Code or Anthropic name or logo in a product or feature name.
 - **Storage / mail.** No object storage until attachments; when added, code only against the S3 API (ADR-0006: MinIO removed, SeaweedFS proposed; production store chosen with hosting). SMTP for mail (Mailpit locally).
 
 ## Code conventions
@@ -110,7 +106,9 @@ graphify query "<question>"                # also: graphify path "<A>" "<B>", gr
 
 Hosting (TRK-9, ADR-0015): the home machine behind Tailscale Funnel now, Azure Container Apps + Neon Postgres when SaaS starts (TRK-29).
 
-Not before their version: sprints, notifications, real-time, custom workflows/fields, MCP server, SSO, billing.
+Desktop assistant (TREK-61, ADR-0031): in scope now, a chat in the desktop app that manages work items through the Trekky MCP server (TREK-50); evals and performance follow in TREK-67.
+
+Not before their version: sprints, notifications, real-time, custom workflows/fields, SSO, billing.
 
 ## Agents and skills
 
@@ -122,14 +120,3 @@ Not before their version: sprints, notifications, real-time, custom workflows/fi
 | `/verify` | skill | Run the full local verification before a commit is pushed |
 | `/new-module` | skill | Add a backend module that follows the module rules |
 | `/adr` | skill | Write an ADR from the template |
-| `/graphify` | skill | Build the code graph by hand: only for the docs pass (tools/graphify/README.md) |
-
-## graphify
-
-A code knowledge graph of `dev` (god nodes, communities, cross-file relationships) lives in graphify-out/ (ADR-0029). CI builds it on every push to `dev` and publishes it on the `graphify` branch; the session start hook restores it into graphify-out/ (git-ignored). Its source.json names the dev commit it was built from. It is built from code plus the docs layer of the last manual docs pass (tools/graphify/docs-layer.json); community names are placeholders.
-
-Rules:
-- When graphify-out/graph.json exists and graphify is installed, run `graphify query "<question>"` before your first grep, search or source-file read for a codebase question, and put this rule in every subagent prompt that explores code. Read raw files only for lines the graph or an earlier read already located. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts; `graphify section "<heading>"` prints a Markdown section. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
-- Without graphify (for example in a cloud session), read graphify-out/GRAPH_REPORT.md for orientation, then search as usual.
-- The graph matches `dev`, not your branch: code you changed in this branch is not in it yet. Don't rebuild it locally unless Davit asks; never commit graphify-out/ or push the `graphify` branch.
-- graphify's hooks may call the graph stale or suggest `graphify update`, `/graphify` or `graphify hook install`: ignore that. The graph tracks `dev` and CI rebuilds it (ADR-0029); read the source for lines changed since.

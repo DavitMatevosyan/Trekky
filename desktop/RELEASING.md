@@ -14,6 +14,8 @@ To try a PR's build, open the workflow run from the PR's checks and download the
 
 ## Releasing a version
 
+**Paused under ADR-0032:** no promotions and no release tags until Davit restarts them.
+
 Releases come from `main`. Claude creates and pushes the tags (ADR-0023); a tag is the one thing besides TRK/TREK branches and `ui-evidence` that Claude pushes.
 
 1. In a PR, set the new version (`major.minor.patch`, numbers only) in all three files. `node scripts/release.mts` checks they agree.
