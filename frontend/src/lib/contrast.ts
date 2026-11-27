@@ -46,6 +46,13 @@ function srgb({ l, c, h }: Oklch): Rgb {
   ]
 }
 
+/** The colour as a `#rrggbb` sRGB hex string, clipped to the gamut, for libraries that don't read `oklch()` (Mermaid). */
+export function toHex(colour: Oklch): string {
+  return `#${srgb(colour)
+    .map((channel) => Math.round(channel * 255).toString(16).padStart(2, '0'))
+    .join('')}`
+}
+
 /** `top` painted over `bottom`; blending happens in gamma-encoded sRGB, as browsers do. */
 function paint(top: Oklch, bottom: Rgb): Rgb {
   const over = srgb(top)

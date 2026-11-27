@@ -1,4 +1,4 @@
-import { contrastRatio, parseOklch, withAlpha } from './contrast.ts'
+import { contrastRatio, parseOklch, toHex, withAlpha } from './contrast.ts'
 
 const colour = (value: string) => {
   const parsed = parseOklch(value)
@@ -36,5 +36,15 @@ describe('contrast', () => {
     const white = colour('oklch(1 0 0)')
     expect(contrastRatio(colour('oklch(0 0 0 / 0%)'), white)).toBeCloseTo(1, 5)
     expect(contrastRatio(colour('oklch(0 0 0 / 50%)'), white)).toBeLessThan(contrastRatio(colour('oklch(0 0 0)'), white))
+  })
+})
+
+describe('toHex', () => {
+  it('converts OKLCH to sRGB hex, clipping to the gamut', () => {
+    expect(toHex({ l: 1, c: 0, h: 0, alpha: 1 })).toBe('#ffffff')
+    expect(toHex({ l: 0, c: 0, h: 0, alpha: 1 })).toBe('#000000')
+    // oklch(0.628 0.2577 29.23) is sRGB red.
+    expect(toHex({ l: 0.628, c: 0.2577, h: 29.23, alpha: 1 })).toBe('#ff0000')
+    expect(toHex({ l: 0.9, c: 0.4, h: 140, alpha: 1 })).toMatch(/^#[0-9a-f]{6}$/)
   })
 })

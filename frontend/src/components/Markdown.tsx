@@ -8,7 +8,7 @@ import { usePlatform } from '../platform/PlatformContext.ts'
  * A link in a user's Markdown. One that leads out of the app may be opened by the platform itself (the desktop app: the
  * system browser, TRK-23); everything else, and modified clicks (new tab, new window), is left to the browser.
  */
-function ExternalLink({ href, title, links, children }: { href: string; title?: string; links: ExternalLinks; children: ReactNode }) {
+export function ExternalLink({ href, title, links, children }: { href: string; title?: string; links: ExternalLinks; children: ReactNode }) {
   function onClick(event: MouseEvent<HTMLAnchorElement>) {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
     const url = externalUrl(href)

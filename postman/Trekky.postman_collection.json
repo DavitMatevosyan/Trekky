@@ -92,6 +92,10 @@
     {
       "key": "projectRepositoryEtag",
       "value": ""
+    },
+    {
+      "key": "docPath",
+      "value": "README.md"
     }
   ],
   "auth": {
@@ -1403,6 +1407,65 @@
             "method": "DELETE",
             "url": "{{baseUrl}}/api/v1/github/installations/{{githubConnectionId}}",
             "description": "Unlinks its projects and drops its cached token. Uninstall the app on GitHub separately (manageUrl)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Docs",
+      "description": "A project's docs from its linked GitHub repository (TREK-75, ADR-0030). Link a repository under GitHub first. Readers may call all of these.",
+      "item": [
+        {
+          "name": "Get docs tree",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('tree', () => pm.response.to.have.status(200));",
+                  "const first = pm.response.json().files[0];",
+                  "if (first) pm.collectionVariables.set('docPath', first.path);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/docs",
+            "description": "The docs folder's Markdown files (path, title), the branch's last commit and the folder on GitHub. Served from the cache; GitHub is asked again when it is older than 5 minutes. stale: true when GitHub could not be reached. 404 when no repository is linked."
+          }
+        },
+        {
+          "name": "Refresh docs",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/docs?refresh=true",
+            "description": "Like Get docs tree, but asks GitHub now. It changes only the cache."
+          }
+        },
+        {
+          "name": "Get doc",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/docs/file?path={{docPath}}",
+            "description": "One doc's Markdown, title, last commit and GitHub link; the blob SHA comes as the ETag. path is inside the docs folder (guide/setup.md): 400 for anything else, 404 when the folder has no such doc."
+          }
+        },
+        {
+          "name": "Get doc image",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/docs/image?path=images/diagram.png",
+            "description": "An image in the docs folder (PNG, JPEG, GIF, WebP, SVG; up to 5 MB) at the cached commit. 400 for a path outside the folder or another file type."
+          }
+        },
+        {
+          "name": "Search docs",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/projects/{{projectId}}/docs/search?q=setup",
+            "description": "Full-text search across the cached docs: every word must match, by prefix. At most 20 docs, best first, each with a snippet split into plain and matched runs. incomplete: true when some docs could not be searched."
           }
         }
       ]

@@ -23,6 +23,149 @@ namespace Trekky.Modules.GitHub.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Trekky.Modules.GitHub.Domain.DocFile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("BlobSha")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("blob_sha");
+
+                    b.Property<string>("CommitAuthor")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("commit_author");
+
+                    b.Property<string>("CommitMessage")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("commit_message");
+
+                    b.Property<string>("CommitSha")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("commit_sha");
+
+                    b.Property<DateTimeOffset?>("CommittedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("committed_at");
+
+                    b.Property<string>("Content")
+                        .HasColumnType("text")
+                        .HasColumnName("content");
+
+                    b.Property<Guid>("OrgId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("org_id");
+
+                    b.Property<string>("Path")
+                        .IsRequired()
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)")
+                        .HasColumnName("path");
+
+                    b.Property<int>("Size")
+                        .HasColumnType("integer")
+                        .HasColumnName("size");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("title");
+
+                    b.Property<Guid>("TreeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tree_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_doc_files");
+
+                    b.HasIndex("OrgId")
+                        .HasDatabaseName("ix_doc_files_org");
+
+                    b.HasIndex("TreeId", "Path")
+                        .IsUnique()
+                        .HasDatabaseName("ux_doc_files_tree_path");
+
+                    b.ToTable("doc_files", "github", t =>
+                        {
+                            t.HasCheckConstraint("ck_doc_files_size", "size >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("Trekky.Modules.GitHub.Domain.DocTree", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CheckedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("checked_at");
+
+                    b.Property<string>("CommitAuthor")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("commit_author");
+
+                    b.Property<string>("CommitMessage")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("commit_message");
+
+                    b.Property<string>("CommitSha")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("commit_sha");
+
+                    b.Property<DateTimeOffset?>("CommittedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("committed_at");
+
+                    b.Property<bool>("FolderMissing")
+                        .HasColumnType("boolean")
+                        .HasColumnName("folder_missing");
+
+                    b.Property<Guid>("LinkId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("link_id");
+
+                    b.Property<Guid>("OrgId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("org_id");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("project_id");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(519)
+                        .HasColumnType("character varying(519)")
+                        .HasColumnName("source");
+
+                    b.Property<bool>("Truncated")
+                        .HasColumnType("boolean")
+                        .HasColumnName("truncated");
+
+                    b.HasKey("Id")
+                        .HasName("pk_doc_trees");
+
+                    b.HasIndex("LinkId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_doc_trees_link");
+
+                    b.HasIndex("OrgId")
+                        .HasDatabaseName("ix_doc_trees_org");
+
+                    b.ToTable("doc_trees", "github");
+                });
+
             modelBuilder.Entity("Trekky.Modules.GitHub.Domain.GitHubInstallation", b =>
                 {
                     b.Property<Guid>("Id")
@@ -190,6 +333,26 @@ namespace Trekky.Modules.GitHub.Persistence.Migrations
                         .HasDatabaseName("ix_outbox_org_id");
 
                     b.ToTable("outbox", "github");
+                });
+
+            modelBuilder.Entity("Trekky.Modules.GitHub.Domain.DocFile", b =>
+                {
+                    b.HasOne("Trekky.Modules.GitHub.Domain.DocTree", null)
+                        .WithMany()
+                        .HasForeignKey("TreeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_doc_files_doc_trees_tree_id");
+                });
+
+            modelBuilder.Entity("Trekky.Modules.GitHub.Domain.DocTree", b =>
+                {
+                    b.HasOne("Trekky.Modules.GitHub.Domain.ProjectRepository", null)
+                        .WithMany()
+                        .HasForeignKey("LinkId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_doc_trees_project_repositories_link_id");
                 });
 
             modelBuilder.Entity("Trekky.Modules.GitHub.Domain.ProjectRepository", b =>

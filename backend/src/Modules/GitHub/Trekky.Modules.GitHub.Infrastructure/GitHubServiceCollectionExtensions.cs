@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Trekky.Modules.GitHub.Application.Connections;
+using Trekky.Modules.GitHub.Application.Docs;
 using Trekky.Modules.GitHub.Application.GitHub;
 using Trekky.Modules.GitHub.Application.Repositories;
 using Trekky.Modules.GitHub.Persistence;
@@ -43,6 +44,7 @@ internal static class GitHubServiceCollectionExtensions
 
         services.AddScoped<IGitHubConnectionService, GitHubConnectionService>();
         services.AddScoped<IProjectRepositoryService, ProjectRepositoryService>();
+        services.AddScoped<IDocsService, DocsService>();
         return services;
     }
 

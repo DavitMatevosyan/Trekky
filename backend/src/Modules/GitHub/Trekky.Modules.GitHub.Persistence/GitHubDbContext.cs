@@ -25,9 +25,31 @@ internal sealed class GitHubDbContext(DbContextOptions<GitHubDbContext> options)
     /// <summary>One link per project; a violation means another request linked it first.</summary>
     public const string ProjectIndexName = "ux_project_repositories_project";
 
+    public const string DocTreesTable = "doc_trees";
+
+    public const string DocFilesTable = "doc_files";
+
+    /// <summary>One cache per link; a violation means another request created it first.</summary>
+    public const string DocTreeLinkIndexName = "ux_doc_trees_link";
+
+    /// <summary>One row per path in a cache; a violation means another refresh wrote the file first.</summary>
+    public const string DocFilePathIndexName = "ux_doc_files_tree_path";
+
+    /// <summary>
+    /// The Postgres text search configuration of the search queries (ADR-0030). It must match the one the
+    /// <c>doc_files.search</c> column was generated with in migration DocsCache; changing it needs a new migration.
+    /// <c>simple</c> lower-cases words without stemming, so it treats every language alike and matches code names as
+    /// written.
+    /// </summary>
+    public const string SearchConfiguration = "simple";
+
     public DbSet<GitHubInstallation> Installations => Set<GitHubInstallation>();
 
     public DbSet<ProjectRepository> ProjectRepositories => Set<ProjectRepository>();
+
+    public DbSet<DocTree> DocTrees => Set<DocTree>();
+
+    public DbSet<DocFile> DocFiles => Set<DocFile>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -73,6 +95,51 @@ internal sealed class GitHubDbContext(DbContextOptions<GitHubDbContext> options)
 
             link.HasIndex(l => l.ProjectId).HasDatabaseName(ProjectIndexName).IsUnique();
             link.HasIndex(l => l.OrgId).HasDatabaseName("ix_project_repositories_org");
+        });
+
+        modelBuilder.Entity<DocTree>(tree =>
+        {
+            tree.ToTable(DocTreesTable);
+            tree.HasKey(t => t.Id);
+            tree.Property(t => t.Id).ValueGeneratedNever();
+            tree.Property(t => t.Source).HasMaxLength(64 + BranchName.MaxLength + DocsPath.MaxLength).IsRequired();
+            tree.Property(t => t.CommitSha).HasMaxLength(64);
+            tree.Property(t => t.CommitMessage).HasMaxLength(DocFile.TitleMaxLength);
+            tree.Property(t => t.CommitAuthor).HasMaxLength(200);
+
+            // Unlinking a project or disconnecting its installation drops the cache with the link.
+            tree.HasOne<ProjectRepository>()
+                .WithMany()
+                .HasForeignKey(t => t.LinkId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            tree.HasIndex(t => t.LinkId).HasDatabaseName(DocTreeLinkIndexName).IsUnique();
+            tree.HasIndex(t => t.OrgId).HasDatabaseName("ix_doc_trees_org");
+        });
+
+        modelBuilder.Entity<DocFile>(file =>
+        {
+            file.ToTable(DocFilesTable, table =>
+                table.HasCheckConstraint("ck_doc_files_size", "size >= 0"));
+            file.HasKey(f => f.Id);
+            file.Property(f => f.Id).ValueGeneratedNever();
+            file.Property(f => f.Path).HasMaxLength(DocFile.PathMaxLength).IsRequired();
+            file.Property(f => f.BlobSha).HasMaxLength(64).IsRequired();
+            file.Property(f => f.Title).HasMaxLength(DocFile.TitleMaxLength).IsRequired();
+            file.Property(f => f.CommitSha).HasMaxLength(64);
+            file.Property(f => f.CommitMessage).HasMaxLength(DocFile.TitleMaxLength);
+            file.Property(f => f.CommitAuthor).HasMaxLength(200);
+
+            file.HasOne<DocTree>()
+                .WithMany()
+                .HasForeignKey(f => f.TreeId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            file.HasIndex(f => new { f.TreeId, f.Path }).HasDatabaseName(DocFilePathIndexName).IsUnique();
+            file.HasIndex(f => f.OrgId).HasDatabaseName("ix_doc_files_org");
+
+            // The generated tsvector column "search" and its GIN index are added in the migration's SQL and are not
+            // mapped: only the search query reads them (DocsSearch).
         });
     }
 }

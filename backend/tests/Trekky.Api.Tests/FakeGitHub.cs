@@ -19,7 +19,7 @@ namespace Trekky.Api.Tests;
 /// installation tokens it issued, and user tokens from codes it knows. Tests add their own installations, users and
 /// repositories with unique ids, so they can share one instance.
 /// </summary>
-public sealed class FakeGitHub : IAsyncDisposable
+public sealed partial class FakeGitHub : IAsyncDisposable
 {
     public const string ClientId = "Iv23.trekky-test";
     public const string ClientSecret = "test-client-secret";
@@ -269,15 +269,26 @@ public sealed class FakeGitHub : IAsyncDisposable
         }));
 
         app.MapGet("/repos/{owner}/{name}/branches/{**branch}", (HttpRequest request, string owner, string name, string branch)
-            => AsInstallation(request, id => Reachable(id, owner, name) is { } repository && repository.Branches.Contains(branch)
-                ? Results.Json(new { name = branch })
+            => AsInstallation(request, id => _failingRepositories.ContainsKey($"{owner}/{name}") ? Results.StatusCode(500)
+                : Reachable(id, owner, name) is { } repository && repository.Branches.Contains(branch)
+                ? Results.Json(Resolve(repository.FullName, branch) is { } head
+                    ? new { name = branch, commit = CommitJson(head) }
+                    : (object)new { name = branch })
                 : Results.NotFound()));
 
         app.MapGet("/repos/{owner}/{name}/contents/{**path}", (HttpRequest request, string owner, string name, string? path, string @ref)
-            => AsInstallation(request, id => Contents(id, owner, name, path ?? string.Empty, @ref)));
+            => AsInstallation(request, id => Reachable(id, owner, name) is not null
+                && SnapshotContents(request, $"{owner}/{name}", path ?? string.Empty, @ref) is { } snapshot
+                    ? snapshot
+                    : Contents(id, owner, name, path ?? string.Empty, @ref)));
 
         app.MapGet("/repos/{owner}/{name}/contents", (HttpRequest request, string owner, string name, string @ref)
-            => AsInstallation(request, id => Contents(id, owner, name, string.Empty, @ref)));
+            => AsInstallation(request, id => Reachable(id, owner, name) is not null
+                && SnapshotContents(request, $"{owner}/{name}", string.Empty, @ref) is { } snapshot
+                    ? snapshot
+                    : Contents(id, owner, name, string.Empty, @ref)));
+
+        MapDocs(app);
     }
 
     private IResult Contents(long installationId, string owner, string name, string path, string branch)
