@@ -18,6 +18,8 @@ internal static class InviteEndpoints
 {
     internal const string RoleNotAllowedMessage = "Only an Owner can invite Admins or change their invites.";
     internal const string AlreadyMemberMessage = "This person is already a member of your organization.";
+    internal const string FormerMemberMessage =
+        "This person was removed from your organization. Their account still exists, so they can't be invited again yet.";
     internal const string EmailHasAccountMessage =
         "This email already belongs to another organization. A person can be in only one organization.";
     internal const string AlreadyInvitedMessage = "This email already has an open invite. Resend it instead.";
@@ -106,6 +108,7 @@ internal static class InviteEndpoints
             CreateInviteOutcome.Created when sent is not null => TypedResults.Created((string?)null, sent),
             CreateInviteOutcome.RoleNotAllowed => Problem("Role not allowed", RoleNotAllowedMessage, StatusCodes.Status403Forbidden),
             CreateInviteOutcome.AlreadyMember => Problem("Already a member", AlreadyMemberMessage, StatusCodes.Status409Conflict),
+            CreateInviteOutcome.FormerMember => Problem("Former member", FormerMemberMessage, StatusCodes.Status409Conflict),
             CreateInviteOutcome.EmailHasAccount => Problem("Email in another organization", EmailHasAccountMessage, StatusCodes.Status409Conflict),
             _ => Problem("Already invited", AlreadyInvitedMessage, StatusCodes.Status409Conflict),
         };

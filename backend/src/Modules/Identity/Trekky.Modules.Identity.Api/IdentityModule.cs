@@ -6,6 +6,7 @@ using Trekky.Modules.Identity.Api.Endpoints;
 using Trekky.Modules.Identity.Application.Accounts;
 using Trekky.Modules.Identity.Application.Contracts;
 using Trekky.Modules.Identity.Application.Invites;
+using Trekky.Modules.Identity.Application.Members;
 using Trekky.Modules.Identity.Infrastructure;
 using Trekky.SharedKernel;
 
@@ -23,6 +24,7 @@ public sealed class IdentityModule : IModule
         services.AddSingleton<IValidator<LoginRequest>, LoginRequestValidator>();
         services.AddSingleton<IValidator<CreateInviteRequest>, CreateInviteRequestValidator>();
         services.AddSingleton<IValidator<AcceptInviteRequest>, AcceptInviteRequestValidator>();
+        services.AddSingleton<IValidator<ChangeMemberRoleRequest>, ChangeMemberRoleRequestValidator>();
         services.AddIdentityInfrastructure(configuration);
     }
 

@@ -8,8 +8,8 @@ internal interface IAccountService
     /// <summary>Creates the user, the organization and the Owner membership in one transaction, then signs the user in.</summary>
     Task<(SignUpOutcome Outcome, Me? Me)> SignUpAsync(SignUpInput input, CancellationToken cancellationToken);
 
-    /// <summary>Checks the password with lockout and sets the session cookie.</summary>
-    Task<LoginOutcome> LogInAsync(string email, string password);
+    /// <summary>Checks the password with lockout and sets the session cookie, unless the user belongs to no organization.</summary>
+    Task<LoginOutcome> LogInAsync(string email, string password, CancellationToken cancellationToken);
 
     /// <summary>Logs the user out everywhere: revokes their tokens and invalidates their session cookies.</summary>
     Task LogOutAsync(Guid? userId, CancellationToken cancellationToken);

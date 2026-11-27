@@ -14,6 +14,7 @@ internal sealed class AccountService(
     UserManager<User> users,
     SignInManager<User> signIn,
     SessionRevoker sessions,
+    MembershipReader memberships,
     TimeProvider time) : IAccountService
 {
     /// <summary>
@@ -74,8 +75,11 @@ internal sealed class AccountService(
             Roles.Owner));
     }
 
-    /// <summary>Checks the password with lockout (5 failures → 15 minutes) and sets the session cookie.</summary>
-    public async Task<LoginOutcome> LogInAsync(string email, string password)
+    /// <summary>
+    /// Checks the password with lockout (5 failures → 15 minutes) and sets the session cookie, unless the user no longer
+    /// belongs to an organization (removed, TREK-48).
+    /// </summary>
+    public async Task<LoginOutcome> LogInAsync(string email, string password, CancellationToken cancellationToken)
     {
         var user = await users.FindByEmailAsync(email.Trim());
         if (user is null)
@@ -88,6 +92,13 @@ internal sealed class AccountService(
         var result = await signIn.PasswordSignInAsync(user, password, isPersistent: false, lockoutOnFailure: true);
         if (result.Succeeded)
         {
+            if (await memberships.FindForUserAsync(user.Id, cancellationToken) is null)
+            {
+                // Only after the password: whether an account was removed is not told to someone without it.
+                await signIn.SignOutAsync();
+                return LoginOutcome.NoOrganization;
+            }
+
             return LoginOutcome.Succeeded;
         }
 
@@ -122,7 +133,7 @@ internal sealed class AccountService(
         var membership = await (
                 from m in db.Memberships.AsNoTracking()
                 join o in db.Organizations.AsNoTracking() on m.OrgId equals o.Id
-                where m.UserId == userId && m.OrgId == orgId
+                where m.UserId == userId && m.OrgId == orgId && m.RemovedAt == null
                 select new { o.Id, o.Name, m.Role })
             .FirstOrDefaultAsync(cancellationToken);
 

@@ -66,6 +66,14 @@
       "value": ""
     },
     {
+      "key": "targetMemberId",
+      "value": ""
+    },
+    {
+      "key": "targetMemberEtag",
+      "value": ""
+    },
+    {
       "key": "inviteEmail",
       "value": "invitee@example.com"
     },
@@ -364,7 +372,11 @@
                   "pm.test('members found', () => pm.response.to.have.status(200));",
                   "const items = pm.response.json().items;",
                   "pm.test('at least the caller', () => pm.expect(items.length).to.be.above(0));",
-                  "if (items.length) pm.collectionVariables.set('memberId', items[0].user.id);"
+                  "pm.test('each with role, kind and etag', () => items.forEach((m) => pm.expect(m).to.include.keys('role', 'kind', 'etag')));",
+                  "if (items.length) pm.collectionVariables.set('memberId', items[0].user.id);",
+                  "// For Change member role / Remove member: the last member listed (sign up, invite someone and accept first, so it is not you).",
+                  "const last = items[items.length - 1];",
+                  "if (last) { pm.collectionVariables.set('targetMemberId', last.user.id); pm.collectionVariables.set('targetMemberEtag', last.etag); }"
                 ]
               }
             }
@@ -372,7 +384,62 @@
           "request": {
             "method": "GET",
             "url": "{{baseUrl}}/api/v1/members",
-            "description": "The caller's organization's members ({ user: { id, displayName, email }, role }), by display name: who an item can be assigned to (US-13). Saves the first member's id for Assign work item."
+            "description": "The caller's organization's current members ({ user: { id, displayName, email }, role, kind: person | bot, etag }), by display name: who an item can be assigned to (US-13) and the members page (TREK-48). Saves the first member's id for Assign work item, and the last member's id and etag for Change member role and Remove member."
+          }
+        },
+        {
+          "name": "Change member role",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('role changed', () => pm.response.to.have.status(200));",
+                  "pm.test('new role', () => pm.expect(pm.response.json().role).to.eql('viewer'));",
+                  "const etag = pm.response.headers.get('ETag');",
+                  "if (etag) pm.collectionVariables.set('targetMemberEtag', etag);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "If-Match",
+                "value": "{{targetMemberEtag}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"viewer\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/members/{{targetMemberId}}",
+            "description": "Owner or Admin (TREK-48). Admins change Members and Viewers; only an Owner makes or removes Admins and Owners (403). The last Owner keeps the role (409). If-Match is required (428) and must be the member's latest etag from List members (412, with the latest ETag). The member's tokens are revoked, so their next request signs in again with the new role. Records MemberRoleChanged; giving the same role changes nothing."
+          }
+        },
+        {
+          "name": "Remove member",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('member removed', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/v1/members/{{targetMemberId}}",
+            "description": "Owner or Admin (TREK-48). Admins remove Members and Viewers; only an Owner removes Admins and Owners (403). The last Owner stays (409). The member's tokens and sessions end at once and they can no longer log in; their name stays on their past work. Records MemberRemoved; a second removal answers 404."
           }
         }
       ]

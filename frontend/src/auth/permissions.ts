@@ -7,18 +7,18 @@ export interface Permissions {
   editWork: boolean
   /** Create projects (ManageProjects). */
   manageProjects: boolean
-  /** See, send, resend and withdraw invites (ManageMembers, TREK-47). */
+  /** Manage invites, change members' roles and remove members (ManageMembers, TREK-47, TREK-48). */
   manageMembers: boolean
-  /** Invite Admins: only an Owner manages Admins (ADR-0026, ADR-0027). */
-  inviteAdmins: boolean
+  /** Invite, make, change and remove Admins and Owners: only an Owner (ADR-0026, ADR-0027, ADR-0034). */
+  manageAdmins: boolean
 }
 
-const NONE: Permissions = { editWork: false, manageProjects: false, manageMembers: false, inviteAdmins: false }
+const NONE: Permissions = { editWork: false, manageProjects: false, manageMembers: false, manageAdmins: false }
 
 const BY_ROLE: Record<string, Permissions> = {
-  owner: { editWork: true, manageProjects: true, manageMembers: true, inviteAdmins: true },
-  admin: { editWork: true, manageProjects: true, manageMembers: true, inviteAdmins: false },
-  member: { editWork: true, manageProjects: false, manageMembers: false, inviteAdmins: false },
+  owner: { editWork: true, manageProjects: true, manageMembers: true, manageAdmins: true },
+  admin: { editWork: true, manageProjects: true, manageMembers: true, manageAdmins: false },
+  member: { editWork: true, manageProjects: false, manageMembers: false, manageAdmins: false },
   viewer: NONE,
 }
 
